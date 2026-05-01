@@ -26,12 +26,18 @@ subprojects {
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
         if (android != null) {
-            // Force modern compileSdk to fix 'lStar' and other resource errors
             android.compileSdkVersion(34)
-            
-            // Set namespace if missing
             if (android.namespace == null) {
                 android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
+            }
+        }
+    }
+    
+    // THE ULTIMATE FIX FOR lStar error
+    project.configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "androidx.core" && (requested.name == "core" || requested.name == "core-ktx")) {
+                useVersion("1.9.0")
             }
         }
     }
