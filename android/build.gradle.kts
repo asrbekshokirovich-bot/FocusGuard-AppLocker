@@ -20,13 +20,19 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Fixed namespace injection without using afterEvaluate
+// Force all subprojects to use a modern compileSdk and namespace
 subprojects {
     val p = this
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        if (android != null && android.namespace == null) {
-            android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
+        if (android != null) {
+            // Force modern compileSdk to fix 'lStar' and other resource errors
+            android.compileSdkVersion(34)
+            
+            // Set namespace if missing
+            if (android.namespace == null) {
+                android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
+            }
         }
     }
 }
