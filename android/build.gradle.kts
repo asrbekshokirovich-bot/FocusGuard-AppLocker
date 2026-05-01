@@ -20,8 +20,16 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Force all subprojects to use a modern compileSdk and namespace
+// THE ATOMIC FIX: Force all subprojects to use a safe version of androidx.core
 subprojects {
+    project.configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core:1.6.0")
+            force("androidx.core:core-ktx:1.6.0")
+        }
+    }
+    
+    // Also set namespace if missing
     val p = this
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
@@ -29,15 +37,6 @@ subprojects {
             android.compileSdkVersion(34)
             if (android.namespace == null) {
                 android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
-            }
-        }
-    }
-    
-    // THE ULTIMATE FIX FOR lStar error
-    project.configurations.all {
-        resolutionStrategy.eachDependency {
-            if (requested.group == "androidx.core" && (requested.name == "core" || requested.name == "core-ktx")) {
-                useVersion("1.9.0")
             }
         }
     }
