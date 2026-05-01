@@ -15,13 +15,23 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
-    plugins.whenPluginAdded {
-        if (this::class.java.simpleName.contains("AppPlugin") || this::class.java.simpleName.contains("LibraryPlugin")) {
-            val android = project.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
+}
+
+// Ultra fix for namespace issues in old plugins
+subprojects {
+    afterEvaluate {
+        if (project.hasProperty("android")) {
+            val android = project.extensions.getByName("android") as? com.android.build.gradle.BaseExtension
             if (android != null && android.namespace == null) {
-                android.namespace = "com.example." + project.name.replace(":", ".")
+                // Manually setting namespace for the problematic plugin
+                if (project.name == "device_apps") {
+                    android.namespace = "fr.g123k.deviceapps"
+                } else {
+                    android.namespace = "com.example." + project.name.replace(":", ".")
+                }
             }
         }
     }
