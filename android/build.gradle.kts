@@ -20,19 +20,13 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Ultra fix for namespace issues in old plugins
+// Fixed namespace injection without using afterEvaluate
 subprojects {
-    afterEvaluate {
-        if (project.hasProperty("android")) {
-            val android = project.extensions.getByName("android") as? com.android.build.gradle.BaseExtension
-            if (android != null && android.namespace == null) {
-                // Manually setting namespace for the problematic plugin
-                if (project.name == "device_apps") {
-                    android.namespace = "fr.g123k.deviceapps"
-                } else {
-                    android.namespace = "com.example." + project.name.replace(":", ".")
-                }
-            }
+    val p = this
+    p.plugins.whenPluginAdded {
+        val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
+        if (android != null && android.namespace == null) {
+            android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
         }
     }
 }
