@@ -20,24 +20,27 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// THE ATOMIC FIX: Force all subprojects to use a safe version of androidx.core
+// THE ULTIMATE GLOBAL OVERRIDE
 subprojects {
-    project.configurations.all {
-        resolutionStrategy {
-            force("androidx.core:core:1.6.0")
-            force("androidx.core:core-ktx:1.6.0")
+    // 1. Force modern compileSdk for EVERY plugin to fix lStar
+    project.plugins.whenPluginAdded {
+        val pluginName = this::class.java.simpleName
+        if (pluginName.contains("AppPlugin") || pluginName.contains("LibraryPlugin")) {
+            val android = project.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
+            android?.apply {
+                compileSdkVersion(34)
+                if (namespace == null) {
+                    namespace = if (project.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + project.name.replace(":", ".")
+                }
+            }
         }
     }
-    
-    // Also set namespace if missing
-    val p = this
-    p.plugins.whenPluginAdded {
-        val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        if (android != null) {
-            android.compileSdkVersion(34)
-            if (android.namespace == null) {
-                android.namespace = if (p.name == "device_apps") "fr.g123k.deviceapps" else "com.example." + p.name.replace(":", ".")
-            }
+
+    // 2. Force a compatible version of core-ktx that works with url_launcher and fixes lStar (with compileSdk 34)
+    project.configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core:1.10.1")
+            force("androidx.core:core-ktx:1.10.1")
         }
     }
 }
