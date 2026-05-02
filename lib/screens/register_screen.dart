@@ -74,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Text(
                     LanguageService().translate('register.title'),
                     style: GoogleFonts.inter(
-                      fontSize: 26,
+                      fontSize: 32,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1.0,
                       color: Colors.black,
@@ -85,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Text(
                     LanguageService().translate('register.subtitle'),
                     style: GoogleFonts.inter(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.black.withOpacity(0.5),
                       fontWeight: FontWeight.w500,
                     ),
@@ -140,9 +140,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   // Register Button
                   Container(
                     width: double.infinity,
-                    height: 46,
+                    height: 56,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         if (_termsAccepted)
                           BoxShadow(
@@ -166,13 +166,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         disabledBackgroundColor: Colors.grey.shade200,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: Text(
                         LanguageService().translate('register.title'),
                         style: GoogleFonts.inter(
-                          fontSize: 15,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.1,
                           color: _termsAccepted ? Colors.white : Colors.grey.shade400,
@@ -199,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   LanguageService().translate('login.terms'),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.inter(
-                                    fontSize: 11,
+                                    fontSize: 13,
                                     color: Colors.black.withOpacity(0.4),
                                     fontWeight: FontWeight.w600,
                                     decoration: TextDecoration.underline,
@@ -210,8 +210,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
-                              width: 22,
-                              height: 22,
+                              width: 26,
+                              height: 26,
                               child: CupertinoCheckbox(
                                 value: _termsAccepted == true,
                                 onChanged: (val) {
@@ -238,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Text(
                               LanguageService().translate('register.have_account'),
                               style: GoogleFonts.inter(
-                                fontSize: 13,
+                                fontSize: 15,
                                 color: Colors.black.withOpacity(0.5),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -249,7 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               child: Text(
                                 LanguageService().translate('register.login_now'),
                                 style: GoogleFonts.inter(
-                                  fontSize: 13,
+                                  fontSize: 15,
                                   color: const Color(0xFF007AFF),
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -275,7 +275,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Text(
         label,
         style: GoogleFonts.inter(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Colors.black.withOpacity(0.4),
           letterSpacing: 1.0,
@@ -297,10 +297,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 46,
+      height: 56,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isFocused 
               ? const Color(0xFF007AFF).withOpacity(0.5) 
@@ -321,7 +321,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         focusNode: focusNode,
         obscureText: obscureText,
         style: GoogleFonts.inter(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: isFocused ? FontWeight.w600 : FontWeight.w500,
           color: Colors.black,
         ),
@@ -330,14 +330,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           hintStyle: GoogleFonts.inter(
             color: Colors.black.withOpacity(isFocused ? 0.4 : 0.3),
             fontWeight: FontWeight.w400,
-            fontSize: 13,
+            fontSize: 15,
           ),
           prefixIcon: AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
             opacity: isFocused ? 1.0 : 0.5,
             child: Icon(
               icon,
-              size: 18,
+              size: 22,
               color: const Color(0xFF007AFF),
             ),
           ),
@@ -352,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       obscureText
                           ? CupertinoIcons.eye_slash_fill
                           : CupertinoIcons.eye_fill,
-                      size: 18,
+                      size: 22,
                       color: Colors.black
                     ),
                   ),

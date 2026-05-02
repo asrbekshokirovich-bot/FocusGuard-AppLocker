@@ -102,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     LanguageService().translate('login.welcome'),
                     style: GoogleFonts.inter(
-                      fontSize: 26,
+                      fontSize: 32,
                       fontWeight: FontWeight.w800,
                       height: 1.1,
                       letterSpacing: -0.8,
@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       LanguageService().translate('login.subtitle'), 
                       softWrap: false,
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: Colors.black.withOpacity(0.7),
                         height: 1.4,
@@ -160,10 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
 
                   Container(
-                    height: 46,
+                    height: 56,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF007AFF).withOpacity(0.2),
@@ -180,14 +180,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         backgroundColor: const Color(0xFF007AFF),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         elevation: 0,
                       ),
                       child: Text(
                         LanguageService().translate('common.login'),
                         style: GoogleFonts.inter(
-                          fontSize: 15,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.1,
                         ),
@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             LanguageService().translate('login.no_account'),
                             style: GoogleFonts.inter(
-                              fontSize: 12,
+                              fontSize: 14,
                               color: Colors.black.withOpacity(0.5),
                               fontWeight: FontWeight.w500,
                             ),
@@ -217,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: Text(
                               LanguageService().translate('login.register'),
                               style: GoogleFonts.inter(
-                                fontSize: 12,
+                                fontSize: 14,
                                 color: const Color(0xFF007AFF),
                                 fontWeight: FontWeight.w700,
                               ),
@@ -235,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             LanguageService().translate('login.terms'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
-                              fontSize: 11,
+                              fontSize: 13,
                               color: Colors.black.withOpacity(0.4),
                               fontWeight: FontWeight.w600,
                               decoration: TextDecoration.underline,
@@ -261,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Text(
         label,
         style: GoogleFonts.inter(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Colors.black.withOpacity(0.4),
           letterSpacing: 1.0,
@@ -284,10 +284,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 46,
+      height: 56,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isFocused 
               ? const Color(0xFF007AFF).withOpacity(0.5) 
@@ -309,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
         keyboardType: keyboardType,
         obscureText: obscureText,
         style: GoogleFonts.inter(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: isFocused ? FontWeight.w600 : FontWeight.w500,
           color: Colors.black,
         ),
@@ -318,14 +318,14 @@ class _LoginScreenState extends State<LoginScreen> {
           hintStyle: GoogleFonts.inter(
             color: Colors.black.withOpacity(isFocused ? 0.4 : 0.3),
             fontWeight: FontWeight.w400,
-            fontSize: 13,
+            fontSize: 15,
           ),
           prefixIcon: AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
             opacity: isFocused ? 1.0 : 0.5,
             child: Icon(
               icon,
-              size: 18,
+              size: 22,
               color: const Color(0xFF007AFF),
             ),
           ),
@@ -341,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? Icons.visibility_off_rounded 
                           : Icons.visibility_rounded,
                       color: Colors.black,
-                      size: 18,
+                      size: 22,
                     ),
                   ),
                 )

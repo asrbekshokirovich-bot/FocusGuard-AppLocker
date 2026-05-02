@@ -50,46 +50,38 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               children: [
                 Transform.scale(
                   scale: _scaleAnimation.value,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 240,
-                        height: 240,
+                  child: Transform.translate(
+                    offset: const Offset(0, 5),
+                    child: Transform.scale(
+                      scale: 1.3,
+                      child: Container(
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          shape: BoxShape.circle,
+                          color: const Color(0xFF007AFF),
+                          borderRadius: BorderRadius.circular(36),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ),
-                      Transform.translate(
-                        offset: const Offset(0, 5),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(32),
-                          child: SizedBox(
-                            width: 148,
-                            height: 148,
+                          borderRadius: BorderRadius.circular(36),
+                          child: Transform.translate(
+                            offset: const Offset(-6.5, 2),
                             child: Transform.scale(
-                              scale: 3.0, 
+                              scale: 3.3,
                               child: Image.asset(
                                 'assets/logo.png',
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 15), // Pulled Text closer up
-                Opacity(
-                  opacity: _fadeAnimation.value,
-                  child: Text(
-                    'FOCUS GUARD',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
                     ),
                   ),
                 ),

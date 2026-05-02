@@ -62,7 +62,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                       top: MediaQuery.of(context).padding.top + 12,
                       right: 20,
                       child: GestureDetector(
-                        onTap: () => _showAddPlanDialog(),
+                        onTap: () => _showPlanDialog(),
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -123,7 +123,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        ..._plans.map((plan) => _buildPlanItem(plan)).toList(),
+                        ..._plans.asMap().entries.map((entry) => _buildPlanItem(entry.value, entry.key)).toList(),
                       ],
                     ),
                   ),
@@ -166,53 +166,81 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     );
   }
 
-  Widget _buildPlanItem(Map<String, String> plan) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: FaIcon(FontAwesomeIcons.clock, color: Theme.of(context).primaryColor, size: 18),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(plan['title']!, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-                Text(
-                  lang.translate(plan['status']!), 
-                  style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(plan['time']!, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor)),
-              const FaIcon(FontAwesomeIcons.bell, color: Color(0xFFFF3B30), size: 12),
+  Widget _buildPlanItem(Map<String, String> plan, int index) {
+    return GestureDetector(
+      onTap: () => _showPlanDialog(editIndex: index),
+      onLongPress: () {
+        showCupertinoDialog(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: Text(plan['title']!),
+            content: const Text('Haqiqatan ham ushbu rejani o\'chirmoqchimisiz?'),
+            actions: [
+              CupertinoDialogAction(
+                child: Text(lang.translate('plans.cancel'), style: GoogleFonts.inter()),
+                onPressed: () => Navigator.pop(context),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                child: Text('O\'chirish', style: GoogleFonts.inter()),
+                onPressed: () {
+                  setState(() {
+                    _plans.removeAt(index);
+                  });
+                  Navigator.pop(context);
+                },
+              ),
             ],
           ),
-        ],
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: FaIcon(FontAwesomeIcons.clock, color: Theme.of(context).primaryColor, size: 18),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(plan['title']!, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                  Text(
+                    lang.translate(plan['status']!), 
+                    style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(plan['time']!, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor)),
+                const FaIcon(FontAwesomeIcons.bell, color: Color(0xFFFF3B30), size: 12),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showAddPlanDialog() {
+  void _showPlanDialog({int? editIndex}) {
     final titleController = TextEditingController();
     final dayController = TextEditingController();
     final monthController = TextEditingController();
@@ -220,12 +248,27 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     final hourController = TextEditingController();
     final minuteController = TextEditingController();
 
-    DateTime now = DateTime.now();
-    dayController.text = now.day.toString().padLeft(2, '0');
-    monthController.text = now.month.toString().padLeft(2, '0');
-    yearController.text = now.year.toString();
-    hourController.text = now.hour.toString().padLeft(2, '0');
-    minuteController.text = now.minute.toString().padLeft(2, '0');
+    if (editIndex != null) {
+      final plan = _plans[editIndex];
+      titleController.text = plan['title']!;
+      try {
+        final parts = plan['time']!.split(' ');
+        final dateParts = parts[0].split('.');
+        final timeParts = parts[1].split(':');
+        dayController.text = dateParts[0];
+        monthController.text = dateParts[1];
+        yearController.text = dateParts[2];
+        hourController.text = timeParts[0];
+        minuteController.text = timeParts[1];
+      } catch (e) {}
+    } else {
+      DateTime now = DateTime.now();
+      dayController.text = now.day.toString().padLeft(2, '0');
+      monthController.text = now.month.toString().padLeft(2, '0');
+      yearController.text = now.year.toString();
+      hourController.text = now.hour.toString().padLeft(2, '0');
+      minuteController.text = now.minute.toString().padLeft(2, '0');
+    }
 
     showGeneralDialog(
       context: context,
@@ -324,11 +367,16 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                     minuteController.text.length == 2) {
                                   
                                   setState(() {
-                                    _plans.add({
+                                    final newPlan = {
                                       'title': titleController.text,
                                       'time': "${dayController.text}.${monthController.text}.${yearController.text} ${hourController.text}:${minuteController.text}",
                                       'status': 'plans.status_upcoming',
-                                    });
+                                    };
+                                    if (editIndex != null) {
+                                      _plans[editIndex] = newPlan;
+                                    } else {
+                                      _plans.add(newPlan);
+                                    }
                                   });
                                   Navigator.pop(context);
                                 }
@@ -531,6 +579,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       width: width,
       child: CupertinoTextField(
         controller: controller,
+        readOnly: true,
         placeholder: hint,
         textAlign: TextAlign.center,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -540,7 +589,6 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         maxLength: maxLen,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         onChanged: (val) {
-          if (val.length == maxLen) FocusScope.of(context).nextFocus();
           onChanged();
         },
       ),
