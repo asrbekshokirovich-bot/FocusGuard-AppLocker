@@ -454,6 +454,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                                   mode: CupertinoDatePickerMode.date,
                                                   initialDateTime: DateTime.now(),
                                                   onDateTimeChanged: (picked) {
+                                                    HapticFeedback.selectionClick();
+                                                    SystemSound.play(SystemSoundType.click);
                                                     setDialogState(() {
                                                       dayController.text = picked.day.toString().padLeft(2, '0');
                                                       monthController.text = picked.month.toString().padLeft(2, '0');
@@ -523,6 +525,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                                   use24hFormat: true,
                                                   initialDateTime: DateTime.now(),
                                                   onDateTimeChanged: (picked) {
+                                                    HapticFeedback.selectionClick();
+                                                    SystemSound.play(SystemSoundType.click);
                                                     setDialogState(() {
                                                       hourController.text = picked.hour.toString().padLeft(2, '0');
                                                       minuteController.text = picked.minute.toString().padLeft(2, '0');

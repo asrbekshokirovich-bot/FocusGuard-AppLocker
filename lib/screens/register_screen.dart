@@ -50,10 +50,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Container(
               width: double.infinity,
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 12,
+                top: MediaQuery.of(context).padding.top + 40,
                 left: 24,
                 right: 24,
-                bottom: 16,
+                bottom: 24,
               ),
               decoration: BoxDecoration(
                 color: Colors.white,

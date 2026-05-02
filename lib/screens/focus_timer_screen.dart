@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
 
@@ -312,6 +313,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     mode: CupertinoTimerPickerMode.hm,
                     initialTimerDuration: Duration(minutes: (_dailyGoalHours * 60).toInt()),
                     onTimerDurationChanged: (Duration newDuration) {
+                      HapticFeedback.selectionClick();
+                      SystemSound.play(SystemSoundType.click);
                       setState(() {
                         _dailyGoalHours = newDuration.inMinutes / 60.0;
                       });
@@ -447,6 +450,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     mode: CupertinoTimerPickerMode.hm,
                     initialTimerDuration: Duration(minutes: _selectedMinutes),
                     onTimerDurationChanged: (Duration newDuration) {
+                      HapticFeedback.selectionClick();
+                      SystemSound.play(SystemSoundType.click);
                       if (newDuration.inMinutes > 0) {
                         setState(() {
                           _selectedMinutes = newDuration.inMinutes;
