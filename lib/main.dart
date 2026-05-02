@@ -22,7 +22,7 @@ void main() async {
   await ThemeService().init();
   runApp(
     DevicePreview(
-      enabled: true,
+      enabled: false,
       builder: (context) => const FocusGuardApp(),
     ),
   );
