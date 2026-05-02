@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'dart:async';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
@@ -16,6 +18,11 @@ class FocusTimerScreen extends StatefulWidget {
 
 class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerProviderStateMixin {
   int _selectedMinutes = 45;
+  int _remainingSeconds = 45 * 60;
+  bool _isRunning = false;
+  bool _isPaused = false;
+  Timer? _timer;
+  
   String _selectedSound = 'none';
   int _selectedMode = 0; // 0: Deep Work, 1: Light Focus
   
@@ -49,10 +56,80 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
 
   @override
   void dispose() {
+    _timer?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
     _motivationController.dispose();
     super.dispose();
+  }
+
+  String get _formattedTime {
+    int m = _remainingSeconds ~/ 60;
+    int s = _remainingSeconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  void _startTimer() {
+    if (_isRunning || _remainingSeconds <= 0) return;
+    _timer?.cancel();
+    setState(() {
+      _isRunning = true;
+      _isPaused = false;
+    });
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        _stopTimer();
+        _onTimerComplete();
+      }
+    });
+  }
+
+  void _pauseTimer() {
+    _timer?.cancel();
+    setState(() {
+      _isRunning = false;
+      _isPaused = true;
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    setState(() {
+      _isRunning = false;
+      _isPaused = false;
+      _remainingSeconds = _selectedMinutes * 60;
+    });
+  }
+
+  void _onTimerComplete() {
+    HapticFeedback.vibrate();
+    FlutterRingtonePlayer().playAlarm(looping: false);
+
+    setState(() {
+      _currentProgressHours += (_selectedMinutes / 60.0);
+    });
+
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(lang.translate('focus_timer.completed_title') ?? 'Diqqat vaqti tugadi!'),
+        content: Text(lang.translate('focus_timer.completed_desc') ?? 'Ajoyib natija, belgilangan vaqtni muvaffaqiyatli yakunladingiz!'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('focus_timer.ok') ?? 'OK'),
+            onPressed: () {
+              FlutterRingtonePlayer().stop();
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showActivityEditor() {
@@ -397,6 +474,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   }
 
   void _showManualTimePicker() {
+    if (_isRunning) return;
     final lang = AppTranslationService();
     showModalBottomSheet(
       context: context,
@@ -455,6 +533,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                       if (newDuration.inMinutes > 0) {
                         setState(() {
                           _selectedMinutes = newDuration.inMinutes;
+                          if (!_isRunning) _remainingSeconds = _selectedMinutes * 60;
                         });
                       }
                     },
@@ -510,8 +589,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     alignment: Alignment.center,
                     children: [
                       Container(
-                        width: 170,
-                        height: 170,
+                        width: 220,
+                        height: 220,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Theme.of(context).colorScheme.surface,
@@ -524,10 +603,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                           ],
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(8.0),
+                          padding: const EdgeInsets.all(12.0),
                   child: CircularProgressIndicator(
-                            value: 0.8,
-                            strokeWidth: 8,
+                            value: _selectedMinutes > 0 ? (_remainingSeconds / (_selectedMinutes * 60)) : 0,
+                            strokeWidth: 12,
                             backgroundColor: const Color(0xFFE5E5EA),
                             strokeCap: StrokeCap.round,
                             valueColor: AlwaysStoppedAnimation<Color>(_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)),
@@ -537,20 +616,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                       Column(
                         children: [
                           Text(
-                            '$_selectedMinutes:00',
+                            _formattedTime,
                             style: GoogleFonts.inter(
-                              fontSize: 36,
+                              fontSize: 52,
                               fontWeight: FontWeight.w800,
                               color: Theme.of(context).colorScheme.onSurface,
                               letterSpacing: -1,
                             ),
                           ),
+                          const SizedBox(height: 4),
                           Text(
                             _selectedMode == 0 ? lang.translate('focus_timer.status_deep') : lang.translate('focus_timer.status_light'),
                             style: GoogleFonts.inter(
-                              fontSize: 11,
+                              fontSize: 14,
                               color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759),
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -559,27 +639,35 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   GestureDetector(
-                    onTap: _showManualTimePicker,
+                    onTap: _isRunning ? null : () {
+                      if (_isPaused) {
+                        setState(() {
+                          _isPaused = false;
+                          _remainingSeconds = _selectedMinutes * 60;
+                        });
+                      }
+                      _showManualTimePicker();
+                    },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       decoration: BoxDecoration(
                         color: (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)).withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             CupertinoIcons.pencil,
-                            size: 14,
+                            size: 18,
                             color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Text(
                             lang.translate('focus_timer.change_time'),
                             style: GoogleFonts.inter(
                               color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759),
-                              fontSize: 12,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -677,28 +765,52 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        if (_isRunning) {
+                          _pauseTimer();
+                        } else {
+                          _startTimer();
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759),
+                        backgroundColor: _isRunning 
+                            ? const Color(0xFFFF3B30) 
+                            : (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)),
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 64),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(32),
                         ),
                         elevation: 2,
-                        shadowColor: (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)).withOpacity(0.4),
+                        shadowColor: (_isRunning 
+                            ? const Color(0xFFFF3B30) 
+                            : (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759))).withOpacity(0.4),
                       ),
                       child: Text(
-                        _selectedMode == 0 ? lang.translate('focus_timer.start_deep') : lang.translate('focus_timer.start_light'),
+                        _isRunning 
+                            ? (lang.translate('focus_timer.pause') ?? 'Pauza')
+                            : (_isPaused
+                                ? (lang.translate('focus_timer.resume') ?? 'Davom etish')
+                                : (_selectedMode == 0 ? lang.translate('focus_timer.start_deep') : lang.translate('focus_timer.start_light'))),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
-                          fontSize: 15,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
+                  if (_isRunning || _isPaused) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _stopTimer,
+                      child: Text(
+                        lang.translate('focus_timer.stop') ?? "To'xtatish",
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF8E8E93)),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -952,23 +1064,26 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     Color activeColor = _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759);
     return GestureDetector(
       onTap: () {
+        if (_isRunning) return;
         setState(() {
           _selectedMinutes = minutes;
+          _remainingSeconds = minutes * 60;
+          _isPaused = false;
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: active ? activeColor : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: active ? Colors.transparent : Colors.grey.withOpacity(0.2)),
-          boxShadow: active ? [BoxShadow(color: activeColor.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))] : [],
+          boxShadow: active ? [BoxShadow(color: activeColor.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 3))] : [],
         ),
         child: Text(
           '${minutes} ${lang.translate('focus_timer.min')}',
           style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
             color: active ? Colors.white : const Color(0xFF8E8E93),
           ),
         ),
@@ -981,22 +1096,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: iconColor, size: 20),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+                  Text(title, style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: GoogleFonts.inter(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
                 ],
               ),
             ),
@@ -1017,22 +1132,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 6)),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: color, size: 20),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1040,7 +1155,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(title, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8E8E93), fontWeight: FontWeight.w500)),
+                      Text(title, style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF8E8E93), fontWeight: FontWeight.w600)),
                       if (showEdit)
                         Container(
                           padding: const EdgeInsets.all(3),
@@ -1052,8 +1167,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                         ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(value, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 4),
+                  Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                   if (motivationWidget != null) ...[
                     const SizedBox(height: 4),
                     motivationWidget,
@@ -1085,9 +1200,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
         onTap: () {
+          if (_isRunning) return;
           setState(() {
             _selectedActivityIndex = index;
             _selectedMinutes = minutes; // Update main timer
+            _remainingSeconds = minutes * 60;
+            _isPaused = false;
           });
         },
         onLongPress: () {
@@ -1161,21 +1279,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       child: GestureDetector(
         onTap: () => setState(() => _selectedMode = index),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: active ? activeColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 15, color: active ? Colors.white : const Color(0xFF8E8E93)),
-              const SizedBox(width: 6),
+              Icon(icon, size: 18, color: active ? Colors.white : const Color(0xFF8E8E93)),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
                   color: active ? Colors.white : const Color(0xFF8E8E93),
                 ),
               ),

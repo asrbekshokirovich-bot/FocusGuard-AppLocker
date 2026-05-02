@@ -43,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (_currentIndex == 0)
             Container(
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 12,
+                top: MediaQuery.of(context).padding.top + 36,
                 bottom: 12,
                 left: 20,
                 right: 20,
