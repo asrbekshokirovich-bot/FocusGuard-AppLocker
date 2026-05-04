@@ -3,7 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/app_translation_service.dart';
-import 'package:device_apps/device_apps.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'dart:typed_data';
@@ -42,18 +43,14 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
-        List<Application> apps = await DeviceApps.getInstalledApplications(
-          includeAppIcons: true,
-          includeSystemApps: true,
-          onlyAppsWithLaunchIntent: true,
-        );
+        List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
         
         setState(() {
           _appsList = apps.map((app) {
             return {
               'package': app.packageName,
-              'name': app.appName,
-              'icon': (app is ApplicationWithIcon) ? app.icon : null,
+              'name': app.name,
+              'icon': app.icon,
               'color': const Color(0xFF007AFF),
               'category': 'other',
               'blocked': blockedPackages.contains(app.packageName),
