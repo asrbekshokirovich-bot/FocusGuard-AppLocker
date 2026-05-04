@@ -43,7 +43,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
-        List<AppInfo> apps = await InstalledApps.getInstalledApps(true, true);
+        List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
         
         setState(() {
           _appsList = apps.map((app) {
