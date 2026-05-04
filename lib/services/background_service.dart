@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:usage_stats/usage_stats.dart';
+import 'package:app_usage/app_usage.dart';
 
 Future<void> initializeBackgroundService() async {
   final service = FlutterBackgroundService();
@@ -51,15 +51,15 @@ void onStart(ServiceInstance service) async {
     
     if (blockedApps.isEmpty) return;
 
-    DateTime endDate = DateTime.now();
-    DateTime startDate = endDate.subtract(const Duration(seconds: 10)); 
-    
     try {
-      List<UsageInfo> usageStats = await UsageStats.queryUsageStats(startDate, endDate);
+      DateTime endDate = DateTime.now();
+      DateTime startDate = endDate.subtract(const Duration(seconds: 10));
       
-      if (usageStats.isNotEmpty) {
-        usageStats.sort((a, b) => int.parse(b.lastTimeUsed ?? '0').compareTo(int.parse(a.lastTimeUsed ?? '0')));
-        String currentApp = usageStats.first.packageName ?? "";
+      List<AppUsageInfo> infoList = await AppUsage().getAppUsage(startDate, endDate);
+      
+      if (infoList.isNotEmpty) {
+        infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
+        String currentApp = infoList.first.packageName;
 
         if (blockedApps.contains(currentApp)) {
           bool isOverlayActive = await FlutterOverlayWindow.isActive();
