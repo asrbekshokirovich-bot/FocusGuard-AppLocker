@@ -3,7 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/app_translation_service.dart';
-// import 'package:device_apps/device_apps.dart'; // Commented out for Web stability
+import 'package:device_apps/device_apps.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'dart:typed_data';
 
@@ -36,11 +37,46 @@ class _BlockListScreenState extends State<BlockListScreen> {
   }
 
   Future<void> _loadApps() async {
-    // Show mock list for Web/iOS
-    setState(() {
-      _appsList = List.from(_mockApps);
-      _isLoading = false;
-    });
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> blockedPackages = prefs.getStringList('blocked_apps') ?? [];
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        List<Application> apps = await DeviceApps.getInstalledApplications(
+          includeAppIcons: true,
+          includeSystemApps: true,
+          onlyAppsWithLaunchIntent: true,
+        );
+        
+        setState(() {
+          _appsList = apps.map((app) {
+            return {
+              'package': app.packageName,
+              'name': app.appName,
+              'icon': (app is ApplicationWithIcon) ? app.icon : null,
+              'color': const Color(0xFF007AFF),
+              'category': 'other',
+              'blocked': blockedPackages.contains(app.packageName),
+              'isReal': true,
+            };
+          }).toList();
+          
+          _appsList.sort((a, b) => a['name'].toString().toLowerCase().compareTo(b['name'].toString().toLowerCase()));
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          _appsList = List.from(_mockApps);
+          _isLoading = false;
+        });
+      }
+    } else {
+      // Show mock list for Web/iOS
+      setState(() {
+        _appsList = List.from(_mockApps);
+        _isLoading = false;
+      });
+    }
   }
 
   List<dynamic> get _displayList {
@@ -176,7 +212,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: app['color'].withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
-            child: FaIcon(app['icon'], color: app['color'], size: 22),
+            child: app['isReal'] == true && app['icon'] != null
+                ? Image.memory(app['icon'] as Uint8List, width: 22, height: 22)
+                : FaIcon(app['icon'], color: app['color'], size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -194,10 +232,25 @@ class _BlockListScreenState extends State<BlockListScreen> {
           CupertinoSwitch(
             value: app['blocked'],
             activeColor: Theme.of(context).primaryColor,
-            onChanged: (val) {
+            onChanged: (val) async {
               setState(() {
                 app['blocked'] = val;
               });
+              
+              if (app['isReal'] == true) {
+                final prefs = await SharedPreferences.getInstance();
+                List<String> blockedPackages = prefs.getStringList('blocked_apps') ?? [];
+                
+                if (val) {
+                  if (!blockedPackages.contains(app['package'])) {
+                    blockedPackages.add(app['package']);
+                  }
+                } else {
+                  blockedPackages.remove(app['package']);
+                }
+                
+                await prefs.setStringList('blocked_apps', blockedPackages);
+              }
             },
           ),
         ],
