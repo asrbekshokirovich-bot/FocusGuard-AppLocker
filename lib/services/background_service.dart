@@ -80,26 +80,39 @@ void onStart(ServiceInstance service) async {
     await loadBlockedApps();
   });
 
-  // Loop har 1 sekundda - tezkor aniqlash uchun
-  Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
+  // Loop har 800ms da - yanada tezroq aniqlash uchun
+  Timer.periodic(const Duration(milliseconds: 800), (timer) async {
     try {
       if (blockedApps.isEmpty) return;
 
       DateTime endDate = DateTime.now();
-      DateTime startDate = endDate.subtract(const Duration(seconds: 30));
+      // 1 daqiqalik oynani tekshiramiz (ba'zi qurilmalarda kechikish bo'ladi)
+      DateTime startDate = endDate.subtract(const Duration(minutes: 1));
       
       List<AppUsageInfo> infoList = await AppUsage().getAppUsage(startDate, endDate);
       
       if (infoList.isNotEmpty) {
+        // Eng oxirgi faol ilovani juda aniq topamiz
         infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
-        String currentApp = infoList.first.packageName;
+        
+        // Faqat oxirgi 10 soniya ichida ishlatilgan ilovalarni ko'ramiz
+        final latestInfo = infoList.first;
+        if (endDate.difference(latestInfo.endDate).inSeconds > 10) {
+          return; // Juda eski ma'lumot bo'lsa chetlab o'tamiz
+        }
 
-        // O'z ilovamiz bo'lsa hech qachon bloklamaymiz
-        if (currentApp == 'com.example.focus_guard') {
+        String currentApp = latestInfo.packageName;
+
+        // O'z ilovamiz bo'lsa bloklamaymiz
+        if (currentApp == 'com.example.focus_guard' || currentApp.contains('focus_guard')) {
           return;
         }
 
         if (blockedApps.contains(currentApp)) {
+          // Overlay ruxsatini yana bir bor tekshiramiz
+          bool hasOverlayPermission = await FlutterOverlayWindow.isPermissionGranted();
+          if (!hasOverlayPermission) return;
+
           bool isOverlayActive = await FlutterOverlayWindow.isActive();
           if (!isOverlayActive) {
             await FlutterOverlayWindow.showOverlay(
@@ -116,7 +129,7 @@ void onStart(ServiceInstance service) async {
         }
       }
     } catch (e) {
-      // Xatolik bo'lsa ham loop davom etsin
+      // Background xatoliklarni jimgina o'tkazib yuboramiz
     }
   });
 }

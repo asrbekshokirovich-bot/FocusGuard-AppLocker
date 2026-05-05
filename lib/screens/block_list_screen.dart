@@ -42,6 +42,8 @@ class _BlockListScreenState extends State<BlockListScreen> {
   void initState() {
     super.initState();
     _loadApps();
+    // Ekran ochilishi bilan xizmatni ham tekshirib qo'yamiz
+    _startBlockingService();
   }
 
   Future<void> _loadApps() async {
