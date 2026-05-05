@@ -42,6 +42,9 @@ void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
   
   if (service is AndroidServiceInstance) {
+    // Android 12+ uchun xizmatni darhol foreground qilish shart
+    service.setAsForegroundService();
+
     service.on('setAsForeground').listen((event) {
       service.setAsForegroundService();
     });
@@ -50,7 +53,7 @@ void onStart(ServiceInstance service) async {
       service.setAsBackgroundService();
     });
 
-    // Android 14+ uchun kerakli sozlamalar
+    // Bildirishnoma sozlamalari
     service.setForegroundNotificationInfo(
       title: "Focus Guard",
       content: "Bloklash tizimi faol",

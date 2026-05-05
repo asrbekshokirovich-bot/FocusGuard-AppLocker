@@ -155,6 +155,13 @@ class _BlockListScreenState extends State<BlockListScreen> {
               if (!await Permission.systemAlertWindow.isGranted) {
                 await Permission.systemAlertWindow.request();
               }
+
+              // 1.5. Notification ruxsatini so'rash (Android 13+ uchun SHART)
+              if (Platform.isAndroid) {
+                if (!await Permission.notification.isGranted) {
+                  await Permission.notification.request();
+                }
+              }
               
               // 2. Usage Access ruxsatini ochish
               try {
