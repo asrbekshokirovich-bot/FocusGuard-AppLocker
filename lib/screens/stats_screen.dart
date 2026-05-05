@@ -67,7 +67,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                     Expanded(
                       child: Text(
                         lang.translate('stats.title'),
-                        style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface, letterSpacing: -0.8),
+                        style: lang.getFont(fontSize: 24, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface, letterSpacing: -0.8),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -80,7 +80,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                           const SizedBox(width: 4),
                           Text(
                             lang.translate('stats.streak_days').replaceAll('{count}', '5'), 
-                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF34C759))
+                            style: lang.getFont(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF34C759))
                           ),
                         ],
                       ),
@@ -326,7 +326,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
   }
 
   List<String> _getChartLabels(AppTranslationService lang) {
-    dynamic labels = lang.translate('plans.weekdays_short');
+    List<dynamic> labels = lang.translateList('plans.weekdays_short');
     if (_selectedChartType == 0) {
       return labels is List ? List<String>.from(labels) : ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
     }

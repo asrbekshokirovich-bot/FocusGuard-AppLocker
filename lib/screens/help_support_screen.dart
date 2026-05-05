@@ -59,7 +59,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
         final bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
 
-        final List faqs = lang.translate('help.faqs');
+        final List faqs = lang.translateList('help.faqs');
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -73,7 +73,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSectionTitle(lang.translate('help.faq_title'), textColor),
+                      _buildSectionTitle(lang.translate('help.faq_title'), textColor, lang),
                       const SizedBox(height: 16),
                       ...List.generate(faqs.length, (index) {
                         return _buildFAQTile(
@@ -83,10 +83,11 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                           cardColor,
                           textColor,
                           primaryColor,
+                          lang,
                         );
                       }),
                       const SizedBox(height: 40),
-                      _buildSectionTitle(lang.translate('help.contact_title'), textColor),
+                      _buildSectionTitle(lang.translate('help.contact_title'), textColor, lang),
                       const SizedBox(height: 16),
                       _buildContactCard(primaryColor, cardColor, textColor, lang),
                     ],
@@ -117,7 +118,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
         centerTitle: false,
         title: Text(
           lang.translate('help.title'),
-          style: LanguageService.getFont(
+          style: lang.getFont(
             color: textColor,
             fontWeight: FontWeight.w800,
             fontSize: 20,
@@ -141,10 +142,10 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title, Color textColor) {
+  Widget _buildSectionTitle(String title, Color textColor, AppTranslationService lang) {
     return Text(
       title,
-      style: LanguageService.getFont(
+      style: lang.getFont(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: textColor.withOpacity(0.4),
@@ -153,7 +154,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     );
   }
 
-  Widget _buildFAQTile(int index, String question, String answer, Color cardColor, Color textColor, Color primaryColor) {
+  Widget _buildFAQTile(int index, String question, String answer, Color cardColor, Color textColor, Color primaryColor, AppTranslationService lang) {
     final isExpanded = _expandedIndex == index;
 
     return AnimatedContainer(
@@ -186,7 +187,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                       Expanded(
                         child: Text(
                           question,
-                          style: LanguageService.getFont(
+                          style: lang.getFont(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: textColor,
@@ -210,7 +211,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: Text(
                       answer,
-                      style: LanguageService.getFont(
+                      style: lang.getFont(
                         fontSize: 14,
                         color: textColor.withOpacity(0.6),
                         height: 1.5,
@@ -263,7 +264,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                     children: [
                       Text(
                         lang.translate('help.email_support'),
-                        style: LanguageService.getFont(
+                        style: lang.getFont(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: textColor,
@@ -272,7 +273,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                       const SizedBox(height: 4),
                       Text(
                         lang.translate('help.email_desc'),
-                        style: LanguageService.getFont(
+                        style: lang.getFont(
                           fontSize: 13,
                           color: textColor.withOpacity(0.5),
                         ),
