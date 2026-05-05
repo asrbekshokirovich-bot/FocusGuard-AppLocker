@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/cupertino.dart';
-import '../services/language_service.dart';
+import '../services/app_translation_service.dart';
 import 'dashboard_screen.dart';
 import 'legal_screen.dart';
 
@@ -72,7 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    LanguageService().translate('register.title'),
+                    AppTranslationService().translate('register.title'),
                     style: GoogleFonts.inter(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
@@ -83,7 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    LanguageService().translate('register.subtitle'),
+                    AppTranslationService().translate('register.subtitle'),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: Colors.black.withOpacity(0.5),
@@ -101,17 +101,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Full Name Field
-                  _buildLabel(context, LanguageService().translate('register.name_label')),
+                  _buildLabel(context, AppTranslationService().translate('register.name_label')),
                   _buildTextField(
                     context,
-                    hint: LanguageService().translate('register.name_hint'),
+                    hint: AppTranslationService().translate('register.name_hint'),
                     icon: CupertinoIcons.person_fill,
                     focusNode: _nameFocus,
                   ),
                   const SizedBox(height: 16),
 
                   // Email Field
-                  _buildLabel(context, LanguageService().translate('register.email_label')),
+                  _buildLabel(context, AppTranslationService().translate('register.email_label')),
                   _buildTextField(
                     context,
                     hint: 'Username@gmail.com',
@@ -121,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
 
                   // Password Field
-                  _buildLabel(context, LanguageService().translate('register.password_label')),
+                  _buildLabel(context, AppTranslationService().translate('register.password_label')),
                   _buildTextField(
                     context,
                     hint: '••••••••',
@@ -170,7 +170,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       child: Text(
-                        LanguageService().translate('register.title'),
+                        AppTranslationService().translate('register.title'),
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -196,7 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => const LegalScreen()));
                                 },
                                 child: Text(
-                                  LanguageService().translate('login.terms'),
+                                  AppTranslationService().translate('login.terms'),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
@@ -236,7 +236,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              LanguageService().translate('register.have_account'),
+                              AppTranslationService().translate('register.have_account'),
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 color: Colors.black.withOpacity(0.5),
@@ -247,7 +247,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
                               child: Text(
-                                LanguageService().translate('register.login_now'),
+                                AppTranslationService().translate('register.login_now'),
                                 style: GoogleFonts.inter(
                                   fontSize: 15,
                                   color: const Color(0xFF007AFF),

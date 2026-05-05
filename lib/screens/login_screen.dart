@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/language_service.dart';
+import '../services/app_translation_service.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
 import 'register_screen.dart';
@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            LanguageService().translate('common.back'),
+                            AppTranslationService().translate('common.back'),
                             style: GoogleFonts.inter(
                               color: Colors.black,
                               fontSize: 14,
@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    LanguageService().translate('login.welcome'),
+                    AppTranslationService().translate('login.welcome'),
                     style: GoogleFonts.inter(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,
@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      LanguageService().translate('login.subtitle'), 
+                      AppTranslationService().translate('login.subtitle'), 
                       softWrap: false,
                       style: GoogleFonts.inter(
                         fontSize: 14,
@@ -143,10 +143,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  _buildLabel(context, LanguageService().translate('login.password_label')),
+                  _buildLabel(context, AppTranslationService().translate('login.password_label')),
                   _buildTextField(
                     context,
-                    hint: LanguageService().translate('login.password_hint'),
+                    hint: AppTranslationService().translate('login.password_hint'),
                     icon: CupertinoIcons.lock_fill,
                     focusNode: _passwordFocus,
                     isPassword: true,
@@ -185,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        LanguageService().translate('common.login'),
+                        AppTranslationService().translate('common.login'),
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            LanguageService().translate('login.no_account'),
+                            AppTranslationService().translate('login.no_account'),
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: Colors.black.withOpacity(0.5),
@@ -215,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
                             },
                             child: Text(
-                              LanguageService().translate('login.register'),
+                              AppTranslationService().translate('login.register'),
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 color: const Color(0xFF007AFF),
@@ -232,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Navigator.push(context, MaterialPageRoute(builder: (context) => const LegalScreen()));
                           },
                           child: Text(
-                            LanguageService().translate('login.terms'),
+                            AppTranslationService().translate('login.terms'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 13,
