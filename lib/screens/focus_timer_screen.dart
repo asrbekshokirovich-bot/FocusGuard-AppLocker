@@ -6,12 +6,14 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:async';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
 import '../services/timer_notification_service.dart';
 
 class FocusTimerScreen extends StatefulWidget {
-  const FocusTimerScreen({super.key});
+  final VoidCallback? onNavigateToBlockList;
+  const FocusTimerScreen({super.key, this.onNavigateToBlockList});
 
   @override
   State<FocusTimerScreen> createState() => _FocusTimerScreenState();
@@ -145,6 +147,36 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
             onPressed: () {
               FlutterRingtonePlayer().stop();
               Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNoBlockedAppsDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text("Diqqat! 🛡️"),
+        content: const Text(
+          "Sizni chalg'itadigan ilovalarni hali tanlamadingiz. "
+          "Chuqur diqqat rejimi samarali bo'lishi uchun ilovalarni bloklashni tavsiya qilamiz."
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text("Bloklash"),
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onNavigateToBlockList?.call();
+            },
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text("Boshlash"),
+            onPressed: () {
+              Navigator.pop(context);
+              _startTimer();
             },
           ),
         ],
@@ -785,10 +817,20 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (_isRunning) {
                           _pauseTimer();
                         } else {
+                          // Agar Deep Mode bo'lsa va bloklangan ilovalar bo'lmasa, dialog chiqaramiz
+                          if (_selectedMode == 0) {
+                            final prefs = await SharedPreferences.getInstance();
+                            final blockedApps = prefs.getStringList('blocked_apps') ?? [];
+                            
+                            if (blockedApps.isEmpty) {
+                              _showNoBlockedAppsDialog();
+                              return;
+                            }
+                          }
                           _startTimer();
                         }
                       },

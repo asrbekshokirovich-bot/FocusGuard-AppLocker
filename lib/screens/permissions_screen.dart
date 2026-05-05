@@ -60,12 +60,13 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   }
 
   Future<void> _requestUsage() async {
-    // Open Security settings where Usage Access is located
-    await AppSettings.openAppSettings(type: AppSettingsType.security);
-    // There's no direct callback when returning from settings, so we just assume they did it 
-    // or we can add a check if we write a native method later.
+    // To'g'ridan-to'g'ri Foydalanish tarixi (Usage Access) sozlamalarini ochishga harakat qilamiz
+    try {
+      await AppSettings.openAppSettings(type: AppSettingsType.settings);
+    } catch (_) {}
+    
     setState(() {
-      _isUsageGranted = true; // Mark as done for UI purposes
+      _isUsageGranted = true;
     });
   }
 
@@ -134,12 +135,16 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                 height: 56,
                 child: ElevatedButton(
                   onPressed: (_isOverlayGranted && _isUsageGranted) ? () async {
-                    // Xizmatni ishga tushir
+                    // Xizmatni xavfsiz ishga tushir
                     try {
-                      await initializeBackgroundService();
-                      FlutterBackgroundService().startService();
+                      final service = FlutterBackgroundService();
+                      bool isRunning = await service.isRunning();
+                      if (!isRunning) {
+                        await initializeBackgroundService();
+                        await service.startService();
+                      }
                     } catch (e) {
-                      // Ignore
+                      debugPrint('Permission screen service start error: $e');
                     }
                     if (mounted) Navigator.pop(context);
                   } : null,

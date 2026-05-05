@@ -139,13 +139,23 @@ class _BlockListScreenState extends State<BlockListScreen> {
             onPressed: () async {
               result = true;
               Navigator.pop(ctx);
-              // Ruxsatlarni so'rash sahifasiga o'tish
-              await Permission.systemAlertWindow.request();
-              await AppSettings.openAppSettings(type: AppSettingsType.security);
               
-              // Qaytganidan so'ng biroz kutib, ruxsatni tekshirib xizmatni yoqamiz
-              await Future.delayed(const Duration(seconds: 1));
-              if (await Permission.systemAlertWindow.isGranted) {
+              // 1. Overlay ruxsatini so'rash
+              if (!await Permission.systemAlertWindow.isGranted) {
+                await Permission.systemAlertWindow.request();
+              }
+              
+              // 2. Usage Access (Foydalanish tarixi) ruxsatini ochish
+              try {
+                await launchUrl(Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'), mode: LaunchMode.externalApplication);
+              } catch (_) {
+                await AppSettings.openAppSettings(type: AppSettingsType.settings);
+              }
+              
+              // Qaytganidan so'ng biroz kutib, ruxsatlarni tekshirib xizmatni yoqamiz
+              await Future.delayed(const Duration(seconds: 2));
+              bool overlayOk = await Permission.systemAlertWindow.isGranted;
+              if (overlayOk) {
                 await _startBlockingService();
               }
             },
@@ -202,11 +212,15 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<void> _startBlockingService() async {
     try {
-      await initializeBackgroundService();
       final service = FlutterBackgroundService();
-      service.startService();
+      bool isRunning = await service.isRunning();
+      
+      if (!isRunning) {
+        await initializeBackgroundService();
+        await service.startService();
+      }
     } catch (e) {
-      // Ignore service errors
+      debugPrint('Service start error: $e');
     }
   }
 

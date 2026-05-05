@@ -21,13 +21,22 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  late final List<Widget> _screens;
 
-  final List<Widget> _screens = [
-    const FocusTimerScreen(),
-    const BlockListScreen(),
-    const StatsScreen(),
-    const ProfileScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      FocusTimerScreen(onNavigateToBlockList: () {
+        setState(() {
+          _currentIndex = 1; // Blocking tab
+        });
+      }),
+      const BlockListScreen(),
+      const StatsScreen(),
+      const ProfileScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

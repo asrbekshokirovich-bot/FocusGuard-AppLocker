@@ -49,16 +49,18 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Loop every 2 seconds
-  Timer.periodic(const Duration(seconds: 2), (timer) async {
-    final prefs = await SharedPreferences.getInstance();
-    final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-    
-    if (blockedApps.isEmpty) return;
-
+  // Loop every 2.5 seconds - biroz sekinlashtiramiz barqarorlik uchun
+  Timer.periodic(const Duration(milliseconds: 2500), (timer) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final blockedApps = prefs.getStringList('blocked_apps') ?? [];
+      
+      if (blockedApps.isEmpty) return;
+
+      // Usage access ruxsatini fon rejimida tekshirib bo'lmasligi mumkin, 
+      // shuning uchun try-catch ichida ehtiyotkorlik bilan ishlatamiz.
       DateTime endDate = DateTime.now();
-      DateTime startDate = endDate.subtract(const Duration(seconds: 10));
+      DateTime startDate = endDate.subtract(const Duration(seconds: 15));
       
       List<AppUsageInfo> infoList = await AppUsage().getAppUsage(startDate, endDate);
       
@@ -67,12 +69,13 @@ void onStart(ServiceInstance service) async {
         String currentApp = infoList.first.packageName;
 
         if (blockedApps.contains(currentApp)) {
+          // Overlay ruxsatini tekshiramiz
           bool isOverlayActive = await FlutterOverlayWindow.isActive();
           if (!isOverlayActive) {
             await FlutterOverlayWindow.showOverlay(
               enableDrag: false,
               overlayTitle: "Focus Guard",
-              overlayContent: "Ilova bloklangan",
+              overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
               flag: OverlayFlag.defaultFlag,
               visibility: NotificationVisibility.visibilitySecret,
               positionGravity: PositionGravity.auto,
@@ -83,7 +86,7 @@ void onStart(ServiceInstance service) async {
         }
       }
     } catch (e) {
-      // Ignore errors in background
+      debugPrint('Background loop error: $e');
     }
   });
 }

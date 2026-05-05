@@ -268,8 +268,8 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                   decoration: BoxDecoration(color: const Color(0xFFF2F2F7), borderRadius: BorderRadius.circular(10)),
                   child: Row(
                     children: [
-                      _buildChartToggleBtn(0, lang.translate('stats.toggle_week')),
-                      _buildChartToggleBtn(1, lang.translate('stats.toggle_month')),
+                      _buildChartToggleBtn(0, lang.translate('stats.toggle_week'), lang),
+                      _buildChartToggleBtn(1, lang.translate('stats.toggle_month'), lang),
                     ],
                   ),
                 ),
@@ -338,7 +338,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
     return List.generate(4, (i) => lang.translate('stats.week_label').toString().replaceAll('{count}', (i + 1).toString()));
   }
 
-  Widget _buildChartToggleBtn(int index, String label) {
+  Widget _buildChartToggleBtn(int index, String label, AppTranslationService lang) {
     bool active = _selectedChartType == index;
     return GestureDetector(
       onTap: () {

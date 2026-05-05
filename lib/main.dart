@@ -49,7 +49,7 @@ class FocusGuardApp extends StatelessWidget {
           valueListenable: ThemeService().accentColorNotifier,
           builder: (_, Color accentColor, __) {
             return ValueListenableBuilder<String>(
-              valueListenable: LanguageService().languageNotifier,
+              valueListenable: AppTranslationService().languageNotifier,
               builder: (_, String langCode, __) {
                 return MaterialApp(
                   scrollBehavior: const MyCustomScrollBehavior(),
