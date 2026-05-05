@@ -6,7 +6,11 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
 
+bool _isServiceInitialized = false;
+
 Future<void> initializeBackgroundService() async {
+  if (_isServiceInitialized) return;
+  
   final service = FlutterBackgroundService();
 
   await service.configure(
@@ -16,7 +20,7 @@ Future<void> initializeBackgroundService() async {
       isForegroundMode: true,
       notificationChannelId: 'app_locker_channel',
       initialNotificationTitle: 'Focus Guard',
-      initialNotificationContent: 'Qorovul xizmati faol: Ilovalar himoyalanmoqda',
+      initialNotificationContent: 'Monitoring faol',
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(
@@ -24,6 +28,7 @@ Future<void> initializeBackgroundService() async {
       onForeground: onStart,
     ),
   );
+  _isServiceInitialized = true;
 }
 
 @pragma('vm:entry-point')

@@ -13,6 +13,7 @@ import 'screens/language_screen.dart';
 
 import 'services/language_service.dart';
 import 'services/theme_service.dart';
+import 'services/background_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -20,6 +21,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LanguageService().init();
   await ThemeService().init();
+
+  // Background xizmatni oldindan tayyorlab qo'yamiz (lekin yoqmaymiz)
+  try {
+    await initializeBackgroundService();
+  } catch (e) {
+    debugPrint('Background service init error: $e');
+  }
 
   runApp(
     DevicePreview(

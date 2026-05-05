@@ -302,7 +302,8 @@ class AppTranslationService {
           'social': 'Ijtimoiy',
           'entertainment': 'Ko\'ngilochar',
           'communication': 'Aloqa',
-          'games': 'O\'yinlar'
+          'games': 'O\'yinlar',
+          'other': 'Boshqalar'
         }
       },
       'premium': {
@@ -583,7 +584,8 @@ class AppTranslationService {
           'social': 'Social',
           'entertainment': 'Entertainment',
           'communication': 'Communication',
-          'games': 'Games'
+          'games': 'Games',
+          'other': 'Others'
         }
       },
       'premium': {
@@ -889,7 +891,8 @@ class AppTranslationService {
           'social': 'Соцсети',
           'entertainment': 'Развлечения',
           'communication': 'Общение',
-          'games': 'Игры'
+          'games': 'Игры',
+          'other': 'Другие'
         }
       },
       'premium': {
@@ -1170,7 +1173,8 @@ class AppTranslationService {
           'social': '소셜',
           'entertainment': '엔터테인먼트',
           'communication': '커뮤니케이션',
-          'games': '게임'
+          'games': '게임',
+          'other': '기타'
         }
       },
       'premium': {
@@ -1445,7 +1449,8 @@ class AppTranslationService {
           'social': 'Sozial',
           'entertainment': 'Unterhaltung',
           'communication': 'Kommunikation',
-          'games': 'Spiele'
+          'games': 'Spiele',
+          'other': 'Sonstiges'
         }
       },
       'premium': {
@@ -1720,7 +1725,8 @@ class AppTranslationService {
           'social': 'Social',
           'entertainment': 'Divertissement',
           'communication': 'Communication',
-          'games': 'Jeux'
+          'games': 'Jeux',
+          'other': 'Autres'
         }
       },
       'premium': {

@@ -37,26 +37,22 @@ class TimerNotificationService {
       'focus_timer_channel',
       'Fokus Taymer',
       channelDescription: 'Fokus taymer ishlayotganda ko\'rsatiladi',
-      importance: Importance.low,       // Past tovush - bezovta qilmasin
+      importance: Importance.low,
       priority: Priority.low,
-      ongoing: true,                    // Foydalanuvchi yopa olmasin (taymer ishlayotganda)
+      ongoing: true,
       autoCancel: false,
       showWhen: false,
       icon: '@mipmap/launcher_icon',
-      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/launcher_icon'),
-      styleInformation: BigTextStyleInformation(
-        '$modeIcon  $modeName  ·  $timeRemaining qoldi',
-        contentTitle: '🎯 Focus Guard',
-        summaryText: levelTitle,
-      ),
+      // LargeIcon olib tashlandi (o'ng tomondagi katta logo)
+      styleInformation: const DefaultStyleInformation(false, false), 
     );
 
     final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
       id: _notificationId,
-      title: '🎯 Focus Guard — $timeRemaining',
-      body: '$modeIcon $modeName  ·  $levelTitle',
+      title: 'Focus Guard · $timeRemaining', // 1-qator: Ilova nomi va vaqt
+      body: '$modeIcon $modeName  |  $levelTitle', // 2-qator: Rejim va Daraja
       notificationDetails: details,
     );
   }

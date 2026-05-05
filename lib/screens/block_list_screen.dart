@@ -121,29 +121,33 @@ class _BlockListScreenState extends State<BlockListScreen> {
     await showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Ruxsatlar kerak'),
+        title: const Text('Diqqat: Ruxsat kerak 🛡️'),
         content: const Text(
-          'Ilovalarni bloklash uchun:\n\n'
-          '1. "Boshqa ilovalar ustida ko\'rsatish" ruxsatini bering\n'
-          '2. "Foydalanish tarixi" (Usage Access) ruxsatini bering\n\n'
-          'Sozlamalar sahifasi ochiladi, iltimos ruxsatlarni yoqing.',
+          'Ilovani bloklash tizimi ishlashi uchun sozlamalardan quyidagi 2 ta ruxsatni yoqishingiz kerak:\n\n'
+          '1. "Boshqa ilovalar ustida ko\'rsatish"\n'
+          '2. "Foydalanish tarixi" (Usage Access)\n\n'
+          'Hozir sizni sozlamalarga yo\'naltiramiz. Ruxsatlarni yoqib qaytsangiz, tizim avtomatik ishga tushadi.',
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('Bekor'),
+            child: const Text('Hali emas'),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () async {
               Navigator.pop(ctx);
+              // Ruxsatlarni so'rash sahifasiga o'tish
               await Permission.systemAlertWindow.request();
               await AppSettings.openAppSettings(type: AppSettingsType.security);
-              // Sozlamalardan qaytgandan keyin xizmatni ishga tushir
-              await Future.delayed(const Duration(seconds: 2));
-              await _startBlockingService();
+              
+              // Qaytganidan so'ng biroz kutib, ruxsatni tekshirib xizmatni yoqamiz
+              await Future.delayed(const Duration(seconds: 1));
+              if (await Permission.systemAlertWindow.isGranted) {
+                await _startBlockingService();
+              }
             },
-            child: const Text('Ruxsat berish'),
+            child: const Text('Sozlamalarga o\'tish'),
           ),
         ],
       ),
@@ -380,15 +384,6 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     } else {
                       await _startBlockingService();
                     }
-                  }
-
-                  // Bildirishnomalarni ham o'chirish taklifi
-                  await Future.delayed(const Duration(milliseconds: 300));
-                  if (mounted) {
-                    await _offerDisableNotifications(
-                      app['package'] as String,
-                      app['name'] as String,
-                    );
                   }
                 } else {
                   blockedPackages.remove(app['package']);

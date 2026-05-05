@@ -84,10 +84,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
         setState(() {
           _remainingSeconds--;
         });
-        // Har 10 soniyada bildirishnomani yangilash (har soniyada yangilash batareyani ko'p oladi)
-        if (_remainingSeconds % 10 == 0) {
-          _showTimerNotification();
-        }
+        // Har soniyada bildirishnomani yangilash
+        _showTimerNotification();
       } else {
         _stopTimer();
         _onTimerComplete();
