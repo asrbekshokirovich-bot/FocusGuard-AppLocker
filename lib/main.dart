@@ -22,13 +22,6 @@ void main() async {
   await AppTranslationService().init();
   await ThemeService().init();
 
-  // Background xizmatni oldindan tayyorlab qo'yamiz (lekin yoqmaymiz)
-  try {
-    await initializeBackgroundService();
-  } catch (e) {
-    debugPrint('Background service init error: $e');
-  }
-
   runApp(
     DevicePreview(
       enabled: false,

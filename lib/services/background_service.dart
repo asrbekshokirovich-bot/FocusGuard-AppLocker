@@ -11,24 +11,30 @@ bool _isServiceInitialized = false;
 Future<void> initializeBackgroundService() async {
   if (_isServiceInitialized) return;
   
-  final service = FlutterBackgroundService();
+  try {
+    final service = FlutterBackgroundService();
 
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'app_locker_channel',
-      initialNotificationTitle: 'Focus Guard',
-      initialNotificationContent: 'Monitoring faol',
-      foregroundServiceNotificationId: 888,
-    ),
-    iosConfiguration: IosConfiguration(
-      autoStart: false,
-      onForeground: onStart,
-    ),
-  );
-  _isServiceInitialized = true;
+    // Avval xizmat allaqachon sozlanganini tekshiramiz
+    // (ba'zi qurilmalarda configure ni qayta chaqirish crash beradi)
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: onStart,
+        autoStart: false,
+        isForegroundMode: true,
+        notificationChannelId: 'app_locker_channel',
+        initialNotificationTitle: 'Focus Guard',
+        initialNotificationContent: 'Monitoring faol',
+        foregroundServiceNotificationId: 888,
+      ),
+      iosConfiguration: IosConfiguration(
+        autoStart: false,
+        onForeground: onStart,
+      ),
+    );
+    _isServiceInitialized = true;
+  } catch (e) {
+    debugPrint('Service configure error: $e');
+  }
 }
 
 @pragma('vm:entry-point')

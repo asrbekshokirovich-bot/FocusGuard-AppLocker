@@ -158,21 +158,18 @@ class _BlockListScreenState extends State<BlockListScreen> {
               
               // 2. Usage Access ruxsatini ochish
               try {
-                await launchUrl(
-                  Uri.parse('package:com.example.focus_guard'),
-                  mode: LaunchMode.externalApplication,
-                );
-                // Agar yuqoridagi ishlamasa (ba'zi qurilmalarda), umumiy sozlamani ochamiz
+                // Eng standart intent usuli
                 await launchUrl(
                   Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
                   mode: LaunchMode.externalApplication,
                 );
               } catch (_) {
+                // Agar intent ishlamasa, app_settings dan foydalanamiz
                 await AppSettings.openAppSettings(type: AppSettingsType.settings);
               }
               
               // Qaytganidan so'ng biroz kutib, ruxsatlarni tekshiramiz
-              await Future.delayed(const Duration(seconds: 1));
+              await Future.delayed(const Duration(seconds: 2));
             },
             child: Text(lang.translate('block_list.permission_dialog.confirm')),
           ),
@@ -227,11 +224,13 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<void> _startBlockingService() async {
     try {
+      // Har doim avval initialize ni tekshiramiz
+      await initializeBackgroundService();
+      
       final service = FlutterBackgroundService();
       bool isRunning = await service.isRunning();
       
       if (!isRunning) {
-        await initializeBackgroundService();
         await service.startService();
       }
     } catch (e) {
