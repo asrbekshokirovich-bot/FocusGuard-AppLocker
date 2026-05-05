@@ -155,17 +155,19 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   }
 
   void _showNoBlockedAppsDialog() {
+    final lang = AppTranslationService();
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text("Diqqat! 🛡️"),
-        content: const Text(
+        title: Text(lang.translate('focus_timer.no_blocked_apps_title') ?? "Diqqat! 🛡️"),
+        content: Text(
+          lang.translate('focus_timer.no_blocked_apps_desc') ?? 
           "Sizni chalg'itadigan ilovalarni hali tanlamadingiz. "
           "Chuqur diqqat rejimi samarali bo'lishi uchun ilovalarni bloklashni tavsiya qilamiz."
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text("Bloklash"),
+            child: Text(lang.translate('focus_timer.btn_block') ?? "Bloklash"),
             onPressed: () {
               Navigator.pop(context);
               widget.onNavigateToBlockList?.call();
@@ -173,7 +175,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            child: const Text("Boshlash"),
+            child: Text(lang.translate('focus_timer.btn_start') ?? "Boshlash"),
             onPressed: () {
               Navigator.pop(context);
               _startTimer();

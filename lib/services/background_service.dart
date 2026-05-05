@@ -43,24 +43,41 @@ void onStart(ServiceInstance service) async {
     service.on('setAsBackground').listen((event) {
       service.setAsBackgroundService();
     });
+
+    // Android 14+ uchun kerakli sozlamalar
+    service.setForegroundNotificationInfo(
+      title: "Focus Guard",
+      content: "Bloklash tizimi faol",
+    );
   }
 
   service.on('stopService').listen((event) {
     service.stopSelf();
   });
 
-  // Loop every 2.5 seconds - biroz sekinlashtiramiz barqarorlik uchun
-  Timer.periodic(const Duration(milliseconds: 2500), (timer) async {
+  // Bloklangan ilovalar ro'yxatini yuklaymiz
+  List<String> blockedApps = [];
+  final loadBlockedApps = () async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-      
+      blockedApps = prefs.getStringList('blocked_apps') ?? [];
+    } catch (_) {}
+  };
+
+  await loadBlockedApps();
+
+  // Ro'yxat o'zgarganda yangilash uchun listener
+  service.on('updateBlockedApps').listen((event) async {
+    await loadBlockedApps();
+  });
+
+  // Loop har 1 sekundda - tezkor aniqlash uchun
+  Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
+    try {
       if (blockedApps.isEmpty) return;
 
-      // Usage access ruxsatini fon rejimida tekshirib bo'lmasligi mumkin, 
-      // shuning uchun try-catch ichida ehtiyotkorlik bilan ishlatamiz.
       DateTime endDate = DateTime.now();
-      DateTime startDate = endDate.subtract(const Duration(seconds: 15));
+      DateTime startDate = endDate.subtract(const Duration(seconds: 30));
       
       List<AppUsageInfo> infoList = await AppUsage().getAppUsage(startDate, endDate);
       
@@ -68,8 +85,12 @@ void onStart(ServiceInstance service) async {
         infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
         String currentApp = infoList.first.packageName;
 
+        // O'z ilovamiz bo'lsa hech qachon bloklamaymiz
+        if (currentApp == 'com.example.focus_guard') {
+          return;
+        }
+
         if (blockedApps.contains(currentApp)) {
-          // Overlay ruxsatini tekshiramiz
           bool isOverlayActive = await FlutterOverlayWindow.isActive();
           if (!isOverlayActive) {
             await FlutterOverlayWindow.showOverlay(
@@ -86,7 +107,7 @@ void onStart(ServiceInstance service) async {
         }
       }
     } catch (e) {
-      debugPrint('Background loop error: $e');
+      // Xatolik bo'lsa ham loop davom etsin
     }
   });
 }

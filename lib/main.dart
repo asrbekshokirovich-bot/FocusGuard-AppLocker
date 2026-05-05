@@ -10,13 +10,13 @@ import 'screens/splash_screen.dart';
 import 'screens/legal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/language_screen.dart';
+import 'screens/overlay_screen.dart';
 
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/app_translation_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTranslationService().init();
@@ -152,4 +152,13 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.touch,
         PointerDeviceKind.mouse,
       };
+}
+
+// Overlay oynasi uchun alohida kirish nuqtasi
+@pragma("vm:entry-point")
+void overlayMain() {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: OverlayScreen(),
+  ));
 }

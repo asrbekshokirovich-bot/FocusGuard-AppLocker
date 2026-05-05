@@ -14,6 +14,7 @@ import '../services/background_service.dart';
 import 'dart:io';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:app_usage/app_usage.dart';
 
 class BlockListScreen extends StatefulWidget {
   const BlockListScreen({super.key});
@@ -116,6 +117,16 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
+  Future<bool> _checkUsagePermission() async {
+    try {
+      DateTime now = DateTime.now();
+      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> _showPermissionDialog() async {
     if (!mounted) return false;
     final lang = AppTranslationService();
@@ -145,19 +156,23 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 await Permission.systemAlertWindow.request();
               }
               
-              // 2. Usage Access (Foydalanish tarixi) ruxsatini ochish
+              // 2. Usage Access ruxsatini ochish
               try {
-                await launchUrl(Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'), mode: LaunchMode.externalApplication);
+                await launchUrl(
+                  Uri.parse('package:com.example.focus_guard'),
+                  mode: LaunchMode.externalApplication,
+                );
+                // Agar yuqoridagi ishlamasa (ba'zi qurilmalarda), umumiy sozlamani ochamiz
+                await launchUrl(
+                  Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
+                  mode: LaunchMode.externalApplication,
+                );
               } catch (_) {
                 await AppSettings.openAppSettings(type: AppSettingsType.settings);
               }
               
-              // Qaytganidan so'ng biroz kutib, ruxsatlarni tekshirib xizmatni yoqamiz
-              await Future.delayed(const Duration(seconds: 2));
-              bool overlayOk = await Permission.systemAlertWindow.isGranted;
-              if (overlayOk) {
-                await _startBlockingService();
-              }
+              // Qaytganidan so'ng biroz kutib, ruxsatlarni tekshiramiz
+              await Future.delayed(const Duration(seconds: 1));
             },
             child: Text(lang.translate('block_list.permission_dialog.confirm')),
           ),
@@ -396,18 +411,23 @@ class _BlockListScreenState extends State<BlockListScreen> {
                   // Ruxsatlarni tekshir va xizmatni ishga tushir
                   if (Platform.isAndroid) {
                     bool overlayGranted = await Permission.systemAlertWindow.isGranted;
-                    if (!overlayGranted) {
-                      // Switch-ni vaqtincha o'chirib turamiz (ruxsat yo'qligi uchun)
+                    bool usageGranted = await _checkUsagePermission();
+                    
+                    if (!overlayGranted || !usageGranted) {
                       setState(() {
                         app['blocked'] = false;
                       });
                       await _showPermissionDialog();
                     } else {
                       await _startBlockingService();
+                      // Xizmatga ro'yxat yangilangani haqida xabar beramiz
+                      FlutterBackgroundService().invoke('updateBlockedApps');
                     }
                   }
                 } else {
                   blockedPackages.remove(app['package']);
+                  // Xizmatga ro'yxat yangilangani haqida xabar beramiz
+                  FlutterBackgroundService().invoke('updateBlockedApps');
                 }
                 
                 await prefs.setStringList('blocked_apps', blockedPackages);
