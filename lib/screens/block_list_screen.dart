@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import '../services/background_service.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
@@ -122,7 +122,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
   }
 
   Future<bool> _checkNotificationPermission() async {
-    if (!Platform.isAndroid) return true;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
     return await Permission.notification.isGranted;
   }
 
@@ -181,7 +181,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
 
     // 3. Notification ruxsatini tekshirish (Android 13+)
-    if (Platform.isAndroid) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       bool notifyOk = await _checkNotificationPermission();
       if (!notifyOk) {
         bool proceed = await _showStepDialog(
@@ -480,7 +480,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
                   }
                   
                   // Yangi bosqichma-bosqich ruxsat olish tizimi
-                  if (Platform.isAndroid) {
+                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
                     await _handlePermissionSequence(app);
                   }
                 } else {

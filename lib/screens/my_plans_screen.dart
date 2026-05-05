@@ -312,7 +312,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                           .difference(DateTime(now.year, now.month, now.day))
                           .inDays;
                       
-                      List<dynamic> weekdays = lang.translate('plans.weekdays');
+                      List<dynamic> weekdays = lang.translateList('plans.weekdays');
                       String dayName = weekdays[target.weekday];
                       
                       String relative = "";

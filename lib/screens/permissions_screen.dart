@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../services/background_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
@@ -40,7 +40,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   }
 
   Future<void> _checkPermissions() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     
     bool overlay = await Permission.systemAlertWindow.isGranted;
     // Note: Checking usage stats natively requires platform channels, 

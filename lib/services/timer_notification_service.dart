@@ -1,5 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class TimerNotificationService {
   static final TimerNotificationService _instance = TimerNotificationService._internal();
@@ -30,7 +30,7 @@ class TimerNotificationService {
     required String levelTitle,     // "Мастер Фокуса · Daraja 4"
     required String modeIcon,       // emoji icon
   }) async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     await init();
 
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(

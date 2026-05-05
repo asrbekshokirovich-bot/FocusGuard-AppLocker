@@ -55,7 +55,7 @@ class AppTranslationService {
     );
   }
 
-  dynamic translate(String key) {
+  String translate(String key) {
     List<String> keys = key.split('.');
     // Try current language
     dynamic value = _translations[_currentLanguage];
@@ -71,14 +71,44 @@ class AppTranslationService {
           break;
         }
       }
-      if (found) return current;
+      if (found && current is String) return current;
     }
 
     // Fallback to English
     return _getFallback(key);
   }
 
-  dynamic _getFallback(String key) {
+  List<dynamic> translateList(String key) {
+    List<String> keys = key.split('.');
+    dynamic value = _translations[_currentLanguage];
+
+    if (value != null) {
+      dynamic current = value;
+      bool found = true;
+      for (String k in keys) {
+        if (current is Map && current.containsKey(k)) {
+          current = current[k];
+        } else {
+          found = false;
+          break;
+        }
+      }
+      if (found && current is List) return current;
+    }
+
+    // Fallback to English
+    dynamic fallback = _translations['en'];
+    for (String k in keys) {
+      if (fallback is Map && fallback.containsKey(k)) {
+        fallback = fallback[k];
+      } else {
+        return [];
+      }
+    }
+    return (fallback is List) ? fallback : [];
+  }
+
+  String _getFallback(String key) {
     List<String> keys = key.split('.');
     dynamic value = _translations['en'];
 
@@ -86,12 +116,10 @@ class AppTranslationService {
       if (value is Map && value.containsKey(k)) {
         value = value[k];
       } else {
-        // If it's a list key but not found, return an empty list to prevent crashes
-        if (key.endsWith('_short') || key.contains('weekdays')) return [];
         return key;
       }
     }
-    return value ?? key;
+    return (value is String) ? value : key;
   }
 
   final Map<String, Map<String, dynamic>> _translations = {

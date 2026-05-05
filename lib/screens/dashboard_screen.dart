@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/app_translation_service.dart';
 
 import 'focus_timer_screen.dart';
@@ -164,61 +165,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       bottomNavigationBar: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            height: 90,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
-              border: Border(
-                top: BorderSide(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05), 
-                  width: 0.5,
+        child: kIsWeb 
+          ? Container(
+              height: 90,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05), 
+                    width: 0.5,
+                  ),
                 ),
               ),
+              child: _buildBottomNav(lang),
+            )
+          : BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                height: 90,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05), 
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: _buildBottomNav(lang),
+              ),
             ),
-            child: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              backgroundColor: Colors.transparent,
-              selectedItemColor: Theme.of(context).primaryColor,
-              unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              selectedLabelStyle: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-              unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
-              iconSize: 24,
-              elevation: 0,
-              type: BottomNavigationBarType.fixed,
-              items: [
-                BottomNavigationBarItem(
-                  icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.timer)),
-                  activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.timer_fill)),
-                  label: lang.translate('nav.focus'),
-                ),
-                BottomNavigationBarItem(
-                  icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.lock_shield)),
-                  activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.lock_shield_fill)),
-                  label: lang.translate('nav.block'),
-                ),
-                BottomNavigationBarItem(
-                  icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.chart_bar_alt_fill)),
-                  label: lang.translate('nav.stats'),
-                ),
-                BottomNavigationBarItem(
-                  icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.person_crop_circle)),
-                  activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.person_crop_circle_fill)),
-                  label: lang.translate('nav.profile'),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
         );
       },
+    );
+  }
+  Widget _buildBottomNav(AppTranslationService lang) {
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: (index) {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      backgroundColor: Colors.transparent,
+      selectedItemColor: Theme.of(context).primaryColor,
+      unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+      selectedLabelStyle: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+      unselectedLabelStyle: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
+      iconSize: 24,
+      elevation: 0,
+      type: BottomNavigationBarType.fixed,
+      items: [
+        BottomNavigationBarItem(
+          icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.timer)),
+          activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.timer_fill)),
+          label: lang.translate('nav.focus'),
+        ),
+        BottomNavigationBarItem(
+          icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.lock_shield)),
+          activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.lock_shield_fill)),
+          label: lang.translate('nav.block'),
+        ),
+        BottomNavigationBarItem(
+          icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.chart_bar_alt_fill)),
+          label: lang.translate('nav.stats'),
+        ),
+        BottomNavigationBarItem(
+          icon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.person_crop_circle)),
+          activeIcon: const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(CupertinoIcons.person_crop_circle_fill)),
+          label: lang.translate('nav.profile'),
+        ),
+      ],
     );
   }
 }
