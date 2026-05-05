@@ -117,73 +117,111 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
-  Future<bool> _checkUsagePermission() async {
-    try {
-      DateTime now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
-      return true;
-    } catch (_) {
-      return false;
-    }
+  Future<bool> _checkNotificationPermission() async {
+    if (!Platform.isAndroid) return true;
+    return await Permission.notification.isGranted;
   }
 
-  Future<bool> _showPermissionDialog() async {
-    if (!mounted) return false;
+  Future<void> _handlePermissionSequence(Map<String, dynamic> app) async {
     final lang = AppTranslationService();
-    bool result = false;
     
+    // 1. Overlay ruxsatini tekshirish
+    bool overlayOk = await Permission.systemAlertWindow.isGranted;
+    if (!overlayOk) {
+      bool proceed = await _showStepDialog(
+        title: "1-bosqich: Oyna ruxsati",
+        content: "Ilovalarni bloklash oynasini ko'rsatish uchun 'Boshqa ilovalar ustidan chizish' ruxsatini bering.",
+        btnText: "Oynani sozlash",
+        onConfirm: () async => await Permission.systemAlertWindow.request(),
+      );
+      if (!proceed) {
+        _resetSwitch(app);
+        return;
+      }
+    }
+
+    // 2. Usage Access ruxsatini tekshirish
+    bool usageOk = await _checkUsagePermission();
+    if (!usageOk) {
+      bool proceed = await _showStepDialog(
+        title: "2-bosqich: Foydalanish tarixi",
+        content: "Qaysi ilova ochilganini aniqlashimiz uchun 'Foydalanish tarixi' ruxsatini yoqing.",
+        btnText: "Tarixni sozlash",
+        onConfirm: () async {
+          try {
+            await launchUrl(
+              Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
+              mode: LaunchMode.externalApplication,
+            );
+          } catch (_) {
+            await AppSettings.openAppSettings(type: AppSettingsType.settings);
+          }
+        },
+      );
+      if (!proceed) {
+        _resetSwitch(app);
+        return;
+      }
+    }
+
+    // 3. Notification ruxsatini tekshirish (Android 13+)
+    if (Platform.isAndroid) {
+      bool notifyOk = await _checkNotificationPermission();
+      if (!notifyOk) {
+        bool proceed = await _showStepDialog(
+          title: "3-bosqich: Bildirishnomalar",
+          content: "Bloklash xizmati fonda barqaror ishlashi uchun bildirishnomalarga ruxsat bering.",
+          btnText: "Ruxsat berish",
+          onConfirm: () async => await Permission.notification.request(),
+        );
+        if (!proceed) {
+          _resetSwitch(app);
+          return;
+        }
+      }
+    }
+
+    // Hamma ruxsatlar bo'lsa xizmatni yoqish
+    await _startBlockingService();
+    FlutterBackgroundService().invoke('updateBlockedApps');
+  }
+
+  void _resetSwitch(Map<String, dynamic> app) {
+    setState(() {
+      app['blocked'] = false;
+    });
+  }
+
+  Future<bool> _showStepDialog({
+    required String title,
+    required String content,
+    required String btnText,
+    required Function onConfirm,
+  }) async {
+    bool confirmed = false;
     await showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(lang.translate('block_list.permission_dialog.title')),
-        content: Text(lang.translate('block_list.permission_dialog.content')),
+        title: Text(title),
+        content: Text(content),
         actions: [
           CupertinoDialogAction(
-            child: Text(lang.translate('block_list.permission_dialog.cancel')),
-            onPressed: () {
-              result = false;
-              Navigator.pop(ctx);
-            },
+            child: const Text("Bekor qilish"),
+            onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () async {
-              result = true;
+              confirmed = true;
               Navigator.pop(ctx);
-              
-              // 1. Overlay ruxsatini so'rash
-              if (!await Permission.systemAlertWindow.isGranted) {
-                await Permission.systemAlertWindow.request();
-              }
-
-              // 1.5. Notification ruxsatini so'rash (Android 13+ uchun SHART)
-              if (Platform.isAndroid) {
-                if (!await Permission.notification.isGranted) {
-                  await Permission.notification.request();
-                }
-              }
-              
-              // 2. Usage Access ruxsatini ochish
-              try {
-                // Eng standart intent usuli
-                await launchUrl(
-                  Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
-                  mode: LaunchMode.externalApplication,
-                );
-              } catch (_) {
-                // Agar intent ishlamasa, app_settings dan foydalanamiz
-                await AppSettings.openAppSettings(type: AppSettingsType.settings);
-              }
-              
-              // Qaytganidan so'ng biroz kutib, ruxsatlarni tekshiramiz
-              await Future.delayed(const Duration(seconds: 2));
+              await onConfirm();
             },
-            child: Text(lang.translate('block_list.permission_dialog.confirm')),
+            child: Text(btnText),
           ),
         ],
       ),
     );
-    return result;
+    return confirmed;
   }
 
   Future<void> _offerDisableNotifications(String packageName, String appName) async {
@@ -364,6 +402,16 @@ class _BlockListScreenState extends State<BlockListScreen> {
     );
   }
 
+  Future<bool> _checkUsagePermission() async {
+    try {
+      DateTime now = DateTime.now();
+      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Widget _buildAppTile(Map<String, dynamic> app, AppTranslationService lang) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -414,21 +462,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     blockedPackages.add(app['package']);
                   }
                   
-                  // Ruxsatlarni tekshir va xizmatni ishga tushir
+                  // Yangi bosqichma-bosqich ruxsat olish tizimi
                   if (Platform.isAndroid) {
-                    bool overlayGranted = await Permission.systemAlertWindow.isGranted;
-                    bool usageGranted = await _checkUsagePermission();
-                    
-                    if (!overlayGranted || !usageGranted) {
-                      setState(() {
-                        app['blocked'] = false;
-                      });
-                      await _showPermissionDialog();
-                    } else {
-                      await _startBlockingService();
-                      // Xizmatga ro'yxat yangilangani haqida xabar beramiz
-                      FlutterBackgroundService().invoke('updateBlockedApps');
-                    }
+                    await _handlePermissionSequence(app);
                   }
                 } else {
                   blockedPackages.remove(app['package']);
