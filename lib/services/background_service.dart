@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,9 +10,11 @@ import 'package:app_usage/app_usage.dart';
 bool _isServiceInitialized = false;
 
 Future<void> initializeBackgroundService() async {
-  if (_isServiceInitialized) return;
+  if (kIsWeb || _isServiceInitialized) return;
   
   try {
+    // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
+    // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
     final service = FlutterBackgroundService();
 
     // Avval xizmat allaqachon sozlanganini tekshiramiz

@@ -3,7 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTranslationService {
-  static final AppTranslationService _instance = AppTranslationService._internal();
+  static final AppTranslationService _instance =
+      AppTranslationService._internal();
   factory AppTranslationService() => _instance;
   AppTranslationService._internal();
 
@@ -58,7 +59,7 @@ class AppTranslationService {
     List<String> keys = key.split('.');
     // Try current language
     dynamic value = _translations[_currentLanguage];
-    
+
     if (value != null) {
       dynamic current = value;
       bool found = true;
@@ -80,7 +81,7 @@ class AppTranslationService {
   dynamic _getFallback(String key) {
     List<String> keys = key.split('.');
     dynamic value = _translations['en'];
-    
+
     for (String k in keys) {
       if (value is Map && value.containsKey(k)) {
         value = value[k];
@@ -95,12 +96,18 @@ class AppTranslationService {
 
   final Map<String, Map<String, dynamic>> _translations = {
     'uz': {
-      'common': {'continue': 'Davom etish', 'back': 'Orqaga', 'save': 'Saqlash', 'login': 'Tizimga Kirish'},
+      'common': {
+        'continue': 'Davom etish',
+        'back': 'Orqaga',
+        'save': 'Saqlash',
+        'login': 'Tizimga Kirish'
+      },
       'settings': {
         'language': {
           'title': 'Interfeys Tili',
           'section_title': 'TILI TANLANG',
-          'notice': 'Til o\'zgarishi butun ilova interfeysiga darhol qo\'llaniladi.',
+          'notice':
+              'Til o\'zgarishi butun ilova interfeysiga darhol qo\'llaniladi.',
         }
       },
       'profile': {
@@ -108,7 +115,8 @@ class AppTranslationService {
         'user_name': 'Fokus Egasi',
         'free_plan': 'Bepul Reja',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Fokusingizni yangi bosqichga olib chiqing! Cheksiz bloklash va kengaytirilgan tahlillardan foydalaning.',
+        'premium_desc':
+            'Fokusingizni yangi bosqichga olib chiqing! Cheksiz bloklash va kengaytirilgan tahlillardan foydalaning.',
         'premium_btn': 'Batafsil',
         'section_for_you': 'Siz uchun',
         'section_settings': 'Sozlamalar',
@@ -160,7 +168,8 @@ class AppTranslationService {
         'status_ready': 'Fokusga tayyormisiz?',
         'status_active': 'Fokusdasiz...',
         'daily_goal': 'Kunlik maqsad',
-        'goal_desc': 'Bugungi maqsadingizga erishish uchun yana {hours} soat qoldi.',
+        'goal_desc':
+            'Bugungi maqsadingizga erishish uchun yana {hours} soat qoldi.',
         'start_btn': 'Bloklashni boshlash',
         'stop_btn': 'Bloklashni to\'xtatish',
         'quick_stats': 'Tezkor Statistika',
@@ -173,7 +182,8 @@ class AppTranslationService {
         'plans_title': 'Fokus Rejalari',
         'view_all': 'Hammasi',
         'smart_suggestion': 'Aqlli Tavsiya',
-        'suggestion_text': 'O\'tgan dushanba kabi mahsuldor bo\'lish uchun hozir 2 soatlik "Chuqur Ish" seansini boshlang!',
+        'suggestion_text':
+            'O\'tgan dushanba kabi mahsuldor bo\'lish uchun hozir 2 soatlik "Chuqur Ish" seansini boshlang!',
       },
       'nav': {
         'focus': 'Fokus',
@@ -223,7 +233,8 @@ class AppTranslationService {
         'plans_reminders_desc': 'Rejalashtirilgan ishlar haqida eslatma',
         'daily_analysis_title': 'Kunlik Tahlil',
         'daily_analysis_desc': 'Kunning oxirida natijalar haqida xulosa',
-        'permission_notice': 'Bildirishnomalar qurilmangiz sozlamalarida ruxsat etilgan bo\'lishi kerak.',
+        'permission_notice':
+            'Bildirishnomalar qurilmangiz sozlamalarida ruxsat etilgan bo\'lishi kerak.',
       },
       'themes': {
         'title': 'Mavzular',
@@ -237,7 +248,8 @@ class AppTranslationService {
       },
       'plans': {
         'title': 'REJALARIM',
-        'notice': 'Rejalaringiz vaqti kelganda ilova sizga avtomatik bildirishnoma yuboradi.',
+        'notice':
+            'Rejalaringiz vaqti kelganda ilova sizga avtomatik bildirishnoma yuboradi.',
         'today_plans': 'Bugungi rejalar',
         'count_suffix': '{count} ta',
         'status_upcoming': 'Kelajakda',
@@ -255,7 +267,16 @@ class AppTranslationService {
         'tomorrow': 'Ertaga',
         'days_later': '{days} kundan keyin',
         'days_ago': '{days} kun oldin',
-        'weekdays': ['', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'],
+        'weekdays': [
+          '',
+          'Dushanba',
+          'Seshanba',
+          'Chorshanba',
+          'Payshanba',
+          'Juma',
+          'Shanba',
+          'Yakshanba'
+        ],
         'weekdays_short': ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
       },
       'focus_timer': {
@@ -266,13 +287,16 @@ class AppTranslationService {
         'change_time': 'Vaqtni o\'zgartirish',
         'strict_mode': 'Qat\'iy Rejim',
         'strict_desc': 'Boshlangandan keyin chiqib bo\'lmaydi',
-        'strict_mode_info': 'Bu rejim yoqilganda, belgilangan vaqt tugamaguncha seansni to\'xtata olmaysiz va bloklangan ilovalardan foydalanish cheklanadi.',
+        'strict_mode_info':
+            'Bu rejim yoqilganda, belgilangan vaqt tugamaguncha seansni to\'xtata olmaysiz va bloklangan ilovalardan foydalanish cheklanadi.',
         'anti_distract': 'Anti-Chalg\'itish',
         'anti_distract_desc': 'Bildirishnomalar to\'liq o\'chirilgan',
-        'anti_distract_info': 'Barcha ijtimoiy tarmoqlar va chalg\'ituvchi ilovalardan keladigan bildirishnomalar butkul o\'chiriladi.',
+        'anti_distract_info':
+            'Barcha ijtimoiy tarmoqlar va chalg\'ituvchi ilovalardan keladigan bildirishnomalar butkul o\'chiriladi.',
         'allowed_apps': 'Ruxsat Berilganlar',
         'allowed_desc': '{count} ta ilovaga ruxsat bor',
-        'allowed_apps_info': 'Faqat siz tanlagan eng kerakli ilovalarga (masalan lug\'at yoki kalkulyator) ruxsat beriladi.',
+        'allowed_apps_info':
+            'Faqat siz tanlagan eng kerakli ilovalarga (masalan lug\'at yoki kalkulyator) ruxsat beriladi.',
         'nature_sounds': 'Tabiat Ovozlari',
         'start_deep': 'Chuqur Diqqatni Boshlash',
         'start_light': 'Fokusni Boshlash',
@@ -281,7 +305,8 @@ class AppTranslationService {
         'resume': 'Davom etish',
         'stop': 'To\'xtatish',
         'completed_title': 'Diqqat vaqti tugadi!',
-        'completed_desc': 'Ajoyib natija, belgilangan vaqtni muvaffaqiyatli yakunladingiz!',
+        'completed_desc':
+            'Ajoyib natija, belgilangan vaqtni muvaffaqiyatli yakunladingiz!',
         'ok': 'Zo\'r',
         'daily_goal': 'Bugungi Maqsad',
         'hours': 'soat',
@@ -292,7 +317,8 @@ class AppTranslationService {
         'time_minutes': 'Vaqt (daqiqa)',
         'add': 'Qo\'shish',
         'no_blocked_apps_title': 'Diqqat! 🛡️',
-        'no_blocked_apps_desc': 'Sizni chalg\'itadigan ilovalarni hali tanlamadingiz. Chuqur diqqat rejimi samarali bo\'lishi uchun ilovalarni bloklashni tavsiya qilamiz.',
+        'no_blocked_apps_desc':
+            'Sizni chalg\'itadigan ilovalarni hali tanlamadingiz. Chuqur diqqat rejimi samarali bo\'lishi uchun ilovalarni bloklashni tavsiya qilamiz.',
         'btn_block': 'Bloklash',
         'understood': 'Tushunarli',
         'cancel': 'Bekor qilish',
@@ -302,7 +328,8 @@ class AppTranslationService {
         'motivation_hint': 'Shaxsiy motivatsiyangiz...',
         'motivation_default': 'Bugun ajoyib kun bo\'ladi!',
         'premium_banner_title': 'Premiumga o\'ting',
-        'premium_banner_desc': 'Barcha cheklovlarni olib tashlang va yangi imkoniyatlarni oching',
+        'premium_banner_desc':
+            'Barcha cheklovlarni olib tashlang va yangi imkoniyatlarni oching',
         'delete': 'O\'chirish',
         'delete_activity_confirm': 'Faoliyatni o\'chirish',
         'delete_activity_desc': 'faoliyatini o\'chirib tashlamoqchimisiz?',
@@ -328,7 +355,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Bloklangan Ilovalar',
         'search_hint': 'Ilovani qidirish...',
-        'info_banner': 'Vaqtingizni tejang! Tanlangan ilovalar seans tugaguncha bloklanadi va ular sizni chalg\'itmaydi.',
+        'info_banner':
+            'Vaqtingizni tejang! Tanlangan ilovalar seans tugaguncha bloklanadi va ular sizni chalg\'itmaydi.',
         'not_found': 'Ilova topilmadi',
         'categories': {
           'social': 'Ijtimoiy',
@@ -339,27 +367,53 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': 'Diqqat: Ruxsat kerak 🛡️',
-          'content': 'Ilovani bloklash tizimi ishlashi uchun sozlamalardan quyidagi 2 ta ruxsatni yoqishingiz kerak:\n\n1. "Boshqa ilovalar ustida ko\'rsatish"\n2. "Foydalanish tarixi" (Usage Access)\n\nHozir sizni sozlamalarga yo\'naltiramiz. Ruxsatlarni yoqib qaytsangiz, tizim avtomatik ishga tushadi.',
+          'content':
+              'Ilovani bloklash tizimi ishlashi uchun sozlamalardan quyidagi 2 ta ruxsatni yoqishingiz kerak:\n\n1. "Boshqa ilovalar ustida ko\'rsatish"\n2. "Foydalanish tarixi" (Usage Access)\n\nHozir sizni sozlamalarga yo\'naltiramiz. Ruxsatlarni yoqib qaytsangiz, tizim avtomatik ishga tushadi.',
           'cancel': 'Hali emas',
           'confirm': 'Sozlamalarga o\'tish'
+        },
+        'permissions': {
+          'step_1_title': '1-bosqich: Oyna ruxsati',
+          'step_1_desc': 'Ilovalarni bloklash oynasini ko\'rsatish uchun \'Boshqa ilovalar ustidan chizish\' ruxsatini bering.',
+          'step_1_btn': 'Oynani sozlash',
+          'step_2_title': '2-bosqich: Foydalanish tarixi',
+          'step_2_desc': 'Qaysi ilova ochilganini aniqlashimiz uchun \'Foydalanish tarixi\' ruxsatini yoqing.',
+          'step_2_btn': 'Tarixni sozlash',
+          'step_3_title': '3-bosqich: Bildirishnomalar',
+          'step_3_desc': 'Bloklash xizmati fonda barqaror ishlashi uchun bildirishnomalarga ruxsat bering.',
+          'step_3_btn': 'Ruxsat berish',
+          'cancel': 'Bekor qilish',
+        },
+        'notify_offer': {
+          'title': '🔕 {app} bildirishnomalari',
+          'content': '{app} bloklandi. Uning bildirishnomalarini ham o\'chirishni xohlaysizmi?\n\nBu ilova siz bilan bog\'lanishining oldini oladi.',
+          'no': 'Yo\'q',
+          'yes': 'Ha, o\'chirish',
         }
       },
       'premium': {
         'title': 'Premium imkoniyatlar',
         'feature_plans_title': 'Rejalarim',
-        'feature_plans_desc': 'Ish nomi va vaqtini rejalashtiring, ilova vaqtida ogohlantiradi.',
+        'feature_plans_desc':
+            'Ish nomi va vaqtini rejalashtiring, ilova vaqtida ogohlantiradi.',
         'feature_colors_title': 'Ilovada rang tanlash',
-        'feature_colors_desc': 'Ilova interfeysini o\'zingizga yoqqan rangga moslang.',
+        'feature_colors_desc':
+            'Ilova interfeysini o\'zingizga yoqqan rangga moslang.',
         'feature_ads_title': 'Reklamalarsiz',
-        'feature_ads_desc': 'Hech qanday chalg\'ituvchi reklamalarsiz fokus qiling.',
+        'feature_ads_desc':
+            'Hech qanday chalg\'ituvchi reklamalarsiz fokus qiling.',
         'feature_languages_title': 'Ko\'p tillar',
-        'feature_languages_desc': 'Ilovadan o\'zingizga qulay tilda foydalaning.',
+        'feature_languages_desc':
+            'Ilovadan o\'zingizga qulay tilda foydalaning.',
         'feature_ai_title': 'Aqlli solishtirish va bashorat',
-        'feature_ai_desc': 'AI orqali faollikni tahlil qiling va natijangizni biling.',
+        'feature_ai_desc':
+            'AI orqali faollikni tahlil qiling va natijangizni biling.',
         'feature_limit_title': 'Cheksiz bloklash',
-        'feature_limit_desc': 'Istalgancha ilova va saytlarni cheklovsiz bloklang.',
+        'feature_limit_desc':
+            'Istalgancha ilova va saytlarni cheklovsiz bloklang.',
         'feature_emergency_title': 'Favqulodda kirish',
-        'feature_emergency_desc': 'Bloklangan ilovani kunda 1 marta ochish imkoniyati.',
+        'feature_emergency_desc':
+            'Bloklangan ilovani kunda 1 marta ochish imkoniyati.',
         'plan_monthly': 'Oylik',
         'plan_yearly': 'Yillik',
         'per_month': 'Oyiga',
@@ -374,19 +428,37 @@ class AppTranslationService {
         'email_support': 'Email orqali yordam',
         'email_desc': 'Savollaringizga 24 soat ichida javob beramiz',
         'faqs': [
-          {'q': 'Ilova qanday ishlaydi?', 'a': 'Ilova siz tanlagan chalg\'ituvchi ilovalarni belgilangan vaqt davomida bloklab qo\'yadi.'},
-          {'q': 'Premium obuna nima beradi?', 'a': 'Cheksiz bloklash, barcha tabiat ovozlari va kengaytirilgan statistikaga ega bo\'lasiz.'},
-          {'q': 'Batareya sarfi qanday?', 'a': 'FocusGuard minimal energiya sarflash uchun optimallashtirilgan.'},
+          {
+            'q': 'Ilova qanday ishlaydi?',
+            'a':
+                'Ilova siz tanlagan chalg\'ituvchi ilovalarni belgilangan vaqt davomida bloklab qo\'yadi.'
+          },
+          {
+            'q': 'Premium obuna nima beradi?',
+            'a':
+                'Cheksiz bloklash, barcha tabiat ovozlari va kengaytirilgan statistikaga ega bo\'lasiz.'
+          },
+          {
+            'q': 'Batareya sarfi qanday?',
+            'a':
+                'FocusGuard minimal energiya sarflash uchun optimallashtirilgan.'
+          },
         ]
       }
     },
     'en': {
-      'common': {'continue': 'Continue', 'back': 'Back', 'save': 'Save', 'login': 'Log In'},
+      'common': {
+        'continue': 'Continue',
+        'back': 'Back',
+        'save': 'Save',
+        'login': 'Log In'
+      },
       'settings': {
         'language': {
           'title': 'Interface Language',
           'section_title': 'SELECT LANGUAGE',
-          'notice': 'Language changes will be applied instantly to the entire app interface.',
+          'notice':
+              'Language changes will be applied instantly to the entire app interface.',
         }
       },
       'profile': {
@@ -394,7 +466,8 @@ class AppTranslationService {
         'user_name': 'Focus Owner',
         'free_plan': 'Free Plan',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Take your focus to the next level! Use unlimited blocking and advanced analytics.',
+        'premium_desc':
+            'Take your focus to the next level! Use unlimited blocking and advanced analytics.',
         'premium_btn': 'Details',
         'section_for_you': 'For You',
         'section_settings': 'Settings',
@@ -441,7 +514,8 @@ class AppTranslationService {
         'today': 'Today',
         'yesterday': 'Yesterday',
         'pro_banner_title': 'Unlock PRO Analytics!',
-        'pro_banner_desc': 'Get full access to smart comparison and forecast features...',
+        'pro_banner_desc':
+            'Get full access to smart comparison and forecast features...',
       },
       'dashboard': {
         'greeting': 'Hello,',
@@ -461,7 +535,8 @@ class AppTranslationService {
         'plans_title': 'Focus Plans',
         'view_all': 'View All',
         'smart_suggestion': 'Smart Suggestion',
-        'suggestion_text': 'Start a 2-hour "Deep Work" session now to be as productive as last Monday!',
+        'suggestion_text':
+            'Start a 2-hour "Deep Work" session now to be as productive as last Monday!',
       },
       'nav': {
         'focus': 'Focus',
@@ -511,7 +586,8 @@ class AppTranslationService {
         'plans_reminders_desc': 'Reminder about planned activities',
         'daily_analysis_title': 'Daily Analysis',
         'daily_analysis_desc': 'Summary of results at the end of the day',
-        'permission_notice': 'Notifications must be allowed in your device settings.',
+        'permission_notice':
+            'Notifications must be allowed in your device settings.',
       },
       'themes': {
         'title': 'Themes',
@@ -525,7 +601,8 @@ class AppTranslationService {
       },
       'plans': {
         'title': 'MY PLANS',
-        'notice': 'The app will send you an automatic notification when it\'s time for your plans.',
+        'notice':
+            'The app will send you an automatic notification when it\'s time for your plans.',
         'today_plans': 'Today\'s plans',
         'count_suffix': '{count} total',
         'status_upcoming': 'Upcoming',
@@ -543,7 +620,16 @@ class AppTranslationService {
         'tomorrow': 'Tomorrow',
         'days_later': '{days} days later',
         'days_ago': '{days} days ago',
-        'weekdays': ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        'weekdays': [
+          '',
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday'
+        ],
         'weekdays_short': ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
       },
       'focus_timer': {
@@ -554,13 +640,16 @@ class AppTranslationService {
         'change_time': 'Change time',
         'strict_mode': 'Strict Mode',
         'strict_desc': 'Cannot exit once started',
-        'strict_mode_info': 'In this mode, you cannot stop the session until the timer ends, and access to blocked apps is restricted.',
+        'strict_mode_info':
+            'In this mode, you cannot stop the session until the timer ends, and access to blocked apps is restricted.',
         'anti_distract': 'Anti-Distraction',
         'anti_distract_desc': 'Notifications completely silent',
-        'anti_distract_info': 'All notifications from social media and distracting apps will be completely silenced.',
+        'anti_distract_info':
+            'All notifications from social media and distracting apps will be completely silenced.',
         'allowed_apps': 'Allowed Apps',
         'allowed_desc': '{count} apps allowed',
-        'allowed_apps_info': 'Only essential apps you select (like a dictionary or calculator) will be allowed.',
+        'allowed_apps_info':
+            'Only essential apps you select (like a dictionary or calculator) will be allowed.',
         'nature_sounds': 'Nature Sounds',
         'start_deep': 'Start Deep Focus',
         'start_light': 'Start Focus',
@@ -569,7 +658,8 @@ class AppTranslationService {
         'resume': 'Resume',
         'stop': 'Stop',
         'completed_title': 'Time is up!',
-        'completed_desc': 'Great job, you successfully completed the focus session!',
+        'completed_desc':
+            'Great job, you successfully completed the focus session!',
         'ok': 'OK',
         'daily_goal': 'Daily Goal',
         'hours': 'hours',
@@ -580,7 +670,8 @@ class AppTranslationService {
         'time_minutes': 'Time (minutes)',
         'add': 'Add',
         'no_blocked_apps_title': 'Attention! 🛡️',
-        'no_blocked_apps_desc': 'You haven\'t selected any distracting apps yet. For deep focus to be effective, we recommend blocking apps.',
+        'no_blocked_apps_desc':
+            'You haven\'t selected any distracting apps yet. For deep focus to be effective, we recommend blocking apps.',
         'btn_block': 'Block',
         'understood': 'Understood',
         'cancel': 'Cancel',
@@ -596,9 +687,12 @@ class AppTranslationService {
         'done': 'Done',
         'premium_banner_title': 'Go Premium',
         'premium_banner_desc': 'Remove all limits and unlock new features',
-        'strict_mode_info': 'When this mode is enabled, you cannot stop the session until the set time expires, and access to blocked apps is restricted.',
-        'anti_distract_info': 'All notifications from social networks and distracting apps will be completely turned off.',
-        'allowed_apps_info': 'Only the most essential apps you select (e.g., dictionary or calculator) are allowed.',
+        'strict_mode_info':
+            'When this mode is enabled, you cannot stop the session until the set time expires, and access to blocked apps is restricted.',
+        'anti_distract_info':
+            'All notifications from social networks and distracting apps will be completely turned off.',
+        'allowed_apps_info':
+            'Only the most essential apps you select (e.g., dictionary or calculator) are allowed.',
         'sounds': {
           'title': 'Nature Sounds',
           'none': 'None',
@@ -619,7 +713,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Blocked Apps',
         'search_hint': 'Search app...',
-        'info_banner': 'Save your time! Selected apps will be blocked until the session ends and won\'t distract you.',
+        'info_banner':
+            'Save your time! Selected apps will be blocked until the session ends and won\'t distract you.',
         'not_found': 'App not found',
         'categories': {
           'social': 'Social',
@@ -630,25 +725,48 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': 'Attention: Permission Required 🛡️',
-          'content': 'To enable app blocking, you need to grant the following 2 permissions in settings:\n\n1. "Display over other apps"\n2. "Usage Access"\n\nWe will redirect you to settings now. Once granted, the system will start automatically.',
+          'content':
+              'To enable app blocking, you need to grant the following 2 permissions in settings:\n\n1. "Display over other apps"\n2. "Usage Access"\n\nWe will redirect you to settings now. Once granted, the system will start automatically.',
           'cancel': 'Not now',
           'confirm': 'Go to Settings'
+        },
+        'permissions': {
+          'step_1_title': 'Step 1: Overlay Permission',
+          'step_1_desc': 'Grant \'Display over other apps\' permission to show the app blocking screen.',
+          'step_1_btn': 'Setup Overlay',
+          'step_2_title': 'Step 2: Usage Access',
+          'step_2_desc': 'Enable \'Usage Access\' to detect when distracting apps are opened.',
+          'step_2_btn': 'Setup Usage',
+          'step_3_title': 'Step 3: Notifications',
+          'step_3_desc': 'Allow notifications for the blocking service to run stably in the background.',
+          'step_3_btn': 'Grant Permission',
+          'cancel': 'Cancel',
+        },
+        'notify_offer': {
+          'title': '🔕 {app} Notifications',
+          'content': '{app} is blocked. Do you also want to disable its notifications?\n\nThis prevents the app from disturbing you.',
+          'no': 'No',
+          'yes': 'Yes, disable',
         }
       },
       'premium': {
         'title': 'Premium Features',
         'feature_plans_title': 'My Plans',
-        'feature_plans_desc': 'Schedule task names and times, the app will notify you on time.',
+        'feature_plans_desc':
+            'Schedule task names and times, the app will notify you on time.',
         'feature_colors_title': 'Custom Accent Color',
-        'feature_colors_desc': 'Personalize the app interface with your favorite color.',
+        'feature_colors_desc':
+            'Personalize the app interface with your favorite color.',
         'feature_ads_title': 'Ad-Free',
         'feature_ads_desc': 'Focus without any distracting advertisements.',
         'feature_languages_title': 'Multi-language',
-        'feature_languages_desc': 'Use the app in the language most comfortable for you.',
+        'feature_languages_desc':
+            'Use the app in the language most comfortable for you.',
         'feature_ai_title': 'Smart Analysis & Forecast',
         'feature_ai_desc': 'Analyze activity and know your results via AI.',
         'feature_limit_title': 'Unlimited Blocking',
-        'feature_limit_desc': 'Block as many apps and sites as you want without limits.',
+        'feature_limit_desc':
+            'Block as many apps and sites as you want without limits.',
         'feature_emergency_title': 'Emergency Access',
         'feature_emergency_desc': 'Ability to open a blocked app once per day.',
         'plan_monthly': 'Monthly',
@@ -665,19 +783,35 @@ class AppTranslationService {
         'email_support': 'Email Support',
         'email_desc': 'We reply within 24 hours',
         'faqs': [
-          {'q': 'How does the app work?', 'a': 'The app blocks distracting apps for a set period of time.'},
-          {'q': 'What does Premium offer?', 'a': 'Unlimited blocking, all nature sounds, and advanced statistics.'},
-          {'q': 'What about battery consumption?', 'a': 'FocusGuard is optimized for minimal energy usage.'},
+          {
+            'q': 'How does the app work?',
+            'a': 'The app blocks distracting apps for a set period of time.'
+          },
+          {
+            'q': 'What does Premium offer?',
+            'a':
+                'Unlimited blocking, all nature sounds, and advanced statistics.'
+          },
+          {
+            'q': 'What about battery consumption?',
+            'a': 'FocusGuard is optimized for minimal energy usage.'
+          },
         ]
       }
     },
     'ru': {
-      'common': {'continue': 'Продолжить', 'back': 'Назад', 'save': 'Сохранить', 'login': 'Войти в систему'},
+      'common': {
+        'continue': 'Продолжить',
+        'back': 'Назад',
+        'save': 'Сохранить',
+        'login': 'Войти в систему'
+      },
       'settings': {
         'language': {
           'title': 'Язык интерфейса',
           'section_title': 'ВЫБЕРИТЕ ЯЗЫК',
-          'notice': 'Смена языка мгновенно применится ко всему интерфейсу приложения.',
+          'notice':
+              'Смена языка мгновенно применится ко всему интерфейсу приложения.',
         }
       },
       'profile': {
@@ -685,7 +819,8 @@ class AppTranslationService {
         'user_name': 'Владелец Фокуса',
         'free_plan': 'Бесплатный План',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Поднимите свой фокус на новый уровень! Используйте безлимитную блокировку и расширенную аналитику.',
+        'premium_desc':
+            'Поднимите свой фокус на новый уровень! Используйте безлимитную блокировку и расширенную аналитику.',
         'premium_btn': 'Подробнее',
         'section_for_you': 'Для вас',
         'section_settings': 'Настройки',
@@ -732,7 +867,8 @@ class AppTranslationService {
         'today': 'Сегодня',
         'yesterday': 'Вчера',
         'pro_banner_title': 'Откройте PRO Аналитику!',
-        'pro_banner_desc': 'Используйте функции умного сравнения и прогнозирования...',
+        'pro_banner_desc':
+            'Используйте функции умного сравнения и прогнозирования...',
       },
       'dashboard': {
         'greeting': 'Привет,',
@@ -752,7 +888,8 @@ class AppTranslationService {
         'plans_title': 'Планы Фокуса',
         'view_all': 'Все',
         'smart_suggestion': 'Умный Совет',
-        'suggestion_text': 'Чтобы быть таким же продуктивным, как в прошлый понедельник, начните 2-часовую сессию "Глубокой работы" прямо сейчас!',
+        'suggestion_text':
+            'Чтобы быть таким же продуктивным, как в прошлый понедельник, начните 2-часовую сессию "Глубокой работы" прямо сейчас!',
       },
       'nav': {
         'focus': 'Фокус',
@@ -800,7 +937,8 @@ class AppTranslationService {
         'plans_reminders_desc': 'Напоминание о запланированных делах',
         'daily_analysis_title': 'Дневной Анализ',
         'daily_analysis_desc': 'Итоги результатов в конце дня',
-        'permission_notice': 'Уведомления должны быть разрешены в настройках вашего устройства.',
+        'permission_notice':
+            'Уведомления должны быть разрешены в настройках вашего устройства.',
       },
       'themes': {
         'title': 'Темы',
@@ -814,7 +952,8 @@ class AppTranslationService {
       },
       'plans': {
         'title': 'МОИ ПЛАНЫ',
-        'notice': 'Приложение отправит вам автоматическое уведомление, когда придет время для ваших планов.',
+        'notice':
+            'Приложение отправит вам автоматическое уведомление, когда придет время для ваших планов.',
         'today_plans': 'Планы на сегодня',
         'count_suffix': '{count} всего',
         'status_upcoming': 'В будущем',
@@ -832,7 +971,16 @@ class AppTranslationService {
         'tomorrow': 'Завтра',
         'days_later': 'через {days} дня',
         'days_ago': '{days} дня назад',
-        'weekdays': ['', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
+        'weekdays': [
+          '',
+          'Понедельник',
+          'Вторник',
+          'Среда',
+          'Четверг',
+          'Пятница',
+          'Суббота',
+          'Воскресенье'
+        ],
         'weekdays_short': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
       },
       'focus_timer': {
@@ -843,13 +991,16 @@ class AppTranslationService {
         'change_time': 'Изменить время',
         'strict_mode': 'Строгий Режим',
         'strict_desc': 'Нельзя выйти после начала',
-        'strict_mode_info': 'В этом режиме вы не сможете остановить сессию до окончания времени, а доступ к заблокированным приложениям будет ограничен.',
+        'strict_mode_info':
+            'В этом режиме вы не сможете остановить сессию до окончания времени, а доступ к заблокированным приложениям будет ограничен.',
         'anti_distract': 'Анти-Отвлечение',
         'anti_distract_desc': 'Уведомления полностью отключены',
-        'anti_distract_info': 'Все уведомления из социальных сетей и отвлекающих приложений будут полностью отключены.',
+        'anti_distract_info':
+            'Все уведомления из социальных сетей и отвлекающих приложений будут полностью отключены.',
         'allowed_apps': 'Разрешенные приложения',
         'allowed_desc': 'Разрешено {count} прилож.',
-        'allowed_apps_info': 'Разрешены только самые необходимые приложения, которые вы выбрали (например, словарь или калькулятор).',
+        'allowed_apps_info':
+            'Разрешены только самые необходимые приложения, которые вы выбрали (например, словарь или калькулятор).',
         'nature_sounds': 'Звуки природы',
         'start_deep': 'Начать Глубокий Фокус',
         'start_light': 'Начать Фокус',
@@ -869,7 +1020,8 @@ class AppTranslationService {
         'time_minutes': 'Время (минуты)',
         'add': 'Добавить',
         'no_blocked_apps_title': 'Внимание! 🛡️',
-        'no_blocked_apps_desc': 'Вы еще не выбрали отвлекающие приложения. Для эффективности режима глубокого фокуса рекомендуем заблокировать приложения.',
+        'no_blocked_apps_desc':
+            'Вы еще не выбрали отвлекающие приложения. Для эффективности режима глубокого фокуса рекомендуем заблокировать приложения.',
         'btn_block': 'Блокировать',
         'understood': 'Понятно',
         'cancel': 'Отмена',
@@ -881,13 +1033,18 @@ class AppTranslationService {
         'set_time': 'Установить время',
         'done': 'Готово',
         'premium_banner_title': 'Перейти на Premium',
-        'premium_banner_desc': 'Снимите все ограничения и откройте новые возможности',
-        'strict_mode_info': 'В этом режиме вы не сможете остановить сессию до окончания времени, а доступ к заблокированным приложениям будет ограничен.',
-        'anti_distract_info': 'Все уведомления из социальных сетей и отвлекающих приложений будут полностью отключены.',
-        'allowed_apps_info': 'Разрешены только самые необходимые приложения, которые вы выбрали (например, словарь или калькулятор).',
+        'premium_banner_desc':
+            'Снимите все ограничения и откройте новые возможности',
+        'strict_mode_info':
+            'В этом режиме вы не сможете остановить сессию до окончания времени, а доступ к заблокированным приложениям будет ограничен.',
+        'anti_distract_info':
+            'Все уведомления из социальных сетей и отвлекающих приложений будут полностью отключены.',
+        'allowed_apps_info':
+            'Разрешены только самые необходимые приложения, которые вы выбрали (например, словарь или калькулятор).',
         'delete': 'Удалить',
         'delete_activity_confirm': 'Удалить активность',
-        'delete_activity_desc': 'Вы действительно хотите удалить эту активность?',
+        'delete_activity_desc':
+            'Вы действительно хотите удалить эту активность?',
         'sounds': {
           'title': 'Звуки природы',
           'none': 'Нет',
@@ -935,7 +1092,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Заблокированные приложения',
         'search_hint': 'Поиск приложения...',
-        'info_banner': 'Экономьте время! Выбранные приложения будут заблокированы до окончания сеанса и не будут вас отвлекать.',
+        'info_banner':
+            'Экономьте время! Выбранные приложения будут заблокированы до окончания сеанса и не будут вас отвлекать.',
         'not_found': 'Приложение не найдено',
         'categories': {
           'social': 'Соцсети',
@@ -946,27 +1104,52 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': 'Внимание: Нужно разрешение 🛡️',
-          'content': 'Для работы системы блокировки вам необходимо включить следующие 2 разрешения в настройках:\n\n1. "Поверх других приложений"\n2. "Доступ к истории использования" (Usage Access)\n\nСейчас мы направим вас в настройки. После включения система заработает автоматически.',
+          'content':
+              'Для работы системы блокировки вам необходимо включить следующие 2 разрешения в настройках:\n\n1. "Поверх других приложений"\n2. "Доступ к истории использования" (Usage Access)\n\nСейчас мы направим вас в настройки. После включения система заработает автоматически.',
           'cancel': 'Не сейчас',
           'confirm': 'Перейти в настройки'
+        },
+        'permissions': {
+          'step_1_title': 'Шаг 1: Поверх других окон',
+          'step_1_desc': 'Разрешите отображение поверх других приложений для работы экрана блокировки.',
+          'step_1_btn': 'Настроить',
+          'step_2_title': 'Шаг 2: Доступ к использованию',
+          'step_2_desc': 'Разрешите доступ к статистике использования для обнаружения запуска приложений.',
+          'step_2_btn': 'Настроить доступ',
+          'step_3_title': 'Шаг 3: Уведомления',
+          'step_3_desc': 'Разрешите уведомления для стабильной работы службы блокировки в фоновом режиме.',
+          'step_3_btn': 'Разрешить',
+          'cancel': 'Отмена',
+        },
+        'notify_offer': {
+          'title': '🔕 Уведомления {app}',
+          'content': '{app} заблокировано. Хотите также отключить его уведомления?\n\nЭто предотвратит любые беспокойства от приложения.',
+          'no': 'Нет',
+          'yes': 'Да, отключить',
         }
       },
       'premium': {
         'title': 'Premium Возможности',
         'feature_plans_title': 'Мои Планы',
-        'feature_plans_desc': 'Планируйте названия и время задач, приложение вовремя предупредит вас.',
+        'feature_plans_desc':
+            'Планируйте названия и время задач, приложение вовремя предупредит вас.',
         'feature_colors_title': 'Выбор цвета в приложении',
-        'feature_colors_desc': 'Настройте интерфейс приложения под свой любимый цвет.',
+        'feature_colors_desc':
+            'Настройте интерфейс приложения под свой любимый цвет.',
         'feature_ads_title': 'Без рекламы',
         'feature_ads_desc': 'Фокусируйтесь без отвлекающей рекламы.',
         'feature_languages_title': 'Многоязычность',
-        'feature_languages_desc': 'Используйте приложение на удобном для вас языке.',
+        'feature_languages_desc':
+            'Используйте приложение на удобном для вас языке.',
         'feature_ai_title': 'Умное сравнение и прогноз',
-        'feature_ai_desc': 'Анализируйте активность через ИИ и узнавайте свои результаты.',
+        'feature_ai_desc':
+            'Анализируйте активность через ИИ и узнавайте свои результаты.',
         'feature_limit_title': 'Безлимитная блокировка',
-        'feature_limit_desc': 'Блокируйте сколько угодно приложений и сайтов без ограничений.',
+        'feature_limit_desc':
+            'Блокируйте сколько угодно приложений и сайтов без ограничений.',
         'feature_emergency_title': 'Экстренный доступ',
-        'feature_emergency_desc': 'Возможность открыть заблокированное приложение 1 раз в день.',
+        'feature_emergency_desc':
+            'Возможность открыть заблокированное приложение 1 раз в день.',
         'plan_monthly': 'Месячный',
         'plan_yearly': 'Годовой',
         'per_month': 'В месяц',
@@ -981,14 +1164,31 @@ class AppTranslationService {
         'email_support': 'Поддержка по Email',
         'email_desc': 'Отвечаем в течение 24 часов',
         'faqs': [
-          {'q': 'Как работает приложение?', 'a': 'Приложение блокирует отвлекающие приложения на заданный период времени.'},
-          {'q': 'Что дает Premium?', 'a': 'Безлимитная блокировка, все звуки природы и расширенная статистика.'},
-          {'q': 'Как насчет расхода батареи?', 'a': 'FocusGuard оптимизирован для минимального потребления энергии.'},
+          {
+            'q': 'Как работает приложение?',
+            'a':
+                'Приложение блокирует отвлекающие приложения на заданный период времени.'
+          },
+          {
+            'q': 'Что дает Premium?',
+            'a':
+                'Безлимитная блокировка, все звуки природы и расширенная статистика.'
+          },
+          {
+            'q': 'Как насчет расхода батареи?',
+            'a':
+                'FocusGuard оптимизирован для минимального потребления энергии.'
+          },
         ]
       }
     },
     'ko': {
-      'common': {'continue': '계속하기', 'back': '뒤로', 'save': '저장', 'login': '로그인'},
+      'common': {
+        'continue': '계속하기',
+        'back': '뒤로',
+        'save': '저장',
+        'login': '로그인'
+      },
       'nav': {
         'focus': '포커스',
         'block': '차단',
@@ -1162,7 +1362,8 @@ class AppTranslationService {
         'change_time': '시간 변경',
         'strict_mode': '엄격 모드',
         'strict_desc': '시작하면 종료할 수 없음',
-        'strict_mode_info': '이 모드에서는 타이머가 종료될 때까지 세션을 중지할 수 없으며, 차단된 앱에 대한 액세스가 제한됩니다.',
+        'strict_mode_info':
+            '이 모드에서는 타이머가 종료될 때까지 세션을 중지할 수 없으며, 차단된 앱에 대한 액세스가 제한됩니다.',
         'anti_distract': '방해 금지',
         'anti_distract_desc': '알림 완전 무음',
         'anti_distract_info': '소셜 미디어 및 방해되는 앱의 모든 알림이 완전히 무음 처리됩니다.',
@@ -1189,7 +1390,8 @@ class AppTranslationService {
         'time_minutes': '시간 (분)',
         'add': '추가',
         'no_blocked_apps_title': '주의! 🛡️',
-        'no_blocked_apps_desc': '방해되는 앱을 아직 선택하지 않았습니다. 깊은 집중 모드가 효과적이려면 앱 차단을 권장합니다.',
+        'no_blocked_apps_desc':
+            '방해되는 앱을 아직 선택하지 않았습니다. 깊은 집중 모드가 효과적이려면 앱 차단을 권장합니다.',
         'btn_block': '차단하기',
         'understood': '이해함',
         'cancel': '취소',
@@ -1234,6 +1436,18 @@ class AppTranslationService {
           'communication': '커뮤니케이션',
           'games': '게임',
           'other': '기타'
+        },
+        'permissions': {
+          'step_1_title': '1단계: 오버레이 권한',
+          'step_1_desc': '앱 차단 화면을 표시하려면 \'다른 앱 위에 표시\' 권한을 허용하십시오.',
+          'step_1_btn': '오버레이 설정',
+          'step_2_title': '2단계: 사용 정보 접근',
+          'step_2_desc': '방해되는 앱이 열릴 때를 감지하려면 \'사용 정보 접근\'을 활성화하십시오.',
+          'step_2_btn': '사용 정보 설정',
+          'step_3_title': '3단계: 알림 권한',
+          'step_3_desc': '차단 서비스가 백그라운드에서 안정적으로 실행되도록 알림을 허용하십시오.',
+          'step_3_btn': '권한 허용',
+          'cancel': '취소',
         }
       },
       'premium': {
@@ -1266,19 +1480,28 @@ class AppTranslationService {
         'email_support': '이메일 지원',
         'email_desc': '24시간 이내에 답변해 드립니다',
         'faqs': [
-          {'q': '앱 차단이 작동하지 않나요?', 'a': '기기 설정에서 "다른 앱 위에 표시" 및 "사용 정보 접근" 권한이 허용되어 있는지 확인하세요.'},
+          {
+            'q': '앱 차단이 작동하지 않나요?',
+            'a': '기기 설정에서 "다른 앱 위에 표시" 및 "사용 정보 접근" 권한이 허용되어 있는지 확인하세요.'
+          },
           {'q': '데이터가 동기화되지 않나요?', 'a': '인터넷 연결을 확인하고 앱을 다시 시작해 보세요.'},
           {'q': '배터리 소모는 어떤가요?', 'a': 'FocusGuard는 에너지 소모를 최소화하도록 최적화되어 있습니다.'},
         ]
       },
     },
     'de': {
-      'common': {'continue': 'Weiter', 'back': 'Zurück', 'save': 'Speichern', 'login': 'Anmelden'},
+      'common': {
+        'continue': 'Weiter',
+        'back': 'Zurück',
+        'save': 'Speichern',
+        'login': 'Anmelden'
+      },
       'settings': {
         'language': {
           'title': 'Sprache',
           'section_title': 'SPRACHE WÄHLEN',
-          'notice': 'Sprachänderungen werden sofort in der gesamten App übernommen.',
+          'notice':
+              'Sprachänderungen werden sofort in der gesamten App übernommen.',
         }
       },
       'profile': {
@@ -1286,7 +1509,8 @@ class AppTranslationService {
         'user_name': 'Fokus-Besitzer',
         'free_plan': 'Kostenloser Plan',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Bringen Sie Ihren Fokus auf die nächste Stufe! Nutzen Sie unbegrenzte Blockierung und erweiterte Analysen.',
+        'premium_desc':
+            'Bringen Sie Ihren Fokus auf die nächste Stufe! Nutzen Sie unbegrenzte Blockierung und erweiterte Analysen.',
         'premium_btn': 'Details',
         'section_for_you': 'Für Sie',
         'section_settings': 'Einstellungen',
@@ -1298,7 +1522,8 @@ class AppTranslationService {
         'menu_help': 'Hilfe & Support',
         'logout': 'Abmelden',
         'logout_confirm_title': 'Abmelden',
-        'logout_confirm_desc': 'Sind Sie sicher, dass Sie sich abmelden möchten?',
+        'logout_confirm_desc':
+            'Sind Sie sicher, dass Sie sich abmelden möchten?',
         'cancel': 'Abbrechen',
       },
       'stats': {
@@ -1329,7 +1554,8 @@ class AppTranslationService {
         'metrics_sessions': 'Gesamtsitzungen',
         'metrics_longest': 'Längste Sitzung',
         'pro_banner_title': 'PRO-Analyse freischalten!',
-        'pro_banner_desc': 'Erhalten Sie vollen Zugriff auf intelligente Vergleiche und Prognosen...',
+        'pro_banner_desc':
+            'Erhalten Sie vollen Zugriff auf intelligente Vergleiche und Prognosen...',
         'recent_sessions': 'Letzte Sitzungen',
         'today': 'Heute',
         'yesterday': 'Gestern',
@@ -1401,7 +1627,8 @@ class AppTranslationService {
         'plans_reminders_desc': 'Erinnerung an geplante Aufgaben',
         'daily_analysis_title': 'Tagesanalyse',
         'daily_analysis_desc': 'Ergebniszusammenfassung am Tagesende',
-        'permission_notice': 'Benachrichtigungen müssen in den Geräteeinstellungen erlaubt sein.',
+        'permission_notice':
+            'Benachrichtigungen müssen in den Geräteeinstellungen erlaubt sein.',
       },
       'themes': {
         'title': 'Themen',
@@ -1415,7 +1642,8 @@ class AppTranslationService {
       },
       'plans': {
         'title': 'MEINE PLÄNE',
-        'notice': 'Die App sendet automatisch eine Benachrichtigung, wenn es Zeit für Ihre Pläne ist.',
+        'notice':
+            'Die App sendet automatisch eine Benachrichtigung, wenn es Zeit für Ihre Pläne ist.',
         'today_plans': 'Heutige Pläne',
         'count_suffix': '{count} gesamt',
         'status_upcoming': 'Anstehend',
@@ -1433,7 +1661,16 @@ class AppTranslationService {
         'tomorrow': 'Morgen',
         'days_later': 'in {days} Tagen',
         'days_ago': 'vor {days} Tagen',
-        'weekdays': ['', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+        'weekdays': [
+          '',
+          'Montag',
+          'Dienstag',
+          'Mittwoch',
+          'Donnerstag',
+          'Freitag',
+          'Samstag',
+          'Sonntag'
+        ],
         'weekdays_short': ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
       },
       'focus_timer': {
@@ -1444,10 +1681,12 @@ class AppTranslationService {
         'change_time': 'Zeit ändern',
         'strict_mode': 'Strikter Modus',
         'strict_desc': 'Beenden nach Start nicht möglich',
-        'strict_mode_info': 'In diesem Modus können Sie die Sitzung nicht vor Ablauf der Zeit stoppen.',
+        'strict_mode_info':
+            'In diesem Modus können Sie die Sitzung nicht vor Ablauf der Zeit stoppen.',
         'anti_distract': 'Anti-Ablenkung',
         'anti_distract_desc': 'Benachrichtigungen komplett stumm',
-        'anti_distract_info': 'Alle Benachrichtigungen von sozialen Medien werden blockiert.',
+        'anti_distract_info':
+            'Alle Benachrichtigungen von sozialen Medien werden blockiert.',
         'allowed_apps': 'Erlaubte Apps',
         'allowed_desc': '{count} Apps erlaubt',
         'allowed_apps_info': 'Nur die wichtigsten Apps sind erlaubt.',
@@ -1460,7 +1699,8 @@ class AppTranslationService {
         'resume': 'Fortsetzen',
         'stop': 'Stoppen',
         'completed_title': 'Zeit ist um!',
-        'completed_desc': 'Gute Arbeit, Sie haben die Fokus-Sitzung erfolgreich abgeschlossen!',
+        'completed_desc':
+            'Gute Arbeit, Sie haben die Fokus-Sitzung erfolgreich abgeschlossen!',
         'ok': 'OK',
         'daily_goal': 'Tagesziel',
         'hours': 'Std.',
@@ -1471,7 +1711,8 @@ class AppTranslationService {
         'time_minutes': 'Zeit (Minuten)',
         'add': 'Hinzufügen',
         'no_blocked_apps_title': 'Achtung! 🛡️',
-        'no_blocked_apps_desc': 'Sie haben noch keine ablenkenden Apps ausgewählt. Damit der Tiefenfokus effektiv ist, empfehlen wir das Blockieren von Apps.',
+        'no_blocked_apps_desc':
+            'Sie haben noch keine ablenkenden Apps ausgewählt. Damit der Tiefenfokus effektiv ist, empfehlen wir das Blockieren von Apps.',
         'btn_block': 'Blockieren',
         'understood': 'Verstanden',
         'cancel': 'Abbrechen',
@@ -1512,7 +1753,25 @@ class AppTranslationService {
           'entertainment': 'Unterhaltung',
           'communication': 'Kommunikation',
           'games': 'Spiele',
-          'other': 'Sonstiges'
+          'other': 'Andere'
+        },
+        'permissions': {
+          'step_1_title': 'Schritt 1: Overlay-Berechtigung',
+          'step_1_desc': 'Erlauben Sie das \'Anzeigen über anderen Apps\', um den Sperrbildschirm anzuzeigen.',
+          'step_1_btn': 'Overlay einrichten',
+          'step_2_title': 'Schritt 2: Nutzungszugriff',
+          'step_2_desc': 'Aktivieren Sie den \'Nutzungszugriff\', um ablenkende Apps zu erkennen.',
+          'step_2_btn': 'Zugriff einrichten',
+          'step_3_title': 'Schritt 3: Benachrichtigungen',
+          'step_3_desc': 'Erlauben Sie Benachrichtigungen für einen stabilen Hintergrundbetrieb.',
+          'step_3_btn': 'Berechtigung erteilen',
+          'cancel': 'Abbrechen',
+        },
+        'notify_offer': {
+          'title': '🔕 {app} Benachrichtigungen',
+          'content': '{app} ist blockiert. Möchten Sie auch die Benachrichtigungen deaktivieren?\n\nDies verhindert, dass die App Sie stört.',
+          'no': 'Nein',
+          'yes': 'Ja, deaktivieren',
         }
       },
       'premium': {
@@ -1545,19 +1804,34 @@ class AppTranslationService {
         'email_support': 'E-Mail-Support',
         'email_desc': 'Antwort innerhalb von 24 Stunden',
         'faqs': [
-          {'q': 'Wie funktioniert die App?', 'a': 'Die App blockiert ablenkende Apps für einen Zeitraum.'},
-          {'q': 'Was bietet Premium?', 'a': 'Unbegrenzte Blockierung und KI-Analyse.'},
-          {'q': 'Batterieverbrauch?', 'a': 'Optimiert für minimalen Energieverbrauch.'},
+          {
+            'q': 'Wie funktioniert die App?',
+            'a': 'Die App blockiert ablenkende Apps für einen Zeitraum.'
+          },
+          {
+            'q': 'Was bietet Premium?',
+            'a': 'Unbegrenzte Blockierung und KI-Analyse.'
+          },
+          {
+            'q': 'Batterieverbrauch?',
+            'a': 'Optimiert für minimalen Energieverbrauch.'
+          },
         ]
       },
     },
     'fr': {
-      'common': {'continue': 'Continuer', 'back': 'Retour', 'save': 'Enregistrer', 'login': 'Connexion'},
+      'common': {
+        'continue': 'Continuer',
+        'back': 'Retour',
+        'save': 'Enregistrer',
+        'login': 'Connexion'
+      },
       'settings': {
         'language': {
           'title': 'Langue',
           'section_title': 'CHOISIR LA LANGUE',
-          'notice': 'Les changements de langue seront appliqués instantanément dans toute l\'application.',
+          'notice':
+              'Les changements de langue seront appliqués instantanément dans toute l\'application.',
         }
       },
       'profile': {
@@ -1565,7 +1839,8 @@ class AppTranslationService {
         'user_name': 'Propriétaire du Focus',
         'free_plan': 'Plan Gratuit',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Passez votre focus au niveau supérieur ! Utilisez le blocage illimité et les analyses avancées.',
+        'premium_desc':
+            'Passez votre focus au niveau supérieur ! Utilisez le blocage illimité et les analyses avancées.',
         'premium_btn': 'Détails',
         'section_for_you': 'Pour vous',
         'section_settings': 'Paramètres',
@@ -1599,7 +1874,8 @@ class AppTranslationService {
         'toggle_week': 'Semaine',
         'toggle_month': 'Mois',
         'smart_analysis': 'Analyse Intelligente',
-        'streak_forecast': 'Encore {days} jours de focus pour un nouveau record !',
+        'streak_forecast':
+            'Encore {days} jours de focus pour un nouveau record !',
         'daily_comparison': 'Aujourd\'hui {diff} de plus qu\'hier',
         'comparison': 'Comparaison',
         'vs_last_week': 'vs semaine dernière',
@@ -1608,7 +1884,8 @@ class AppTranslationService {
         'metrics_sessions': 'Total des sessions',
         'metrics_longest': 'Session la plus longue',
         'pro_banner_title': 'Débloquez les analyses PRO !',
-        'pro_banner_desc': 'Accédez à toutes les fonctionnalités de comparaison et de prévision...',
+        'pro_banner_desc':
+            'Accédez à toutes les fonctionnalités de comparaison et de prévision...',
         'recent_sessions': 'Sessions récentes',
         'today': 'Aujourd\'hui',
         'yesterday': 'Hier',
@@ -1680,7 +1957,8 @@ class AppTranslationService {
         'plans_reminders_desc': 'Rappel sur les tâches prévues',
         'daily_analysis_title': 'Analyse quotidienne',
         'daily_analysis_desc': 'Résumé des résultats en fin de journée',
-        'permission_notice': 'Les notifications doivent être autorisées dans les réglages de l\'appareil.',
+        'permission_notice':
+            'Les notifications doivent être autorisées dans les réglages de l\'appareil.',
       },
       'themes': {
         'title': 'Thèmes',
@@ -1694,7 +1972,8 @@ class AppTranslationService {
       },
       'plans': {
         'title': 'MES PLANS',
-        'notice': 'L\'application enverra une notification automatique au moment de vos plans.',
+        'notice':
+            'L\'application enverra une notification automatique au moment de vos plans.',
         'today_plans': 'Plans d\'aujourd\'hui',
         'count_suffix': '{count} au total',
         'status_upcoming': 'À venir',
@@ -1712,7 +1991,16 @@ class AppTranslationService {
         'tomorrow': 'Demain',
         'days_later': 'dans {days} jours',
         'days_ago': 'il y a {days} jours',
-        'weekdays': ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+        'weekdays': [
+          '',
+          'Lundi',
+          'Mardi',
+          'Mercredi',
+          'Jeudi',
+          'Vendredi',
+          'Samedi',
+          'Dimanche'
+        ],
         'weekdays_short': ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'],
       },
       'focus_timer': {
@@ -1723,13 +2011,16 @@ class AppTranslationService {
         'change_time': 'Changer le temps',
         'strict_mode': 'Mode Strict',
         'strict_desc': 'Sortie impossible après le début',
-        'strict_mode_info': 'Dans ce mode, siz ne pourrez pas arrêter la session avant la fin du temps.',
+        'strict_mode_info':
+            'Dans ce mode, siz ne pourrez pas arrêter la session avant la fin du temps.',
         'anti_distract': 'Anti-Distraction',
         'anti_distract_desc': 'Notifications totalement muettes',
-        'anti_distract_info': 'Toutes les notifications des réseaux sociaux seront bloquées.',
+        'anti_distract_info':
+            'Toutes les notifications des réseaux sociaux seront bloquées.',
         'allowed_apps': 'Apps autorisées',
         'allowed_desc': '{count} apps autorisées',
-        'allowed_apps_info': 'Seules les applications les plus nécessaires sont autorisées.',
+        'allowed_apps_info':
+            'Seules les applications les plus nécessaires sont autorisées.',
         'nature_sounds': 'Sons de la nature',
         'start_deep': 'Démarrer Travail Profond',
         'start_light': 'Démarrer Focus Léger',
@@ -1739,7 +2030,8 @@ class AppTranslationService {
         'resume': 'Reprendre',
         'stop': 'Arrêter',
         'completed_title': 'Le temps est écoulé !',
-        'completed_desc': 'Bon travail, vous avez terminé la session avec succès !',
+        'completed_desc':
+            'Bon travail, vous avez terminé la session avec succès !',
         'ok': 'D\'accord',
         'daily_goal': 'Objectif du jour',
         'hours': 'h',
@@ -1750,7 +2042,8 @@ class AppTranslationService {
         'time_minutes': 'Temps (minutes)',
         'add': 'Ajouter',
         'no_blocked_apps_title': 'Attention ! 🛡️',
-        'no_blocked_apps_desc': 'Vous n\'avez pas encore sélectionné d\'applications distrayantes. Pour qu\'une concentration profonde soit efficace, nous vous recommandons de bloquer des applications.',
+        'no_blocked_apps_desc':
+            'Vous n\'avez pas encore sélectionné d\'applications distrayantes. Pour qu\'une concentration profonde soit efficace, nous vous recommandons de bloquer des applications.',
         'btn_block': 'Bloquer',
         'understood': 'Compris',
         'cancel': 'Annuler',
@@ -1761,7 +2054,8 @@ class AppTranslationService {
         'motivation_default': 'Aujourd\'hui sera une excellente journée !',
         'delete': 'Supprimer',
         'delete_activity_confirm': 'Supprimer l\'activité',
-        'delete_activity_desc': 'Voulez-vous vraiment supprimer cette activité ?',
+        'delete_activity_desc':
+            'Voulez-vous vraiment supprimer cette activité ?',
         'set_time': 'Définir l\'heure',
         'done': 'Prêt',
         'sounds': {
@@ -1784,7 +2078,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Apps bloquées',
         'search_hint': 'Chercher une app...',
-        'info_banner': 'Gagnez du temps ! Les apps sélectionnées seront bloquées.',
+        'info_banner':
+            'Gagnez du temps ! Les apps sélectionnées seront bloquées.',
         'not_found': 'App non trouvée',
         'categories': {
           'social': 'Social',
@@ -1792,6 +2087,18 @@ class AppTranslationService {
           'communication': 'Communication',
           'games': 'Jeux',
           'other': 'Autres'
+        },
+        'permissions': {
+          'step_1_title': 'Étape 1: Superposition',
+          'step_1_desc': 'Autorisez la superposition pour afficher l\'écran de blocage.',
+          'step_1_btn': 'Configurer',
+          'step_2_title': 'Étape 2: Accès à l\'utilisation',
+          'step_2_desc': 'Activez l\'accès à l\'utilisation pour détecter les applications distractives.',
+          'step_2_btn': 'Configurer l\'accès',
+          'step_3_title': 'Étape 3: Notifications',
+          'step_3_desc': 'Autorisez les notifications pour un fonctionnement stable en arrière-plan.',
+          'step_3_btn': 'Autoriser',
+          'cancel': 'Annuler',
         }
       },
       'premium': {
@@ -1824,9 +2131,19 @@ class AppTranslationService {
         'email_support': 'Support par e-mail',
         'email_desc': 'Réponse sous 24 heures',
         'faqs': [
-          {'q': 'Comment fonctionne l\'app ?', 'a': 'L\'app bloque les applications distractives pendant une période.'},
-          {'q': 'Que propose Premium ?', 'a': 'Blocage illimité et analyse par IA.'},
-          {'q': 'Consommation de batterie ?', 'a': 'Optimisé pour une consommation d\'énergie minimale.'},
+          {
+            'q': 'Comment fonctionne l\'app ?',
+            'a':
+                'L\'app bloque les applications distractives pendant une période.'
+          },
+          {
+            'q': 'Que propose Premium ?',
+            'a': 'Blocage illimité et analyse par IA.'
+          },
+          {
+            'q': 'Consommation de batterie ?',
+            'a': 'Optimisé pour une consommation d\'énergie minimale.'
+          },
         ]
       },
     },

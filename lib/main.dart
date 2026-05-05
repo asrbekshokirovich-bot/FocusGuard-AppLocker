@@ -15,11 +15,13 @@ import 'screens/overlay_screen.dart';
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/app_translation_service.dart';
+import 'services/language_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppTranslationService().init();
+  await LanguageService().init();
   await ThemeService().init();
 
   runApp(

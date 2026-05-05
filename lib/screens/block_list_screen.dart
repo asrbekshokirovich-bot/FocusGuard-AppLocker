@@ -42,8 +42,10 @@ class _BlockListScreenState extends State<BlockListScreen> {
   void initState() {
     super.initState();
     _loadApps();
-    // Ekran ochilishi bilan xizmatni ham tekshirib qo'yamiz
-    _startBlockingService();
+    // Ekran ochilishi bilan xizmatni ham tekshirib qo'yamiz (Faqat mobil qurilmalarda)
+    if (!kIsWeb) {
+      _startBlockingService();
+    }
   }
 
   Future<void> _loadApps() async {
@@ -126,17 +128,22 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<void> _handlePermissionSequence(Map<String, dynamic> app) async {
     final lang = AppTranslationService();
-    
     // 1. Overlay ruxsatini tekshirish
     bool overlayOk = await Permission.systemAlertWindow.isGranted;
     if (!overlayOk) {
       bool proceed = await _showStepDialog(
-        title: "1-bosqich: Oyna ruxsati",
-        content: "Ilovalarni bloklash oynasini ko'rsatish uchun 'Boshqa ilovalar ustidan chizish' ruxsatini bering.",
-        btnText: "Oynani sozlash",
+        title: lang.translate('block_list.permissions.step_1_title'),
+        content: lang.translate('block_list.permissions.step_1_desc'),
+        btnText: lang.translate('block_list.permissions.step_1_btn'),
         onConfirm: () async => await Permission.systemAlertWindow.request(),
       );
       if (!proceed) {
+        _resetSwitch(app);
+        return;
+      }
+      // Ruxsat berib qaytgandan keyin yana tekshirish (recursively yoki keyingi qadamga o'tish)
+      overlayOk = await Permission.systemAlertWindow.isGranted;
+      if (!overlayOk) {
         _resetSwitch(app);
         return;
       }
@@ -146,9 +153,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
     bool usageOk = await _checkUsagePermission();
     if (!usageOk) {
       bool proceed = await _showStepDialog(
-        title: "2-bosqich: Foydalanish tarixi",
-        content: "Qaysi ilova ochilganini aniqlashimiz uchun 'Foydalanish tarixi' ruxsatini yoqing.",
-        btnText: "Tarixni sozlash",
+        title: lang.translate('block_list.permissions.step_2_title'),
+        content: lang.translate('block_list.permissions.step_2_desc'),
+        btnText: lang.translate('block_list.permissions.step_2_btn'),
         onConfirm: () async {
           try {
             await launchUrl(
@@ -164,6 +171,13 @@ class _BlockListScreenState extends State<BlockListScreen> {
         _resetSwitch(app);
         return;
       }
+      // Qaytgandan keyin tekshirish uchun biroz kutish kerak (tizim yangilanishi uchun)
+      await Future.delayed(const Duration(seconds: 1));
+      usageOk = await _checkUsagePermission();
+      if (!usageOk) {
+        _resetSwitch(app);
+        return;
+      }
     }
 
     // 3. Notification ruxsatini tekshirish (Android 13+)
@@ -171,9 +185,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
       bool notifyOk = await _checkNotificationPermission();
       if (!notifyOk) {
         bool proceed = await _showStepDialog(
-          title: "3-bosqich: Bildirishnomalar",
-          content: "Bloklash xizmati fonda barqaror ishlashi uchun bildirishnomalarga ruxsat bering.",
-          btnText: "Ruxsat berish",
+          title: lang.translate('block_list.permissions.step_3_title'),
+          content: lang.translate('block_list.permissions.step_3_desc'),
+          btnText: lang.translate('block_list.permissions.step_3_btn'),
           onConfirm: () async => await Permission.notification.request(),
         );
         if (!proceed) {
@@ -185,7 +199,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
     // Hamma ruxsatlar bo'lsa xizmatni yoqish
     await _startBlockingService();
-    FlutterBackgroundService().invoke('updateBlockedApps');
+    if (!kIsWeb) {
+      FlutterBackgroundService().invoke('updateBlockedApps');
+    }
   }
 
   void _resetSwitch(Map<String, dynamic> app) {
@@ -200,6 +216,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
     required String btnText,
     required Function onConfirm,
   }) async {
+    final lang = AppTranslationService();
     bool confirmed = false;
     await showCupertinoDialog(
       context: context,
@@ -208,7 +225,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
         content: Text(content),
         actions: [
           CupertinoDialogAction(
-            child: const Text("Bekor qilish"),
+            child: Text(lang.translate('block_list.permissions.cancel')),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
@@ -228,17 +245,15 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<void> _offerDisableNotifications(String packageName, String appName) async {
     if (!mounted) return;
+    final lang = AppTranslationService();
     await showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text('🔕 $appName bildirishnomalar'),
-        content: Text(
-          '$appName bloklandi. Uning bildirishnomalarini ham o\'chirishni xohlaysizmi?\n\n'
-          'Bu ilova siz bilan bog\'lanishining oldini oladi.',
-        ),
+        title: Text(lang.translate('block_list.notify_offer.title').replaceAll('{app}', appName)),
+        content: Text(lang.translate('block_list.notify_offer.content').replaceAll('{app}', appName)),
         actions: [
           CupertinoDialogAction(
-            child: const Text('Yo\'q'),
+            child: Text(lang.translate('block_list.notify_offer.no')),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
@@ -262,7 +277,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 await AppSettings.openAppSettings(type: AppSettingsType.notification);
               }
             },
-            child: const Text("Ha, o'chirish"),
+            child: Text(lang.translate('block_list.notify_offer.yes')),
           ),
         ],
       ),

@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text(
                               '${lang.translate('levels.level')} 4',
-                              style: LanguageService.getFont(
+                              style: lang.getFont(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 color: const Color(0xFF007AFF),
@@ -89,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Flexible(
                               child: Text(
                                 lang.translate('levels.master'),
-                                style: LanguageService.getFont(
+                                style: lang.getFont(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
@@ -142,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 8),
                         Text(
                           '7 ${lang.translate('levels.streak')}',
-                          style: LanguageService.getFont(
+                          style: lang.getFont(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFFFF9500),
