@@ -80,7 +80,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         ),
                       ],
                       SizedBox(height: widget.isSettings ? 20 : 32),
-
                       Text(
                         LanguageService().translate('language.title'),
                         textAlign: TextAlign.center,
@@ -103,7 +102,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-
                       ..._languages.map((lang) {
                         final String code = lang['code'] ?? '';
                         final String name = lang['name'] ?? '';
@@ -139,7 +137,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: isSelected
-                                        ? const Color(0xFF007AFF).withOpacity(0.12)
+                                        ? const Color(0xFF007AFF)
+                                            .withOpacity(0.12)
                                         : Colors.black.withOpacity(0.04),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
@@ -159,13 +158,15 @@ class _LanguageScreenState extends State<LanguageScreen> {
                                       child: Image.asset(
                                         asset,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            Center(
-                                              child: Text(
-                                                emoji,
-                                                style: const TextStyle(fontSize: 22),
-                                              ),
-                                            ),
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Center(
+                                          child: Text(
+                                            emoji,
+                                            style:
+                                                const TextStyle(fontSize: 22),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -199,7 +200,6 @@ class _LanguageScreenState extends State<LanguageScreen> {
                 ),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: ElevatedButton(
@@ -208,7 +208,10 @@ class _LanguageScreenState extends State<LanguageScreen> {
                   if (widget.isSettings) {
                     Navigator.pop(context);
                   } else {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const OnboardingScreen()));
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const OnboardingScreen()));
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -221,9 +224,9 @@ class _LanguageScreenState extends State<LanguageScreen> {
                   elevation: 2,
                 ),
                 child: Text(
-                  widget.isSettings 
-                    ? LanguageService().translate('common.save') 
-                    : LanguageService().translate('language.continue'),
+                  widget.isSettings
+                      ? LanguageService().translate('common.save')
+                      : LanguageService().translate('language.continue'),
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTranslationService {
   static final AppTranslationService _instance = AppTranslationService._internal();
   factory AppTranslationService() => _instance;
   AppTranslationService._internal();
 
-  static const String _langKey = 'app_interface_language';
+  static const String _langKey = 'selected_language';
   String _currentLanguage = 'uz';
   final ValueNotifier<String> languageNotifier = ValueNotifier<String>('uz');
 
@@ -23,6 +24,34 @@ class AppTranslationService {
     await prefs.setString(_langKey, code);
     _currentLanguage = code;
     languageNotifier.value = code;
+  }
+
+  TextStyle getFont({
+    Color? color,
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? letterSpacing,
+    double? height,
+    TextDecoration? decoration,
+  }) {
+    if (_currentLanguage == 'ko') {
+      return GoogleFonts.notoSansKr(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        height: height,
+        decoration: decoration,
+      );
+    }
+    return GoogleFonts.inter(
+      color: color,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      height: height,
+      decoration: decoration,
+    );
   }
 
   dynamic translate(String key) {
@@ -304,6 +333,12 @@ class AppTranslationService {
           'communication': 'Aloqa',
           'games': 'O\'yinlar',
           'other': 'Boshqalar'
+        },
+        'permission_dialog': {
+          'title': 'Diqqat: Ruxsat kerak 🛡️',
+          'content': 'Ilovani bloklash tizimi ishlashi uchun sozlamalardan quyidagi 2 ta ruxsatni yoqishingiz kerak:\n\n1. "Boshqa ilovalar ustida ko\'rsatish"\n2. "Foydalanish tarixi" (Usage Access)\n\nHozir sizni sozlamalarga yo\'naltiramiz. Ruxsatlarni yoqib qaytsangiz, tizim avtomatik ishga tushadi.',
+          'cancel': 'Hali emas',
+          'confirm': 'Sozlamalarga o\'tish'
         }
       },
       'premium': {
@@ -586,6 +621,12 @@ class AppTranslationService {
           'communication': 'Communication',
           'games': 'Games',
           'other': 'Others'
+        },
+        'permission_dialog': {
+          'title': 'Attention: Permission Required 🛡️',
+          'content': 'To enable app blocking, you need to grant the following 2 permissions in settings:\n\n1. "Display over other apps"\n2. "Usage Access"\n\nWe will redirect you to settings now. Once granted, the system will start automatically.',
+          'cancel': 'Not now',
+          'confirm': 'Go to Settings'
         }
       },
       'premium': {
@@ -893,6 +934,12 @@ class AppTranslationService {
           'communication': 'Общение',
           'games': 'Игры',
           'other': 'Другие'
+        },
+        'permission_dialog': {
+          'title': 'Внимание: Нужно разрешение 🛡️',
+          'content': 'Для работы системы блокировки вам необходимо включить следующие 2 разрешения в настройках:\n\n1. "Поверх других приложений"\n2. "Доступ к истории использования" (Usage Access)\n\nСейчас мы направим вас в настройки. После включения система заработает автоматически.',
+          'cancel': 'Не сейчас',
+          'confirm': 'Перейти в настройки'
         }
       },
       'premium': {

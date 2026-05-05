@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/app_translation_service.dart';
 
-import '../services/language_service.dart';
 
 class InterfaceLanguageScreen extends StatefulWidget {
   const InterfaceLanguageScreen({super.key});
@@ -24,6 +23,7 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
 
   void _onLanguageTap(String code) async {
     await AppTranslationService().setLanguage(code);
+    // Til o'zgargandan so'ng UI-ni yangilash uchun biroz kutamiz yoki shunchaki notification yuboramiz
   }
 
   @override
@@ -74,7 +74,7 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
         centerTitle: true,
         title: Text(
           translationService.translate('settings.language.title'),
-          style: LanguageService.getFont(
+          style: GoogleFonts.inter(
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: Colors.white,
@@ -113,7 +113,7 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
       padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Text(
         title,
-        style: LanguageService.getFont(
+        style: AppTranslationService().getFont(
           fontSize: 13,
           fontWeight: FontWeight.w700,
           color: const Color(0xFF8E8E93),
@@ -161,6 +161,7 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
   }
 
   Widget _buildLanguageItem(Map<String, String> lang, bool isSelected) {
+    final translationService = AppTranslationService();
     return InkWell(
       onTap: () => _onLanguageTap(lang['code']!),
       borderRadius: BorderRadius.circular(20),
@@ -171,7 +172,7 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
             Expanded(
               child: Text(
                 lang['name']!,
-                style: LanguageService.getFont(
+                style: translationService.getFont(
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected
@@ -215,9 +216,9 @@ class _InterfaceLanguageScreenState extends State<InterfaceLanguageScreen> {
           Expanded(
             child: Text(
               translationService.translate('settings.language.notice'),
-              style: LanguageService.getFont(
-                fontSize: 13,
-                color: const Color(0xFF007AFF),
+              style: AppTranslationService().getFont(
+                fontSize: 14,
+                color: const Color(0xFF8E8E93),
                 height: 1.5,
                 fontWeight: FontWeight.w500,
               ),

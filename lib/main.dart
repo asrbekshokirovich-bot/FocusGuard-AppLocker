@@ -11,15 +11,15 @@ import 'screens/legal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/language_screen.dart';
 
-import 'services/language_service.dart';
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
+import 'services/app_translation_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LanguageService().init();
+  await AppTranslationService().init();
   await ThemeService().init();
 
   // Background xizmatni oldindan tayyorlab qo'yamiz (lekin yoqmaymiz)

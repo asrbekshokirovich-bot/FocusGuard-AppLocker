@@ -13,7 +13,6 @@ import 'themes_screen.dart';
 import 'splash_screen.dart';
 import 'help_support_screen.dart';
 
-import '../services/language_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -54,7 +53,7 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       lang.translate('profile.title'),
-                      style: LanguageService.getFont(
+                      style: AppTranslationService().getFont(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -80,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
                             children: [
                               Text(
                                 lang.translate('profile.user_name'),
-                                style: LanguageService.getFont(
+                                style: AppTranslationService().getFont(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -98,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                                 child: Text(
                                   lang.translate('profile.free_plan'),
-                                  style: LanguageService.getFont(
+                                  style: AppTranslationService().getFont(
                                     color: const Color(0xFF34C759),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 11,
@@ -164,7 +163,7 @@ class ProfileScreen extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Text(
                                     lang.translate('profile.premium_title'),
-                                    style: LanguageService.getFont(
+                                    style: AppTranslationService().getFont(
                                       color: Colors.white,
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
@@ -176,7 +175,7 @@ class ProfileScreen extends StatelessWidget {
                               const SizedBox(height: 8),
                               Text(
                                 lang.translate('profile.premium_desc'),
-                                style: LanguageService.getFont(
+                                style: AppTranslationService().getFont(
                                   color: Colors.white.withOpacity(0.9),
                                   fontSize: 12,
                                   height: 1.3,
@@ -206,7 +205,7 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                                 child: Text(
                                   lang.translate('profile.premium_btn'),
-                                  style: LanguageService.getFont(
+                                  style: AppTranslationService().getFont(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -221,7 +220,7 @@ class ProfileScreen extends StatelessWidget {
 
                     Text(
                       lang.translate('profile.section_for_you'),
-                      style: LanguageService.getFont(
+                      style: AppTranslationService().getFont(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -257,7 +256,7 @@ class ProfileScreen extends StatelessWidget {
 
                     Text(
                       lang.translate('profile.section_settings'),
-                      style: LanguageService.getFont(
+                      style: AppTranslationService().getFont(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -334,7 +333,7 @@ class ProfileScreen extends StatelessWidget {
                                   child: CupertinoAlertDialog(
                                     title: Text(
                                       lang.translate('profile.logout_confirm_title'),
-                                      style: LanguageService.getFont(
+                                      style: AppTranslationService().getFont(
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -346,7 +345,7 @@ class ProfileScreen extends StatelessWidget {
                                       CupertinoDialogAction(
                                         child: Text(
                                           lang.translate('profile.cancel'),
-                                          style: LanguageService.getFont(
+                                          style: AppTranslationService().getFont(
                                             color: Theme.of(context).primaryColor,
                                           ),
                                         ),
@@ -394,7 +393,7 @@ class ProfileScreen extends StatelessWidget {
                         child: Center(
                           child: Text(
                             lang.translate('profile.logout'),
-                            style: LanguageService.getFont(
+                            style: AppTranslationService().getFont(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFFFF3B30),
@@ -447,7 +446,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           title: Text(
             title,
-            style: LanguageService.getFont(
+            style: AppTranslationService().getFont(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurface,

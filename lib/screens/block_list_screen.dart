@@ -116,26 +116,28 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
-  Future<void> _showPermissionDialog() async {
-    if (!mounted) return;
+  Future<bool> _showPermissionDialog() async {
+    if (!mounted) return false;
+    final lang = AppTranslationService();
+    bool result = false;
+    
     await showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Diqqat: Ruxsat kerak 🛡️'),
-        content: const Text(
-          'Ilovani bloklash tizimi ishlashi uchun sozlamalardan quyidagi 2 ta ruxsatni yoqishingiz kerak:\n\n'
-          '1. "Boshqa ilovalar ustida ko\'rsatish"\n'
-          '2. "Foydalanish tarixi" (Usage Access)\n\n'
-          'Hozir sizni sozlamalarga yo\'naltiramiz. Ruxsatlarni yoqib qaytsangiz, tizim avtomatik ishga tushadi.',
-        ),
+        title: Text(lang.translate('block_list.permission_dialog.title')),
+        content: Text(lang.translate('block_list.permission_dialog.content')),
         actions: [
           CupertinoDialogAction(
-            child: const Text('Hali emas'),
-            onPressed: () => Navigator.pop(ctx),
+            child: Text(lang.translate('block_list.permission_dialog.cancel')),
+            onPressed: () {
+              result = false;
+              Navigator.pop(ctx);
+            },
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () async {
+              result = true;
               Navigator.pop(ctx);
               // Ruxsatlarni so'rash sahifasiga o'tish
               await Permission.systemAlertWindow.request();
@@ -147,11 +149,12 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 await _startBlockingService();
               }
             },
-            child: const Text('Sozlamalarga o\'tish'),
+            child: Text(lang.translate('block_list.permission_dialog.confirm')),
           ),
         ],
       ),
     );
+    return result;
   }
 
   Future<void> _offerDisableNotifications(String packageName, String appName) async {
@@ -380,6 +383,10 @@ class _BlockListScreenState extends State<BlockListScreen> {
                   if (Platform.isAndroid) {
                     bool overlayGranted = await Permission.systemAlertWindow.isGranted;
                     if (!overlayGranted) {
+                      // Switch-ni vaqtincha o'chirib turamiz (ruxsat yo'qligi uchun)
+                      setState(() {
+                        app['blocked'] = false;
+                      });
                       await _showPermissionDialog();
                     } else {
                       await _startBlockingService();

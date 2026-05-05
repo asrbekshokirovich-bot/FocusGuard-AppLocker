@@ -358,7 +358,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
         ),
         child: Text(
           label,
-          style: LanguageService.getFont(
+          style: lang.getFont(
             fontSize: 12,
             fontWeight: active ? FontWeight.bold : FontWeight.w500,
             color: active ? const Color(0xFF1C1C1E) : const Color(0xFF8E8E93),
