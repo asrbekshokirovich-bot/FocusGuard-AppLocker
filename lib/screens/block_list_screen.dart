@@ -8,6 +8,11 @@ import 'package:installed_apps/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'dart:typed_data';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_settings/app_settings.dart';
+import '../services/background_service.dart';
+import 'dart:io';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class BlockListScreen extends StatefulWidget {
   const BlockListScreen({super.key});
@@ -43,36 +48,114 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
-        List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
-        
+        // 1-qadam: Ikonkasiz tez yukla (darhol ro'yxat ko'rinadi)
+        List<AppInfo> apps = await InstalledApps.getInstalledApps(
+          excludeSystemApps: false, // Tizim ilovalarini ham ko'rsat
+          withIcon: false,          // Avval ikonkasiz yukla - TEZROQ
+        );
+
+        if (!mounted) return;
         setState(() {
-          _appsList = apps.map((app) {
+          _appsList = apps
+              .where((app) => 
+                  app.packageName != 'com.example.focus_guard' &&
+                  (app.name ?? '').isNotEmpty)
+              .map((app) {
             return {
               'package': app.packageName,
-              'name': app.name,
-              'icon': app.icon,
+              'name': app.name ?? app.packageName,
+              'icon': null, // Hozircha null
               'color': const Color(0xFF007AFF),
-              'category': 'other',
+              'category': 'social',
               'blocked': blockedPackages.contains(app.packageName),
               'isReal': true,
             };
           }).toList();
-          
           _appsList.sort((a, b) => a['name'].toString().toLowerCase().compareTo(b['name'].toString().toLowerCase()));
-          _isLoading = false;
+          _isLoading = false; // Ro'yxat darhol ko'rinadi
         });
+
+        // 2-qadam: Ikonkalarni orqa fonda yukla
+        _loadIconsInBackground(apps);
+
       } catch (e) {
+        if (!mounted) return;
         setState(() {
           _appsList = List.from(_mockApps);
           _isLoading = false;
         });
       }
     } else {
-      // Show mock list for Web/iOS
       setState(() {
         _appsList = List.from(_mockApps);
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadIconsInBackground(List<AppInfo> apps) async {
+    for (final app in apps) {
+      if (!mounted) return;
+      // Faqat ro'yxatdagi ilovalar uchun icon yukla
+      final idx = _appsList.indexWhere((a) => a['package'] == app.packageName);
+      if (idx == -1) continue;
+      
+      try {
+        final AppInfo? detailed = await InstalledApps.getAppInfo(app.packageName);
+        if (detailed?.icon != null && mounted) {
+          setState(() {
+            _appsList[idx]['icon'] = detailed!.icon;
+          });
+        }
+      } catch (_) {
+        continue;
+      }
+      // Har ikonkadan keyin biroz kut - UI ni bloklamaslik uchun
+      await Future.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  Future<void> _showPermissionDialog() async {
+    if (!mounted) return;
+    await showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Ruxsatlar kerak'),
+        content: const Text(
+          'Ilovalarni bloklash uchun:\n\n'
+          '1. "Boshqa ilovalar ustida ko\'rsatish" ruxsatini bering\n'
+          '2. "Foydalanish tarixi" (Usage Access) ruxsatini bering\n\n'
+          'Sozlamalar sahifasi ochiladi, iltimos ruxsatlarni yoqing.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Bekor'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await Permission.systemAlertWindow.request();
+              await AppSettings.openAppSettings(type: AppSettingsType.security);
+              // Sozlamalardan qaytgandan keyin xizmatni ishga tushir
+              await Future.delayed(const Duration(seconds: 2));
+              await _startBlockingService();
+            },
+            child: const Text('Ruxsat berish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startBlockingService() async {
+    try {
+      await initializeBackgroundService();
+      final service = FlutterBackgroundService();
+      service.startService();
+    } catch (e) {
+      // Ignore service errors
     }
   }
 
@@ -220,7 +303,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
               children: [
                 Text(app['name'], style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                 Text(
-                  lang.translate('block_list.categories.${app['category']}'), 
+                  app['isReal'] == true 
+                    ? lang.translate('block_list.categories.other')
+                    : lang.translate('block_list.categories.${app['category']}'), 
                   style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8E8E93), fontWeight: FontWeight.w500)
                 ),
               ],
@@ -241,6 +326,16 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 if (val) {
                   if (!blockedPackages.contains(app['package'])) {
                     blockedPackages.add(app['package']);
+                  }
+                  
+                  // Ruxsatlarni tekshir va xizmatni ishga tushir
+                  if (Platform.isAndroid) {
+                    bool overlayGranted = await Permission.systemAlertWindow.isGranted;
+                    if (!overlayGranted) {
+                      await _showPermissionDialog();
+                    } else {
+                      await _startBlockingService();
+                    }
                   }
                 } else {
                   blockedPackages.remove(app['package']);

@@ -146,7 +146,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           Expanded(
-            child: _screens[_currentIndex],
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
           ),
         ],
       ),

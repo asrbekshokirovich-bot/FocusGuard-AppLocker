@@ -5,6 +5,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import 'dart:io';
+import '../services/background_service.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen({super.key});
@@ -117,8 +119,15 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: (_isOverlayGranted && _isUsageGranted) ? () {
-                    Navigator.pop(context);
+                  onPressed: (_isOverlayGranted && _isUsageGranted) ? () async {
+                    // Xizmatni ishga tushir
+                    try {
+                      await initializeBackgroundService();
+                      FlutterBackgroundService().startService();
+                    } catch (e) {
+                      // Ignore
+                    }
+                    if (mounted) Navigator.pop(context);
                   } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,

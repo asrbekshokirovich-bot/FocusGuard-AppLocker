@@ -8,6 +8,7 @@ import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
+import '../services/timer_notification_service.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   const FocusTimerScreen({super.key});
@@ -76,16 +77,35 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       _isRunning = true;
       _isPaused = false;
     });
+    // Bildirishnomani ko'rsat
+    _showTimerNotification();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
           _remainingSeconds--;
         });
+        // Har 10 soniyada bildirishnomani yangilash (har soniyada yangilash batareyani ko'p oladi)
+        if (_remainingSeconds % 10 == 0) {
+          _showTimerNotification();
+        }
       } else {
         _stopTimer();
         _onTimerComplete();
       }
     });
+  }
+
+  void _showTimerNotification() {
+    final lang = AppTranslationService();
+    final modeName = _selectedMode == 0
+        ? lang.translate('focus_timer.status_deep')
+        : lang.translate('focus_timer.status_light');
+    TimerNotificationService().updateTimer(
+      timeRemaining: _formattedTime,
+      modeName: modeName,
+      levelTitle: '${lang.translate('levels.level')} 4 · ${lang.translate('levels.master')}',
+      modeIcon: _selectedMode == 0 ? '⚡' : '🌿',
+    );
   }
 
   void _pauseTimer() {
@@ -103,6 +123,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       _isPaused = false;
       _remainingSeconds = _selectedMinutes * 60;
     });
+    // Bildirishnomani o'chir
+    TimerNotificationService().cancelTimerNotification();
   }
 
   void _onTimerComplete() {
