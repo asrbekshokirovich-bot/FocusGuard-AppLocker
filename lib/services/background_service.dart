@@ -12,7 +12,7 @@ Future<void> initializeBackgroundService() async {
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
-      autoStart: true,
+      autoStart: false,
       isForegroundMode: true,
       notificationChannelId: 'app_locker_channel',
       initialNotificationTitle: 'Focus Guard',
@@ -20,7 +20,7 @@ Future<void> initializeBackgroundService() async {
       foregroundServiceNotificationId: 888,
     ),
     iosConfiguration: IosConfiguration(
-      autoStart: true,
+      autoStart: false,
       onForeground: onStart,
     ),
   );

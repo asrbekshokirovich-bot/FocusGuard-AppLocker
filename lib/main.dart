@@ -13,19 +13,6 @@ import 'screens/language_screen.dart';
 
 import 'services/language_service.dart';
 import 'services/theme_service.dart';
-import 'services/background_service.dart';
-import 'screens/overlay_screen.dart';
-
-@pragma('vm:entry-point')
-void overlayMain() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: OverlayScreen(),
-    ),
-  );
-}
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -33,22 +20,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LanguageService().init();
   await ThemeService().init();
-  
-  // Start the app first, then initialize the background service
-  // This prevents crashes if service fails to start before UI is ready
+
   runApp(
     DevicePreview(
       enabled: false,
       builder: (context) => const FocusGuardApp(),
     ),
   );
-
-  // Initialize background service AFTER app has started
-  try {
-    await initializeBackgroundService();
-  } catch (e) {
-    // Service might fail to start if permissions are missing
-  }
 }
 
 class FocusGuardApp extends StatelessWidget {
