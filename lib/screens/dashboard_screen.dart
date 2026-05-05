@@ -41,10 +41,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // Premium Header with XP and Streak (Only show on Focus tab)
           if (_currentIndex == 0)
-            Container(
+          Container(
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 36,
-                bottom: 12,
+                top: MediaQuery.of(context).padding.top + 20,
+                bottom: 20,
                 left: 20,
                 right: 20,
               ),
@@ -71,17 +71,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Text(
                               '${lang.translate('levels.level')} 4',
                               style: LanguageService.getFont(
-                                fontSize: 16,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 color: const Color(0xFF007AFF),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Flexible(
                               child: Text(
                                 lang.translate('levels.master'),
                                 style: LanguageService.getFont(
-                                  fontSize: 12,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
                                 ),
@@ -90,14 +90,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
                         // XP Progress Bar
                         Container(
-                          height: 6,
-                          width: 140,
+                          height: 10,
+                          width: double.infinity,
                           decoration: BoxDecoration(
                             color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(3),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
@@ -107,7 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 gradient: const LinearGradient(
                                   colors: [Color(0xFF007AFF), Color(0xFF5AC8FA)],
                                 ),
-                                borderRadius: BorderRadius.circular(3),
+                                borderRadius: BorderRadius.circular(5),
                               ),
                             ),
                           ),
@@ -115,25 +115,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 16),
                   // Streak Counter
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF9500).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       children: [
                         const FaIcon(
                           FontAwesomeIcons.fireFlameCurved,
                           color: Color(0xFFFF9500),
-                          size: 16,
+                          size: 22,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Text(
                           '7 ${lang.translate('levels.streak')}',
                           style: LanguageService.getFont(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFFFF9500),
                           ),
