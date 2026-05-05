@@ -19,7 +19,7 @@ class TimerNotificationService {
     const InitializationSettings settings =
         InitializationSettings(android: androidSettings);
 
-    await _plugin.initialize(settings);
+    await _plugin.initialize(settings: settings);
     _initialized = true;
   }
 
@@ -54,10 +54,10 @@ class TimerNotificationService {
     final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
-      _notificationId,
-      '🎯 Focus Guard — $timeRemaining',
-      '$modeIcon $modeName  ·  $levelTitle',
-      details,
+      id: _notificationId,
+      title: '🎯 Focus Guard — $timeRemaining',
+      body: '$modeIcon $modeName  ·  $levelTitle',
+      notificationDetails: details,
     );
   }
 
@@ -78,6 +78,6 @@ class TimerNotificationService {
 
   /// Taymer to'xtaganda bildirishnomani o'chir
   Future<void> cancelTimerNotification() async {
-    await _plugin.cancel(_notificationId);
+    await _plugin.cancel(id: _notificationId);
   }
 }

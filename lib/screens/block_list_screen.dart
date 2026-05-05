@@ -13,6 +13,7 @@ import 'package:app_settings/app_settings.dart';
 import '../services/background_service.dart';
 import 'dart:io';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BlockListScreen extends StatefulWidget {
   const BlockListScreen({super.key});
@@ -143,6 +144,49 @@ class _BlockListScreenState extends State<BlockListScreen> {
               await _startBlockingService();
             },
             child: const Text('Ruxsat berish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _offerDisableNotifications(String packageName, String appName) async {
+    if (!mounted) return;
+    await showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text('🔕 $appName bildirishnomalar'),
+        content: Text(
+          '$appName bloklandi. Uning bildirishnomalarini ham o\'chirishni xohlaysizmi?\n\n'
+          'Bu ilova siz bilan bog\'lanishining oldini oladi.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Yo\'q'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              // Android da o'sha ilovaning bildirishnoma sozlamalariga o't
+              try {
+                final settingsUri = Uri(
+                  scheme: 'android.settings',
+                  path: 'APP_NOTIFICATION_SETTINGS',
+                  queryParameters: {'android.provider.extra.APP_PACKAGE': packageName},
+                );
+                if (await canLaunchUrl(settingsUri)) {
+                  await launchUrl(settingsUri, mode: LaunchMode.externalApplication);
+                } else {
+                  // Fallback: umumiy bildirishnoma sozlamalar
+                  await AppSettings.openAppSettings(type: AppSettingsType.notification);
+                }
+              } catch (_) {
+                await AppSettings.openAppSettings(type: AppSettingsType.notification);
+              }
+            },
+            child: const Text("Ha, o'chirish"),
           ),
         ],
       ),
@@ -336,6 +380,15 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     } else {
                       await _startBlockingService();
                     }
+                  }
+
+                  // Bildirishnomalarni ham o'chirish taklifi
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  if (mounted) {
+                    await _offerDisableNotifications(
+                      app['package'] as String,
+                      app['name'] as String,
+                    );
                   }
                 } else {
                   blockedPackages.remove(app['package']);
