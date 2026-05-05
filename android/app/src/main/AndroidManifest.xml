@@ -44,12 +44,6 @@
                 android:value="monitorDeviceState"/>
         </service>
 
-        <!-- Overlay Window Service -->
-        <activity
-            android:name="com.falttie.flutter_overlay_window.OverlayService"
-            android:exported="false"
-            android:theme="@style/Theme.AppCompat.Translucent"/>
-
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
