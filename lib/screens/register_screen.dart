@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
+import '../services/firebase_service.dart';
 import 'dashboard_screen.dart';
 import 'legal_screen.dart';
+import 'permissions_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,9 +19,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _termsAccepted = false;
   bool _obscurePassword = true;
 
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
+  
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -36,6 +45,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nameFocus.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -107,6 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: LanguageService().translate('register.name_hint'),
                     icon: CupertinoIcons.person_fill,
                     focusNode: _nameFocus,
+                    controller: _nameController,
                   ),
                   const SizedBox(height: 16),
 
@@ -117,6 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     hint: 'Username@gmail.com',
                     icon: CupertinoIcons.mail_solid,
                     focusNode: _emailFocus,
+                    controller: _emailController,
                   ),
                   const SizedBox(height: 16),
 
@@ -129,6 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     isPassword: true,
                     obscureText: _obscurePassword,
                     focusNode: _passwordFocus,
+                    controller: _passwordController,
                     onToggleVisibility: () {
                       setState(() {
                         _obscurePassword = !_obscurePassword;
@@ -153,9 +168,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: _termsAccepted 
-                          ? () {
-                              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+                      onPressed: (_termsAccepted && !_isLoading)
+                          ? () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                await FirebaseService().registerWithEmail(
+                                  _nameController.text.trim(),
+                                  _emailController.text.trim(),
+                                  _passwordController.text.trim(),
+                                );
+                                if (!mounted) return;
+                                
+                                // Xush kelibsiz xabari
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(LanguageService().translate('register.welcome_new').replaceAll('{name}', _nameController.text.trim())),
+                                    backgroundColor: const Color(0xFF34C759),
+                                  ),
+                                );
+
+                                // Sessiyani saqlash
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setBool('is_logged_in', true);
+
+                                // Ruxsatlar oynasiga o'tish
+                                Navigator.pushReplacement(
+                                  context, 
+                                  MaterialPageRoute(builder: (context) => const PermissionsScreen())
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
@@ -169,15 +217,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: Text(
-                        LanguageService().translate('register.title'),
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.1,
-                          color: _termsAccepted ? Colors.white : Colors.grey.shade400,
-                        ),
-                      ),
+                      child: _isLoading 
+                          ? const CupertinoActivityIndicator(color: Colors.white)
+                          : Text(
+                              LanguageService().translate('register.title'),
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.1,
+                                color: _termsAccepted ? Colors.white : Colors.grey.shade400,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -289,6 +339,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String hint,
     required IconData icon,
     FocusNode? focusNode,
+    TextEditingController? controller,
     bool isPassword = false,
     bool obscureText = false,
     VoidCallback? onToggleVisibility,
@@ -319,6 +370,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         focusNode: focusNode,
+        controller: controller,
         obscureText: obscureText,
         style: GoogleFonts.inter(
           fontSize: 16,

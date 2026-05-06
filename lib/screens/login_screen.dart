@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
+import '../services/firebase_service.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
 import 'register_screen.dart';
@@ -20,9 +21,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _obscureText = true;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
+  
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -35,6 +40,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailFocus.dispose();
     _passwordFocus.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -144,6 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     hint: 'Username@gmail.com',
                     icon: CupertinoIcons.mail_solid,
                     focusNode: _emailFocus,
+                    controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 14),
@@ -154,6 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     hint: LanguageService().translate('login.password_hint'),
                     icon: CupertinoIcons.lock_fill,
                     focusNode: _passwordFocus,
+                    controller: _passwordController,
                     isPassword: true,
                     obscureText: _obscureText,
                     onToggleVisibility: () {
@@ -198,15 +207,47 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: () async {
-                        if (!mounted) return;
-                        
-                        // Tizimga kirganligini eslab qolish
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('is_logged_in', true);
+                      onPressed: _isLoading ? null : () async {
+                        setState(() => _isLoading = true);
+                        try {
+                          final result = await FirebaseService().signInWithEmail(
+                            _emailController.text.trim(),
+                            _passwordController.text.trim(),
+                          );
+                          
+                          if (result != null && result.user != null) {
+                            // Ismni olish
+                            final userData = await FirebaseService().getUserData(result.user!.uid);
+                            final String userName = userData?['name'] ?? result.user!.displayName ?? 'User';
+                            
+                            if (!mounted) return;
+                            
+                            // Tizimga kirganligini eslab qolish
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('is_logged_in', true);
+                            
+                            // Xush kelibsiz xabari
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(LanguageService().translate('login.welcome_back').replaceAll('{name}', userName)),
+                                backgroundColor: const Color(0xFF34C759),
+                              ),
+                            );
 
-                        // Har doim birinchi bo'lib ruxsatlar oynasiga o'tamiz (foydalanuvchi o'zi o'qib bosishi uchun)
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+                            // Har doim birinchi bo'lib ruxsatlar oynasiga o'tamiz
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+                          }
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _isLoading = false);
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF007AFF),
@@ -216,14 +257,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        LanguageService().translate('common.login'),
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
+                      child: _isLoading 
+                          ? const CupertinoActivityIndicator(color: Colors.white)
+                          : Text(
+                              LanguageService().translate('common.login'),
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -306,8 +349,8 @@ class _LoginScreenState extends State<LoginScreen> {
     BuildContext context, {
     required String hint,
     required IconData icon,
-    FocusNode? focusNode,
     TextInputType keyboardType = TextInputType.text,
+    TextEditingController? controller,
     bool isPassword = false,
     bool obscureText = false,
     VoidCallback? onToggleVisibility,
@@ -338,6 +381,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       child: TextField(
         focusNode: focusNode,
+        controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
         style: GoogleFonts.inter(
@@ -429,10 +473,20 @@ class _LoginScreenState extends State<LoginScreen> {
               LanguageService().translate('common.continue') ?? 'Yuborish',
               style: const TextStyle(color: Color(0xFF007AFF)),
             ),
-            onPressed: () {
-              // Firebase ulangandan keyin bu yerga mantiq qo'shiladi
-              Navigator.pop(context);
-              _showSuccessDialog(context);
+            onPressed: () async {
+              if (resetEmailController.text.trim().isEmpty) return;
+              
+              try {
+                await FirebaseService().sendPasswordResetEmail(resetEmailController.text.trim());
+                if (!mounted) return;
+                Navigator.pop(context);
+                _showSuccessDialog(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Reset Error: $e')),
+                );
+              }
             },
           ),
         ],

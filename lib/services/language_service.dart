@@ -100,6 +100,7 @@ class LanguageService {
         'forgot_password_title': 'Parolni Tiklash',
         'forgot_password_desc': 'Ro\'yxatdan o\'tgan pochtangizni kiriting. Biz sizga parolni yangilash havolasini yuboramiz.',
         'reset_link_sent': 'Havola Gmail pochtangizga yuborildi. Iltimos, pochtangizni tekshiring.',
+        'welcome_back': 'Xush kelibsiz, {name}!',
       },
       'register': {
         'title': 'Ro\'yxatdan O\'tish',
@@ -111,6 +112,7 @@ class LanguageService {
         'confirm_password_label': 'PAROLNI TASDIQLASH',
         'have_account': 'Hisobingiz bormi? ',
         'login_now': 'Kirish',
+        'welcome_new': 'Muvaffaqiyatli ro\'yxatdan o\'tdingiz, {name}!',
       },
       'legal': {
         'title': 'Huquqiy Ma\'lumotlar',
@@ -180,7 +182,8 @@ class LanguageService {
         'forgot_password': 'Забыли пароль?',
         'forgot_password_title': 'Восстановление пароля',
         'forgot_password_desc': 'Введите адрес электронной почты, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.',
-        'reset_link_sent': 'Ссылка отправлена на вашу почту Gmail. Пожалуйста, проверьте почту.',
+        'reset_link_sent': 'Ссылка для сброса отправлена на ваш Gmail. Пожалуйста, проверьте почту.',
+        'welcome_back': 'С возвращением, {name}!',
       },
       'register': {
         'title': 'Регистрация',
@@ -192,6 +195,7 @@ class LanguageService {
         'confirm_password_label': 'ПОДТВЕРДИТЕ ПАРОЛЬ',
         'have_account': 'Уже есть аккаунт? ',
         'login_now': 'Войти',
+        'welcome_new': 'Вы успешно зарегистрировались, {name}!',
       },
       'legal': {
         'title': 'Юридическая Информация',
@@ -261,7 +265,8 @@ class LanguageService {
         'forgot_password': 'Forgot password?',
         'forgot_password_title': 'Reset Password',
         'forgot_password_desc': 'Enter your registered email address. We will send you a link to reset your password.',
-        'reset_link_sent': 'A reset link has been sent to your Gmail. Please check your email.',
+        'reset_link_sent': 'Reset link has been sent to your Gmail. Please check your inbox.',
+        'welcome_back': 'Welcome back, {name}!',
       },
       'register': {
         'title': 'Create Account',
@@ -272,7 +277,8 @@ class LanguageService {
         'password_label': 'PASSWORD',
         'confirm_password_label': 'CONFIRM PASSWORD',
         'have_account': 'Already have an account? ',
-        'login_now': 'Login',
+        'login_now': 'Log In',
+        'welcome_new': 'Successfully registered, {name}!',
       },
       'legal': {
         'title': 'Legal Information',

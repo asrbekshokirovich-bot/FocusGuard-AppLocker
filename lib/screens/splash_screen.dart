@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,10 +38,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     Future.delayed(const Duration(milliseconds: 3000), () async {
       if (!mounted) return;
       
-      final prefs = await SharedPreferences.getInstance();
-      final bool isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      final User? user = FirebaseAuth.instance.currentUser;
 
-      if (isLoggedIn) {
+      if (user != null) {
         // Ruxsatlarni tekshirish
         bool hasPermissions = true;
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
