@@ -72,7 +72,7 @@ class LanguageService {
         'subtitle': 'Davom etish uchun ilova tilini tanlang.',
         'continue': 'Davom etish',
       },
-      'common': {'continue': 'Davom etish', 'back': 'Orqaga', 'save': 'Saqlash', 'login': 'Tizimga Kirish'},
+      'common': {'continue': 'Davom etish', 'back': 'Orqaga', 'save': 'Saqlash', 'login': 'Tizimga Kirish', 'cancel': 'Bekor qilish'},
       'onboarding': [
         {
           'title': 'Chuqur Diqqat Markazi',
@@ -153,7 +153,7 @@ class LanguageService {
         'subtitle': 'Выберите язык приложения, чтобы продолжить.',
         'continue': 'Продолжить',
       },
-      'common': {'continue': 'Продолжить', 'back': 'Назад', 'save': 'Сохранить', 'login': 'Войти в систему'},
+      'common': {'continue': 'Продолжить', 'back': 'Назад', 'save': 'Сохранить', 'login': 'Войти в систему', 'cancel': 'Отмена'},
       'onboarding': [
         {
           'title': 'Центр Глубокого Фокуса',
@@ -234,7 +234,7 @@ class LanguageService {
         'subtitle': 'Choose app language to continue.',
         'continue': 'Continue',
       },
-      'common': {'continue': 'Continue', 'back': 'Back', 'save': 'Save', 'login': 'Log In'},
+      'common': {'continue': 'Continue', 'back': 'Back', 'save': 'Save', 'login': 'Log In', 'cancel': 'Cancel'},
       'onboarding': [
         {
           'title': 'Deep Focus Center',

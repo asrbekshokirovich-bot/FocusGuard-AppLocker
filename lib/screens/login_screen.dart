@@ -435,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           CupertinoDialogAction(
             child: Text(
-              LanguageService().translate('profile.cancel') ?? 'Bekor qilish',
+              LanguageService().translate('common.cancel') ?? 'Bekor qilish',
               style: const TextStyle(color: CupertinoColors.systemRed),
             ),
             onPressed: () => Navigator.pop(context),

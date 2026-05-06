@@ -345,7 +345,7 @@ class ProfileScreen extends StatelessWidget {
                                     actions: [
                                       CupertinoDialogAction(
                                         child: Text(
-                                          lang.translate('profile.cancel'),
+                                          lang.translate('common.cancel'),
                                           style: AppTranslationService().getFont(
                                             color: Theme.of(context).primaryColor,
                                           ),
