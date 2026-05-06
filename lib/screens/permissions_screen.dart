@@ -43,54 +43,57 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     
     bool overlay = await Permission.systemAlertWindow.isGranted;
-    // Note: Checking usage stats natively requires platform channels, 
-    // but we can assume false initially or let user manually verify.
-    // For now we simulate it or rely on user clicking it.
+    bool usage = await _checkUsagePermission();
     
-    setState(() {
-      _isOverlayGranted = overlay;
-    });
+    if (mounted) {
+      setState(() {
+        _isOverlayGranted = overlay;
+        _isUsageGranted = usage;
+      });
+    }
+  }
+
+  Future<bool> _checkUsagePermission() async {
+    try {
+      DateTime now = DateTime.now();
+      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _requestOverlay() async {
-    final status = await Permission.systemAlertWindow.request();
-    setState(() {
-      _isOverlayGranted = status.isGranted;
-    });
+    await Permission.systemAlertWindow.request();
+    await _checkPermissions();
   }
 
   Future<void> _requestUsage() async {
-    // To'g'ridan-to'g'ri Foydalanish tarixi (Usage Access) sozlamalarini ochishga harakat qilamiz
     try {
+      await launchUrl(
+        Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
       await AppSettings.openAppSettings(type: AppSettingsType.settings);
-    } catch (_) {}
-    
-    setState(() {
-      _isUsageGranted = true;
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final lang = AppTranslationService();
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.back, color: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 20),
               Text(
-                "Ruxsatlar kerak",
-                style: GoogleFonts.inter(
+                lang.translate('permissions.title'),
+                style: lang.getFont(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                   color: Theme.of(context).colorScheme.onSurface,
@@ -99,71 +102,77 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               ),
               const SizedBox(height: 12),
               Text(
-                "Ilovalarni bloklash xizmati to'g'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.",
-                style: GoogleFonts.inter(
+                lang.translate('permissions.subtitle'),
+                style: lang.getFont(
                   fontSize: 15,
-                  color: const Color(0xFF8E8E93),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 40),
               
               _buildPermissionCard(
-                title: "Boshqa ilovalar ustida",
-                description: "Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.",
-                icon: Icons.layers,
+                title: lang.translate('permissions.overlay.title'),
+                description: lang.translate('permissions.overlay.desc'),
+                icon: Icons.layers_rounded,
                 color: const Color(0xFF007AFF),
                 isGranted: _isOverlayGranted,
                 onTap: _requestOverlay,
+                lang: lang,
               ),
               
               const SizedBox(height: 16),
               
               _buildPermissionCard(
-                title: "Foydalanish tarixi",
-                description: "Hozir qaysi ilovaga kirganingizni aniqlash uchun kerak (Usage Access).",
-                icon: Icons.pie_chart,
+                title: lang.translate('permissions.usage.title'),
+                description: lang.translate('permissions.usage.desc'),
+                icon: Icons.pie_chart_rounded,
                 color: const Color(0xFFFF9500),
                 isGranted: _isUsageGranted,
                 onTap: _requestUsage,
+                lang: lang,
               ),
               
               const Spacer(),
               
-              SizedBox(
+              Container(
                 width: double.infinity,
                 height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    if (_isOverlayGranted && _isUsageGranted)
+                      BoxShadow(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                  ],
+                ),
                 child: ElevatedButton(
-                  onPressed: (_isOverlayGranted && _isUsageGranted) ? () async {
-                    // Xizmatni xavfsiz ishga tushir
-                    try {
-                      final service = FlutterBackgroundService();
-                      bool isRunning = await service.isRunning();
-                      if (!isRunning) {
-                        await initializeBackgroundService();
-                        await service.startService();
-                      }
-                    } catch (e) {
-                      debugPrint('Permission screen service start error: $e');
-                    }
-                    if (mounted) Navigator.pop(context);
+                  onPressed: (_isOverlayGranted && _isUsageGranted) ? () {
+                    Navigator.pushReplacement(
+                      context, 
+                      MaterialPageRoute(builder: (context) => const DashboardScreen())
+                    );
                   } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
                     disabledBackgroundColor: Theme.of(context).primaryColor.withOpacity(0.3),
                   ),
                   child: Text(
-                    "Davom etish",
-                    style: GoogleFonts.inter(
+                    lang.translate('common.continue'),
+                    style: lang.getFont(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -178,6 +187,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     required Color color,
     required bool isGranted,
     required VoidCallback onTap,
+    required AppTranslationService lang,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),

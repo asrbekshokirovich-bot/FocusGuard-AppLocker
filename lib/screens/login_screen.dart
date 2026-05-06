@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_usage/app_usage.dart';
 import '../services/language_service.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
 import 'register_screen.dart';
 import 'legal_screen.dart';
+import 'permissions_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -173,8 +177,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+                      onPressed: () async {
+                        // Ruxsatlarni tekshirish
+                        bool hasPermissions = true;
+                        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+                          bool overlayOk = await Permission.systemAlertWindow.isGranted;
+                          bool usageOk = false;
+                          try {
+                            DateTime now = DateTime.now();
+                            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+                            usageOk = true;
+                          } catch (_) {}
+                          
+                          hasPermissions = overlayOk && usageOk;
+                        }
+
+                        if (!mounted) return;
+                        
+                        if (hasPermissions) {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+                        } else {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF007AFF),
