@@ -25,6 +25,23 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isSendingVerification = false;
+  bool _isRefreshing = false;
+
+  Future<void> _refreshUser() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      setState(() => _isRefreshing = true);
+      try {
+        await user.reload();
+        // Force UI update by triggering a dummy change if needed, 
+        // though StreamBuilder should handle it if userChanges is used.
+      } catch (e) {
+        debugPrint("Error refreshing user: $e");
+      } finally {
+        if (mounted) setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   Future<void> _sendVerificationEmail() async {
     final user = _auth.currentUser;
@@ -100,14 +117,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          lang.translate('profile.title'),
-                          style: lang.getFont(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            letterSpacing: -0.7,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SizedBox(width: 40), // Spacing for balance
+                            Text(
+                              lang.translate('profile.title'),
+                              style: lang.getFont(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                letterSpacing: -0.7,
+                              ),
+                            ),
+                            _isRefreshing 
+                              ? const SizedBox(width: 40, height: 40, child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)))
+                              : IconButton(
+                                  onPressed: _refreshUser,
+                                  icon: const Icon(CupertinoIcons.refresh, size: 22),
+                                  color: const Color(0xFF007AFF),
+                                ),
+                          ],
                         ),
                         const SizedBox(height: 24),
                         Row(
