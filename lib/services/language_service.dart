@@ -143,9 +143,14 @@ class LanguageService {
           'title': 'Boshqa ilovalar ustida',
           'desc': 'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
         },
-        'usage': {
-          'title': 'Foydalanish tarixi',
-          'desc': 'Hozir qaysi ilovaga kirganingizni aniqlash uchun kerak (Usage Access).',
+        'errors': {
+          'invalid_email': 'Email manzili noto\'g\'ri formatda.',
+          'user_not_found': 'Bunday foydalanuvchi topilmadi.',
+          'wrong_password': 'Email yoki parol noto\'g\'ri.',
+          'email_already_in_use': 'Bu email allaqachon ro\'yxatdan o\'tgan.',
+          'weak_password': 'Parol juda zaif (kamida 6 ta belgi bo\'lishi kerak).',
+          'network_error': 'Internet aloqasi yo\'q yoki yomon.',
+          'unknown_error': 'Noma\'lum xatolik yuz berdi. Qaytadan urinib ko\'ring.',
         }
       }
     },
@@ -226,9 +231,14 @@ class LanguageService {
           'title': 'Поверх других приложений',
           'desc': 'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
         },
-        'usage': {
-          'title': 'Доступ к использованию',
-          'desc': 'Требуется для определения того, какое приложение вы используете в данный момент.',
+        'errors': {
+          'invalid_email': 'Неверный формат email.',
+          'user_not_found': 'Пользователь не найден.',
+          'wrong_password': 'Неверный email или пароль.',
+          'email_already_in_use': 'Этот email уже зарегистрирован.',
+          'weak_password': 'Пароль слишком слабый (минимум 6 символов).',
+          'network_error': 'Ошибка сети. Проверьте подключение.',
+          'unknown_error': 'Произошла неизвестная ошибка. Попробуйте еще раз.',
         }
       }
     },
@@ -309,9 +319,14 @@ class LanguageService {
           'title': 'Display Over Other Apps',
           'desc': 'Required to show the lock screen when you open a blocked app.',
         },
-        'usage': {
-          'title': 'Usage Access',
-          'desc': 'Required to detect which app you are currently using.',
+        'errors': {
+          'invalid_email': 'Invalid email format.',
+          'user_not_found': 'User not found.',
+          'wrong_password': 'Incorrect email or password.',
+          'email_already_in_use': 'This email is already registered.',
+          'weak_password': 'Password is too weak (min 6 characters).',
+          'network_error': 'Network error. Please check your connection.',
+          'unknown_error': 'An unknown error occurred. Please try again.',
         }
       }
     }

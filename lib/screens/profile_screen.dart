@@ -13,6 +13,7 @@ import 'interface_language_screen.dart';
 import 'themes_screen.dart';
 import 'splash_screen.dart';
 import 'help_support_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 class ProfileScreen extends StatelessWidget {
@@ -360,17 +361,25 @@ class ProfileScreen extends StatelessWidget {
                                         ),
                                         onPressed: () async {
                                           final prefs = await SharedPreferences.getInstance();
+                                          
+                                          // 1. Firebase'dan chiqish
+                                          await FirebaseAuth.instance.signOut();
+                                          
+                                          // 2. Barcha flaglarni o'chirish (Onboarding va Login)
                                           await prefs.remove('is_logged_in');
+                                          await prefs.remove('onboarding_completed');
                                           
                                           if (context.mounted) {
                                             Navigator.pop(context);
+                                            // 3. Ilovani boshidan (Splash) boshlash
                                             Navigator.of(
                                               context,
                                               rootNavigator: true,
-                                            ).pushReplacement(
+                                            ).pushAndRemoveUntil(
                                               MaterialPageRoute(
                                                 builder: (context) => const SplashScreen(),
                                               ),
+                                              (route) => false,
                                             );
                                           }
                                         },

@@ -197,10 +197,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   MaterialPageRoute(builder: (context) => const PermissionsScreen())
                                 );
                               } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
-                                );
+                                if (mounted) {
+                                  setState(() => _isLoading = false);
+                                  _showErrorMessage(e.toString());
+                                }
                               } finally {
                                 if (mounted) setState(() => _isLoading = false);
                               }
@@ -416,6 +416,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
             vertical: 12,
           ),
         ),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String error) {
+    String message;
+    if (error.contains('email-already-in-use')) {
+      message = LanguageService().translate('errors.email_already_in_use');
+    } else if (error.contains('weak-password')) {
+      message = LanguageService().translate('errors.weak_password');
+    } else if (error.contains('invalid-email')) {
+      message = LanguageService().translate('errors.invalid_email');
+    } else if (error.contains('network-request-failed')) {
+      message = LanguageService().translate('errors.network_error');
+    } else {
+      message = LanguageService().translate('errors.unknown_error');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFFF3B30),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

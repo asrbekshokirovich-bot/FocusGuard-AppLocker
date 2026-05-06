@@ -128,7 +128,8 @@ class AppTranslationService {
         'continue': 'Davom etish',
         'back': 'Orqaga',
         'save': 'Saqlash',
-        'login': 'Tizimga Kirish'
+        'login': 'Tizimga Kirish',
+        'cancel': 'Bekor qilish',
       },
       'settings': {
         'language': {
@@ -402,19 +403,23 @@ class AppTranslationService {
         },
         'permissions': {
           'step_1_title': '1-bosqich: Oyna ruxsati',
-          'step_1_desc': 'Ilovalarni bloklash oynasini ko\'rsatish uchun \'Boshqa ilovalar ustidan chizish\' ruxsatini bering.',
+          'step_1_desc':
+              'Ilovalarni bloklash oynasini ko\'rsatish uchun \'Boshqa ilovalar ustidan chizish\' ruxsatini bering.',
           'step_1_btn': 'Oynani sozlash',
           'step_2_title': '2-bosqich: Foydalanish tarixi',
-          'step_2_desc': 'Qaysi ilova ochilganini aniqlashimiz uchun \'Foydalanish tarixi\' ruxsatini yoqing.',
+          'step_2_desc':
+              'Qaysi ilova ochilganini aniqlashimiz uchun \'Foydalanish tarixi\' ruxsatini yoqing.',
           'step_2_btn': 'Tarixni sozlash',
           'step_3_title': '3-bosqich: Bildirishnomalar',
-          'step_3_desc': 'Bloklash xizmati fonda barqaror ishlashi uchun bildirishnomalarga ruxsat bering.',
+          'step_3_desc':
+              'Bloklash xizmati fonda barqaror ishlashi uchun bildirishnomalarga ruxsat bering.',
           'step_3_btn': 'Ruxsat berish',
           'cancel': 'Bekor qilish',
         },
         'notify_offer': {
           'title': '🔕 {app} bildirishnomalari',
-          'content': '{app} bloklandi. Uning bildirishnomalarini ham o\'chirishni xohlaysizmi?\n\nBu ilova siz bilan bog\'lanishining oldini oladi.',
+          'content':
+              '{app} bloklandi. Uning bildirishnomalarini ham o\'chirishni xohlaysizmi?\n\nBu ilova siz bilan bog\'lanishining oldini oladi.',
           'no': 'Yo\'q',
           'yes': 'Ha, o\'chirish',
         }
@@ -479,7 +484,8 @@ class AppTranslationService {
         'continue': 'Continue',
         'back': 'Back',
         'save': 'Save',
-        'login': 'Log In'
+        'login': 'Log In',
+        'cancel': 'Cancel',
       },
       'settings': {
         'language': {
@@ -760,19 +766,23 @@ class AppTranslationService {
         },
         'permissions': {
           'step_1_title': 'Step 1: Overlay Permission',
-          'step_1_desc': 'Grant \'Display over other apps\' permission to show the app blocking screen.',
+          'step_1_desc':
+              'Grant \'Display over other apps\' permission to show the app blocking screen.',
           'step_1_btn': 'Setup Overlay',
           'step_2_title': 'Step 2: Usage Access',
-          'step_2_desc': 'Enable \'Usage Access\' to detect when distracting apps are opened.',
+          'step_2_desc':
+              'Enable \'Usage Access\' to detect when distracting apps are opened.',
           'step_2_btn': 'Setup Usage',
           'step_3_title': 'Step 3: Notifications',
-          'step_3_desc': 'Allow notifications for the blocking service to run stably in the background.',
+          'step_3_desc':
+              'Allow notifications for the blocking service to run stably in the background.',
           'step_3_btn': 'Grant Permission',
           'cancel': 'Cancel',
         },
         'notify_offer': {
           'title': '🔕 {app} Notifications',
-          'content': '{app} is blocked. Do you also want to disable its notifications?\n\nThis prevents the app from disturbing you.',
+          'content':
+              '{app} is blocked. Do you also want to disable its notifications?\n\nThis prevents the app from disturbing you.',
           'no': 'No',
           'yes': 'Yes, disable',
         }
@@ -1139,19 +1149,23 @@ class AppTranslationService {
         },
         'permissions': {
           'step_1_title': 'Шаг 1: Поверх других окон',
-          'step_1_desc': 'Разрешите отображение поверх других приложений для работы экрана блокировки.',
+          'step_1_desc':
+              'Разрешите отображение поверх других приложений для работы экрана блокировки.',
           'step_1_btn': 'Настроить',
           'step_2_title': 'Шаг 2: Доступ к использованию',
-          'step_2_desc': 'Разрешите доступ к статистике использования для обнаружения запуска приложений.',
+          'step_2_desc':
+              'Разрешите доступ к статистике использования для обнаружения запуска приложений.',
           'step_2_btn': 'Настроить доступ',
           'step_3_title': 'Шаг 3: Уведомления',
-          'step_3_desc': 'Разрешите уведомления для стабильной работы службы блокировки в фоновом режиме.',
+          'step_3_desc':
+              'Разрешите уведомления для стабильной работы службы блокировки в фоновом режиме.',
           'step_3_btn': 'Разрешить',
           'cancel': 'Отмена',
         },
         'notify_offer': {
           'title': '🔕 Уведомления {app}',
-          'content': '{app} заблокировано. Хотите также отключить его уведомления?\n\nЭто предотвратит любые беспокойства от приложения.',
+          'content':
+              '{app} заблокировано. Хотите также отключить его уведомления?\n\nЭто предотвратит любые беспокойства от приложения.',
           'no': 'Нет',
           'yes': 'Да, отключить',
         }
@@ -1785,19 +1799,23 @@ class AppTranslationService {
         },
         'permissions': {
           'step_1_title': 'Schritt 1: Overlay-Berechtigung',
-          'step_1_desc': 'Erlauben Sie das \'Anzeigen über anderen Apps\', um den Sperrbildschirm anzuzeigen.',
+          'step_1_desc':
+              'Erlauben Sie das \'Anzeigen über anderen Apps\', um den Sperrbildschirm anzuzeigen.',
           'step_1_btn': 'Overlay einrichten',
           'step_2_title': 'Schritt 2: Nutzungszugriff',
-          'step_2_desc': 'Aktivieren Sie den \'Nutzungszugriff\', um ablenkende Apps zu erkennen.',
+          'step_2_desc':
+              'Aktivieren Sie den \'Nutzungszugriff\', um ablenkende Apps zu erkennen.',
           'step_2_btn': 'Zugriff einrichten',
           'step_3_title': 'Schritt 3: Benachrichtigungen',
-          'step_3_desc': 'Erlauben Sie Benachrichtigungen für einen stabilen Hintergrundbetrieb.',
+          'step_3_desc':
+              'Erlauben Sie Benachrichtigungen für einen stabilen Hintergrundbetrieb.',
           'step_3_btn': 'Berechtigung erteilen',
           'cancel': 'Abbrechen',
         },
         'notify_offer': {
           'title': '🔕 {app} Benachrichtigungen',
-          'content': '{app} ist blockiert. Möchten Sie auch die Benachrichtigungen deaktivieren?\n\nDies verhindert, dass die App Sie stört.',
+          'content':
+              '{app} ist blockiert. Möchten Sie auch die Benachrichtigungen deaktivieren?\n\nDies verhindert, dass die App Sie stört.',
           'no': 'Nein',
           'yes': 'Ja, deaktivieren',
         }
@@ -2118,13 +2136,16 @@ class AppTranslationService {
         },
         'permissions': {
           'step_1_title': 'Étape 1: Superposition',
-          'step_1_desc': 'Autorisez la superposition pour afficher l\'écran de blocage.',
+          'step_1_desc':
+              'Autorisez la superposition pour afficher l\'écran de blocage.',
           'step_1_btn': 'Configurer',
           'step_2_title': 'Étape 2: Accès à l\'utilisation',
-          'step_2_desc': 'Activez l\'accès à l\'utilisation pour détecter les applications distractives.',
+          'step_2_desc':
+              'Activez l\'accès à l\'utilisation pour détecter les applications distractives.',
           'step_2_btn': 'Configurer l\'accès',
           'step_3_title': 'Étape 3: Notifications',
-          'step_3_desc': 'Autorisez les notifications pour un fonctionnement stable en arrière-plan.',
+          'step_3_desc':
+              'Autorisez les notifications pour un fonctionnement stable en arrière-plan.',
           'step_3_btn': 'Autoriser',
           'cancel': 'Annuler',
         }

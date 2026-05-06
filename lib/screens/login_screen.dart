@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : () async {
+                        onPressed: _isLoading ? null : () async {
                         setState(() => _isLoading = true);
                         try {
                           final result = await FirebaseService().signInWithEmail(
@@ -232,6 +232,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               SnackBar(
                                 content: Text(LanguageService().translate('login.welcome_back').replaceAll('{name}', userName)),
                                 backgroundColor: const Color(0xFF34C759),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                margin: const EdgeInsets.all(16),
                               ),
                             );
 
@@ -239,13 +242,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
                           }
                         } catch (e) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                          if (mounted) {
+                            setState(() => _isLoading = false);
+                            _showErrorMessage(e.toString());
+                          }
                         } finally {
                           if (mounted) setState(() => _isLoading = false);
                         }
@@ -271,6 +271,51 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String error) {
+    String message;
+    if (error.contains('user-not-found')) {
+      message = LanguageService().translate('errors.user_not_found');
+    } else if (error.contains('wrong-password') || error.contains('invalid-credential')) {
+      message = LanguageService().translate('errors.wrong_password');
+    } else if (error.contains('invalid-email')) {
+      message = LanguageService().translate('errors.invalid_email');
+    } else if (error.contains('network-request-failed')) {
+      message = LanguageService().translate('errors.network_error');
+    } else {
+      message = LanguageService().translate('errors.unknown_error');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFFF3B30),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
                   // Footer Actions
                   Column(
