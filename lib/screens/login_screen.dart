@@ -461,7 +461,7 @@ class _LoginScreenState extends State<LoginScreen> {
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: const Icon(CupertinoIcons.check_mark_circled_fill, color: Color(0xFF34C759), size: 40),
+        title: Icon(CupertinoIcons.check_mark_circled_fill, color: const Color(0xFF34C759), size: 40),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Text(
