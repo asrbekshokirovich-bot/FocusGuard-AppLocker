@@ -162,7 +162,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Parolni tiklash dialogini chiqarish
+                        _showForgotPasswordDialog(context);
+                      },
+                      child: Text(
+                        LanguageService().translate('login.forgot_password') ?? 'Parolni unutdingizmi?',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: const Color(0xFF007AFF),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
 
                   Container(
                     height: 56,
@@ -378,6 +398,81 @@ class _LoginScreenState extends State<LoginScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
+      ),
+    );
+  void _showForgotPasswordDialog(BuildContext context) {
+    final TextEditingController resetEmailController = TextEditingController();
+    
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(
+          LanguageService().translate('login.forgot_password_title') ?? 'Parolni Tiklash',
+          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              LanguageService().translate('login.forgot_password_desc') ?? 'Ro\'yxatdan o\'tgan pochtangizni kiriting. Biz sizga parolni yangilash havolasini yuboramiz.',
+              style: GoogleFonts.inter(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            CupertinoTextField(
+              controller: resetEmailController,
+              placeholder: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: CupertinoColors.extraLightBackgroundGray,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(
+              LanguageService().translate('profile.cancel') ?? 'Bekor qilish',
+              style: const TextStyle(color: CupertinoColors.systemRed),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(
+              LanguageService().translate('common.continue') ?? 'Yuborish',
+              style: const TextStyle(color: Color(0xFF007AFF)),
+            ),
+            onPressed: () {
+              // Firebase ulangandan keyin bu yerga mantiq qo'shiladi
+              Navigator.pop(context);
+              _showSuccessDialog(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessDialog(BuildContext context) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Icon(CupertinoIcons.check_mark_circled_fill, color: Color(0xFF34C759), size: 40),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            LanguageService().translate('login.reset_link_sent') ?? 'Havola Gmail pochtangizga yuborildi. Iltimos, pochtangizni tekshiring.',
+            style: GoogleFonts.inter(),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }

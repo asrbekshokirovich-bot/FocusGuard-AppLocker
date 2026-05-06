@@ -96,6 +96,10 @@ class LanguageService {
         'no_account': 'Hisobingiz yo\'qmi? ',
         'register': 'Ro\'yxatdan o\'tish',
         'terms': 'Foydalanuvchi shartlari va Maxfiylik siyosati',
+        'forgot_password': 'Kod yodingizdan chiqdimi?',
+        'forgot_password_title': 'Parolni Tiklash',
+        'forgot_password_desc': 'Ro\'yxatdan o\'tgan pochtangizni kiriting. Biz sizga parolni yangilash havolasini yuboramiz.',
+        'reset_link_sent': 'Havola Gmail pochtangizga yuborildi. Iltimos, pochtangizni tekshiring.',
       },
       'register': {
         'title': 'Ro\'yxatdan O\'tish',
@@ -173,6 +177,10 @@ class LanguageService {
         'no_account': 'Нет аккаунта? ',
         'register': 'Зарегистрироваться',
         'terms': 'Условия использования и политика конфиденциальности',
+        'forgot_password': 'Забыли пароль?',
+        'forgot_password_title': 'Восстановление пароля',
+        'forgot_password_desc': 'Введите адрес электронной почты, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.',
+        'reset_link_sent': 'Ссылка отправлена на вашу почту Gmail. Пожалуйста, проверьте почту.',
       },
       'register': {
         'title': 'Регистрация',
@@ -250,6 +258,10 @@ class LanguageService {
         'no_account': "Don't have an account? ",
         'register': 'Register Now',
         'terms': 'Terms of Use and Privacy Policy',
+        'forgot_password': 'Forgot password?',
+        'forgot_password_title': 'Reset Password',
+        'forgot_password_desc': 'Enter your registered email address. We will send you a link to reset your password.',
+        'reset_link_sent': 'A reset link has been sent to your Gmail. Please check your email.',
       },
       'register': {
         'title': 'Create Account',

@@ -1,4 +1,4 @@
-package com.example.focus_guard
+package com.focusguard.app
 
 import io.flutter.embedding.android.FlutterActivity
 

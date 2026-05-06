@@ -60,7 +60,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
         setState(() {
           _appsList = apps
               .where((app) => 
-                  app.packageName != 'com.example.focus_guard' &&
+                  app.packageName != 'com.focusguard.app' &&
                   (app.name ?? '').isNotEmpty)
               .map((app) {
             return {

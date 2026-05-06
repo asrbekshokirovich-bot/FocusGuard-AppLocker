@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.focus_guard"
+    namespace = "com.focusguard.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.focus_guard"
+        applicationId = "com.focusguard.app"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
