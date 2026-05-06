@@ -19,22 +19,20 @@ class FirebaseService {
       
       User? user = result.user;
       if (user != null) {
-        // Muhim bo'lmagan ishlarni "background"da bajaramiz
-        // Bu ilova aylanib qolmasligi uchun kerak
+        // 1. Birinchi navbatda Auth profilini yangilaymiz (Console'da ko'rinishi uchun)
+        await user.updateDisplayName(name);
         
-        // 1. Email tasdiqlash (xato bersa ham davom etaveradi)
+        // 2. Firestore'ga ma'lumotni saqlaymiz (Bazada ko'rinishi uchun)
+        // Buni fonda (non-blocking) bajarishimiz mumkin, lekin kutish ishonchliroq
+        await _firestore.collection('users').doc(user.uid).set({
+          'name': name,
+          'email': email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'isPremium': false,
+        });
+
+        // 3. Email tasdiqlashni fonda yuboramiz (bu kutishga arzimaydi)
         user.sendEmailVerification().catchError((e) => debugPrint('Email verify error: $e'));
-        
-        // 2. Firestore va Profile yangilashni parallel bajaramiz
-        Future.wait([
-          _firestore.collection('users').doc(user.uid).set({
-            'name': name,
-            'email': email,
-            'createdAt': FieldValue.serverTimestamp(),
-            'isPremium': false,
-          }),
-          user.updateDisplayName(name),
-        ]).catchError((e) => debugPrint('Secondary registration tasks error: $e'));
       }
       return result;
     } catch (e) {
