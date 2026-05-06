@@ -107,7 +107,9 @@ void onStart(ServiceInstance service) async {
         String currentApp = latestInfo.packageName;
 
         // O'z ilovamiz bo'lsa bloklamaymiz
-        if (currentApp == 'com.example.focus_guard' || currentApp.contains('focus_guard')) {
+        if (currentApp == 'com.example.focus_guard' || 
+            currentApp == 'com.asrbek.focusguard' || 
+            currentApp.contains('focus_guard')) {
           return;
         }
 

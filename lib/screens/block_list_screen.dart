@@ -285,8 +285,18 @@ class _BlockListScreenState extends State<BlockListScreen> {
   }
 
   Future<void> _startBlockingService() async {
+    if (kIsWeb) return;
+    
     try {
-      // Har doim avval initialize ni tekshiramiz
+      // Faqat ruxsatlar bo'lsa xizmatni ishga tushiramiz
+      bool usageOk = await _checkUsagePermission();
+      bool overlayOk = await Permission.systemAlertWindow.isGranted;
+      
+      if (!usageOk || !overlayOk) {
+        debugPrint('Service not started: Missing permissions');
+        return;
+      }
+
       await initializeBackgroundService();
       
       final service = FlutterBackgroundService();
