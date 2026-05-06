@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.focus_guard"
-    compileSdk = 36
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
