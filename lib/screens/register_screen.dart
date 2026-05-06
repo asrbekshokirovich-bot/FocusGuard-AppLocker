@@ -177,13 +177,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   _emailController.text.trim(),
                                   _passwordController.text.trim(),
                                 );
+                                
                                 if (!mounted) return;
                                 
                                 // Xush kelibsiz xabari
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(LanguageService().translate('register.welcome_new').replaceAll('{name}', _nameController.text.trim())),
+                                    content: Text("${LanguageService().translate('register.welcome_new').replaceAll('{name}', _nameController.text.trim())}. ${LanguageService().translate('register.check_spam') ?? 'Pochtangizning spam papkasini ham tekshiring.'}"),
                                     backgroundColor: const Color(0xFF34C759),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    margin: const EdgeInsets.all(16),
                                   ),
                                 );
 
@@ -192,10 +196,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 await prefs.setBool('is_logged_in', true);
 
                                 // Ruxsatlar oynasiga o'tish
-                                Navigator.pushReplacement(
-                                  context, 
-                                  MaterialPageRoute(builder: (context) => const PermissionsScreen())
-                                );
+                                if (mounted) {
+                                  Navigator.pushAndRemoveUntil(
+                                    context, 
+                                    MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+                                    (route) => false,
+                                  );
+                                }
                               } catch (e) {
                                 if (mounted) {
                                   setState(() => _isLoading = false);

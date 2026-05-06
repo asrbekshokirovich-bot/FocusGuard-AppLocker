@@ -271,51 +271,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showErrorMessage(String error) {
-    String message;
-    if (error.contains('user-not-found')) {
-      message = LanguageService().translate('errors.user_not_found');
-    } else if (error.contains('wrong-password') || error.contains('invalid-credential')) {
-      message = LanguageService().translate('errors.wrong_password');
-    } else if (error.contains('invalid-email')) {
-      message = LanguageService().translate('errors.invalid_email');
-    } else if (error.contains('network-request-failed')) {
-      message = LanguageService().translate('errors.network_error');
-    } else {
-      message = LanguageService().translate('errors.unknown_error');
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFFF3B30),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
 
                   // Footer Actions
                   Column(
@@ -373,6 +328,43 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showErrorMessage(String error) {
+    String message;
+    if (error.contains('user-not-found')) {
+      message = LanguageService().translate('errors.user_not_found');
+    } else if (error.contains('wrong-password') || error.contains('invalid-credential')) {
+      message = LanguageService().translate('errors.wrong_password');
+    } else if (error.contains('invalid-email')) {
+      message = LanguageService().translate('errors.invalid_email');
+    } else if (error.contains('network-request-failed')) {
+      message = LanguageService().translate('errors.network_error');
+    } else {
+      message = LanguageService().translate('errors.unknown_error');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFFF3B30),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

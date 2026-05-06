@@ -113,6 +113,7 @@ class LanguageService {
         'have_account': 'Hisobingiz bormi? ',
         'login_now': 'Kirish',
         'welcome_new': 'Muvaffaqiyatli ro\'yxatdan o\'tdingiz, {name}!',
+        'check_spam': 'Tasdiqlash xati yuborildi. Agar Inbox\'da bo\'lmasa, Spam papkasini ham tekshiring.',
       },
       'legal': {
         'title': 'Huquqiy Ma\'lumotlar',
@@ -143,15 +144,19 @@ class LanguageService {
           'title': 'Boshqa ilovalar ustida',
           'desc': 'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
         },
-        'errors': {
-          'invalid_email': 'Email manzili noto\'g\'ri formatda.',
-          'user_not_found': 'Bunday foydalanuvchi topilmadi.',
-          'wrong_password': 'Email yoki parol noto\'g\'ri.',
-          'email_already_in_use': 'Bu email allaqachon ro\'yxatdan o\'tgan.',
-          'weak_password': 'Parol juda zaif (kamida 6 ta belgi bo\'lishi kerak).',
-          'network_error': 'Internet aloqasi yo\'q yoki yomon.',
-          'unknown_error': 'Noma\'lum xatolik yuz berdi. Qaytadan urinib ko\'ring.',
-        }
+        'usage': {
+          'title': 'Ilovalardan foydalanish',
+          'desc': 'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
+        },
+      },
+      'errors': {
+        'invalid_email': 'Email manzili noto\'g\'ri formatda.',
+        'user_not_found': 'Bunday foydalanuvchi topilmadi.',
+        'wrong_password': 'Email yoki parol noto\'g\'ri.',
+        'email_already_in_use': 'Bu email allaqachon ro\'yxatdan o\'tgan.',
+        'weak_password': 'Parol juda zaif (kamida 6 ta belgi bo\'lishi kerak).',
+        'network_error': 'Internet aloqasi yo\'q yoki yomon.',
+        'unknown_error': 'Noma\'lum xatolik yuz berdi. Qaytadan urinib ko\'ring.',
       }
     },
     'ru': {
@@ -201,6 +206,7 @@ class LanguageService {
         'have_account': 'Уже есть аккаунт? ',
         'login_now': 'Войти',
         'welcome_new': 'Вы успешно зарегистрировались, {name}!',
+        'check_spam': 'Письмо с подтверждением отправлено. Если его нет в папке Входящие, проверьте папку Спам.',
       },
       'legal': {
         'title': 'Юридическая Информация',
@@ -231,15 +237,19 @@ class LanguageService {
           'title': 'Поверх других приложений',
           'desc': 'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
         },
-        'errors': {
-          'invalid_email': 'Неверный формат email.',
-          'user_not_found': 'Пользователь не найден.',
-          'wrong_password': 'Неверный email или пароль.',
-          'email_already_in_use': 'Этот email уже зарегистрирован.',
-          'weak_password': 'Пароль слишком слабый (минимум 6 символов).',
-          'network_error': 'Ошибка сети. Проверьте подключение.',
-          'unknown_error': 'Произошла неизвестная ошибка. Попробуйте еще раз.',
-        }
+        'usage': {
+          'title': 'Доступ к использованию',
+          'desc': 'Требуется для определения открытого приложения и его блокировки.',
+        },
+      },
+      'errors': {
+        'invalid_email': 'Неверный формат email.',
+        'user_not_found': 'Пользователь не найден.',
+        'wrong_password': 'Неверный email или пароль.',
+        'email_already_in_use': 'Этот email уже зарегистрирован.',
+        'weak_password': 'Пароль слишком слабый (минимум 6 символов).',
+        'network_error': 'Ошибка сети. Проверьте подключение.',
+        'unknown_error': 'Произошла неизвестная ошибка. Попробуйте еще раз.',
       }
     },
     'en': {
@@ -289,6 +299,7 @@ class LanguageService {
         'have_account': 'Already have an account? ',
         'login_now': 'Log In',
         'welcome_new': 'Successfully registered, {name}!',
+        'check_spam': 'Verification email sent. If not in Inbox, please check your Spam folder.',
       },
       'legal': {
         'title': 'Legal Information',
@@ -319,15 +330,19 @@ class LanguageService {
           'title': 'Display Over Other Apps',
           'desc': 'Required to show the lock screen when you open a blocked app.',
         },
-        'errors': {
-          'invalid_email': 'Invalid email format.',
-          'user_not_found': 'User not found.',
-          'wrong_password': 'Incorrect email or password.',
-          'email_already_in_use': 'This email is already registered.',
-          'weak_password': 'Password is too weak (min 6 characters).',
-          'network_error': 'Network error. Please check your connection.',
-          'unknown_error': 'An unknown error occurred. Please try again.',
-        }
+        'usage': {
+          'title': 'Usage Access',
+          'desc': 'Required to detect open apps and block them.',
+        },
+      },
+      'errors': {
+        'invalid_email': 'Invalid email format.',
+        'user_not_found': 'User not found.',
+        'wrong_password': 'Incorrect email or password.',
+        'email_already_in_use': 'This email is already registered.',
+        'weak_password': 'Password is too weak (min 6 characters).',
+        'network_error': 'Network error. Please check your connection.',
+        'unknown_error': 'An unknown error occurred. Please try again.',
       }
     }
   };
