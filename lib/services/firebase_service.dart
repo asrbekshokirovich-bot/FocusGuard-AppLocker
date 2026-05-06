@@ -19,6 +19,9 @@ class FirebaseService {
       
       User? user = result.user;
       if (user != null) {
+        // Email tasdiqlash xatini yuborish
+        await user.sendEmailVerification();
+        
         // Foydalanuvchi ismini Firestore'da saqlash
         await _firestore.collection('users').doc(user.uid).set({
           'name': name,

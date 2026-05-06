@@ -21,6 +21,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  bool _obscureText = true;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   
@@ -349,6 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
     BuildContext context, {
     required String hint,
     required IconData icon,
+    FocusNode? focusNode,
     TextInputType keyboardType = TextInputType.text,
     TextEditingController? controller,
     bool isPassword = false,
