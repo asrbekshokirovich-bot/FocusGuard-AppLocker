@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:app_usage/app_usage.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/app_translation_service.dart';
 import '../services/background_service.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
+import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {
   const PermissionsScreen({super.key});
