@@ -134,6 +134,9 @@ class LanguageService {
           },
         ]
       },
+      'profile': {
+        'cancel': 'Bekor qilish',
+      },
       'permissions': {
         'title': 'Ruxsatlar Kerak',
         'subtitle': 'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
@@ -215,6 +218,9 @@ class LanguageService {
           },
         ]
       },
+      'profile': {
+        'cancel': 'Отмена',
+      },
       'permissions': {
         'title': 'Нужны Разрешения',
         'subtitle': 'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
@@ -295,6 +301,9 @@ class LanguageService {
             'content': 'All personal and statistical data are protected by AES-256 encryption methods in accordance with industry standards.'
           },
         ]
+      },
+      'profile': {
+        'cancel': 'Cancel',
       },
       'permissions': {
         'title': 'Permissions Required',
