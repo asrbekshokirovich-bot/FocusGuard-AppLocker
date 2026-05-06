@@ -16,10 +16,20 @@ import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Firebase initialization
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+    // Ehtimol google-services.json fayli hali qo'shilmagan
+  }
+  
   await AppTranslationService().init();
   await LanguageService().init();
   await ThemeService().init();
