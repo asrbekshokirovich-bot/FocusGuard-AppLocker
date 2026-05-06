@@ -6,7 +6,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/app_translation_service.dart';
+import '../services/language_service.dart';
 import '../services/background_service.dart';
 import 'dashboard_screen.dart';
 
@@ -83,7 +83,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
   @override
   Widget build(BuildContext context) {
-    final lang = AppTranslationService();
+    final lang = LanguageService();
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -95,7 +95,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               const SizedBox(height: 20),
               Text(
                 lang.translate('permissions.title'),
-                style: lang.getFont(
+                style: LanguageService.getFont(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                   color: Theme.of(context).colorScheme.onSurface,
@@ -105,7 +105,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               const SizedBox(height: 12),
               Text(
                 lang.translate('permissions.subtitle'),
-                style: lang.getFont(
+                style: LanguageService.getFont(
                   fontSize: 15,
                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   height: 1.4,
@@ -167,7 +167,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                   ),
                   child: Text(
                     lang.translate('common.continue'),
-                    style: lang.getFont(
+                    style: LanguageService.getFont(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
@@ -189,7 +189,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     required Color color,
     required bool isGranted,
     required VoidCallback onTap,
-    required AppTranslationService lang,
+    required LanguageService lang,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),

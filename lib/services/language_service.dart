@@ -130,6 +130,18 @@ class LanguageService {
           },
         ]
       },
+      'permissions': {
+        'title': 'Ruxsatlar Kerak',
+        'subtitle': 'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
+        'overlay': {
+          'title': 'Boshqa ilovalar ustida',
+          'desc': 'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
+        },
+        'usage': {
+          'title': 'Foydalanish tarixi',
+          'desc': 'Hozir qaysi ilovaga kirganingizni aniqlash uchun kerak (Usage Access).',
+        }
+      }
     },
     'ru': {
       'language': {
@@ -195,6 +207,18 @@ class LanguageService {
           },
         ]
       },
+      'permissions': {
+        'title': 'Нужны Разрешения',
+        'subtitle': 'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
+        'overlay': {
+          'title': 'Поверх других приложений',
+          'desc': 'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
+        },
+        'usage': {
+          'title': 'Доступ к использованию',
+          'desc': 'Требуется для определения того, какое приложение вы используете в данный момент.',
+        }
+      }
     },
     'en': {
       'language': {
@@ -260,6 +284,18 @@ class LanguageService {
           },
         ]
       },
+      'permissions': {
+        'title': 'Permissions Required',
+        'subtitle': 'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
+        'overlay': {
+          'title': 'Display Over Other Apps',
+          'desc': 'Required to show the lock screen when you open a blocked app.',
+        },
+        'usage': {
+          'title': 'Usage Access',
+          'desc': 'Required to detect which app you are currently using.',
+        }
+      }
     }
   };
 
