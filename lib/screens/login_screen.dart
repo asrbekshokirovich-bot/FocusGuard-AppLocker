@@ -400,6 +400,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
   void _showForgotPasswordDialog(BuildContext context) {
     final TextEditingController resetEmailController = TextEditingController();
     
