@@ -199,31 +199,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: ElevatedButton(
                       onPressed: () async {
-                        // Ruxsatlarni tekshirish
-                        bool hasPermissions = true;
-                        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-                          bool overlayOk = await Permission.systemAlertWindow.isGranted;
-                          bool usageOk = false;
-                          try {
-                            DateTime now = DateTime.now();
-                            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
-                            usageOk = true;
-                          } catch (_) {}
-                          
-                          hasPermissions = overlayOk && usageOk;
-                        }
-
                         if (!mounted) return;
                         
                         // Tizimga kirganligini eslab qolish
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('is_logged_in', true);
 
-                        if (hasPermissions) {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
-                        } else {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
-                        }
+                        // Har doim birinchi bo'lib ruxsatlar oynasiga o'tamiz (foydalanuvchi o'zi o'qib bosishi uchun)
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF007AFF),
