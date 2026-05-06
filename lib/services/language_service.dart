@@ -72,24 +72,34 @@ class LanguageService {
         'subtitle': 'Davom etish uchun ilova tilini tanlang.',
         'continue': 'Davom etish',
       },
-      'common': {'continue': 'Davom etish', 'back': 'Orqaga', 'save': 'Saqlash', 'login': 'Tizimga Kirish', 'cancel': 'Bekor qilish'},
+      'common': {
+        'continue': 'Davom etish',
+        'back': 'Orqaga',
+        'save': 'Saqlash',
+        'login': 'Tizimga Kirish',
+        'cancel': 'Bekor qilish'
+      },
       'onboarding': [
         {
           'title': 'Chuqur Diqqat Markazi',
-          'text': 'Ijtimoiy tarmoqlar va keraksiz xabarlarni o\'chirib, faqat muhim maqsadga diqqat qiling.'
+          'text':
+              'Ijtimoiy tarmoqlar va keraksiz xabarlarni o\'chirib, faqat muhim maqsadga diqqat qiling.'
         },
         {
           'title': 'Zararli Ilovalarni Qulflash',
-          'text': 'Vaqtingizni o\'g\'irlaydigan ilovalarni bloklang va kuningizni unumli faoliyatga yo\'naltiring.'
+          'text':
+              'Vaqtingizni o\'g\'irlaydigan ilovalarni bloklang va kuningizni unumli faoliyatga yo\'naltiring.'
         },
         {
           'title': 'Samaradorlik Tahlili',
-          'text': 'Daqiqalaringiz qayerga sarflanayotganini kuzatib, barcha natijalaringizni tahlil qiling.'
+          'text':
+              'Daqiqalaringiz qayerga sarflanayotganini kuzatib, barcha natijalaringizni tahlil qiling.'
         },
       ],
       'login': {
         'welcome': 'Xush Kelibsiz.',
-        'subtitle': 'Tizimga kirish uchun shaxsiy ma\'lumotlaringizni\nkiriting.',
+        'subtitle':
+            'Tizimga kirish uchun shaxsiy ma\'lumotlaringizni\nkiriting.',
         'email_hint': 'Username@gmail.com',
         'password_label': 'PAROL',
         'password_hint': '••••••••',
@@ -98,8 +108,10 @@ class LanguageService {
         'terms': 'Foydalanuvchi shartlari va Maxfiylik siyosati',
         'forgot_password': 'Kod yodingizdan chiqdimi?',
         'forgot_password_title': 'Parolni Tiklash',
-        'forgot_password_desc': 'Ro\'yxatdan o\'tgan pochtangizni kiriting. Biz sizga parolni yangilash havolasini yuboramiz.',
-        'reset_link_sent': 'Havola Gmail pochtangizga yuborildi. Iltimos, pochtangizni tekshiring.',
+        'forgot_password_desc':
+            'Ro\'yxatdan o\'tgan pochtangizni kiriting. Biz sizga parolni yangilash havolasini yuboramiz.',
+        'reset_link_sent':
+            'Havola Gmail pochtangizga yuborildi. Iltimos, pochtangizni tekshiring.',
         'welcome_back': 'Xush kelibsiz, {name}!',
       },
       'register': {
@@ -113,7 +125,8 @@ class LanguageService {
         'have_account': 'Hisobingiz bormi? ',
         'login_now': 'Kirish',
         'welcome_new': 'Muvaffaqiyatli ro\'yxatdan o\'tdingiz, {name}!',
-        'check_spam': 'Tasdiqlash xati yuborildi. Agar Inbox\'da bo\'lmasa, Spam papkasini ham tekshiring.',
+        'check_spam':
+            'Tasdiqlash xati yuborildi. Agar Inbox\'da bo\'lmasa, Spam papkasini ham tekshiring.',
       },
       'legal': {
         'title': 'Huquqiy Ma\'lumotlar',
@@ -121,32 +134,39 @@ class LanguageService {
         'sections': [
           {
             'title': '1. Foydalanish Shartlari',
-            'content': 'FocusGuard ilovasidan foydalanish orqali siz ushbu shartlarga to\'liq rozilik bildirasiz. Ilova mahsuldorlikni oshirish va diqqatni jamlashga yordam berish uchun yaratilgan.'
+            'content':
+                'FocusGuard ilovasidan foydalanish orqali siz ushbu shartlarga to\'liq rozilik bildirasiz. Ilova mahsuldorlikni oshirish va diqqatni jamlashga yordam berish uchun yaratilgan.'
           },
           {
             'title': '2. Maxfiylik Siyosati',
-            'content': 'Biz sizning maxfiyligingizni qadrlaymiz. FocusGuard faqat ilovaning asosiy funksiyalari uchun zarur bo\'lgan minimal statistik ma’lumotlarni to’playdi.'
+            'content':
+                'Biz sizning maxfiyligingizni qadrlaymiz. FocusGuard faqat ilovaning asosiy funksiyalari uchun zarur bo\'lgan minimal statistik ma’lumotlarni to’playdi.'
           },
           {
             'title': '3. Foydalanuvchi Mas’uliyati',
-            'content': 'Siz o’z hisobingiz va parolingiz xavfsizligi uchun shaxsan javobgarsiz. Hisobingizdan ruxsatsiz foydalanilganini sezsangiz, darhol bizga xabar berishingiz kerak.'
+            'content':
+                'Siz o’z hisobingiz va parolingiz xavfsizligi uchun shaxsan javobgarsiz. Hisobingizdan ruxsatsiz foydalanilganini sezsangiz, darhol bizga xabar berishingiz kerak.'
           },
           {
             'title': '4. Ma’lumotlar Xavfsizligi',
-            'content': 'Barcha shaxsiy va statistik ma’lumotlar sanoat standartlariga muvofiq AES-256 shifrlash usullari bilan himoyalangan.'
+            'content':
+                'Barcha shaxsiy va statistik ma’lumotlar sanoat standartlariga muvofiq AES-256 shifrlash usullari bilan himoyalangan.'
           },
         ]
       },
       'permissions': {
         'title': 'Ruxsatlar Kerak',
-        'subtitle': 'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
+        'subtitle':
+            'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
         'overlay': {
           'title': 'Boshqa ilovalar ustida',
-          'desc': 'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
+          'desc':
+              'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
         },
         'usage': {
           'title': 'Ilovalardan foydalanish',
-          'desc': 'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
+          'desc':
+              'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
         },
       },
       'errors': {
@@ -156,7 +176,8 @@ class LanguageService {
         'email_already_in_use': 'Bu email allaqachon ro\'yxatdan o\'tgan.',
         'weak_password': 'Parol juda zaif (kamida 6 ta belgi bo\'lishi kerak).',
         'network_error': 'Internet aloqasi yo\'q yoki yomon.',
-        'unknown_error': 'Noma\'lum xatolik yuz berdi. Qaytadan urinib ko\'ring.',
+        'unknown_error':
+            'Noma\'lum xatolik yuz berdi. Qaytadan urinib ko\'ring.',
       }
     },
     'ru': {
@@ -165,19 +186,28 @@ class LanguageService {
         'subtitle': 'Выберите язык приложения, чтобы продолжить.',
         'continue': 'Продолжить',
       },
-      'common': {'continue': 'Продолжить', 'back': 'Назад', 'save': 'Сохранить', 'login': 'Войти в систему', 'cancel': 'Отмена'},
+      'common': {
+        'continue': 'Продолжить',
+        'back': 'Назад',
+        'save': 'Сохранить',
+        'login': 'Войти в систему',
+        'cancel': 'Отмена'
+      },
       'onboarding': [
         {
           'title': 'Центр Глубокого Фокуса',
-          'text': 'Отключите социальные сети и ненужные уведомления, сосредоточьтесь только на важных целях.'
+          'text':
+              'Отключите социальные сети и ненужные уведомления, сосредоточьтесь только на важных целях.'
         },
         {
           'title': 'Блокировка Вредных Приложений',
-          'text': 'Блокируйте приложения, которые крадут ваше время, и направляйте свой день на продуктивную деятельность.'
+          'text':
+              'Блокируйте приложения, которые крадут ваше время, и направляйте свой день на продуктивную деятельность.'
         },
         {
           'title': 'Анализ Эффективности',
-          'text': 'Следите за тем, куда уходят ваши минуты, и анализируйте все свои результаты.'
+          'text':
+              'Следите за тем, куда уходят ваши минуты, и анализируйте все свои результаты.'
         },
       ],
       'login': {
@@ -191,8 +221,10 @@ class LanguageService {
         'terms': 'Условия использования и политика конфиденциальности',
         'forgot_password': 'Забыли пароль?',
         'forgot_password_title': 'Восстановление пароля',
-        'forgot_password_desc': 'Введите адрес электронной почты, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.',
-        'reset_link_sent': 'Ссылка для сброса отправлена на ваш Gmail. Пожалуйста, проверьте почту.',
+        'forgot_password_desc':
+            'Введите адрес электронной почты, указанный при регистрации. Мы отправим вам ссылку для сброса пароля.',
+        'reset_link_sent':
+            'Ссылка для сброса отправлена на ваш Gmail. Пожалуйста, проверьте почту.',
         'welcome_back': 'С возвращением, {name}!',
       },
       'register': {
@@ -206,7 +238,8 @@ class LanguageService {
         'have_account': 'Уже есть аккаунт? ',
         'login_now': 'Войти',
         'welcome_new': 'Вы успешно зарегистрировались, {name}!',
-        'check_spam': 'Письмо с подтверждением отправлено. Если его нет в папке Входящие, проверьте папку Спам.',
+        'check_spam':
+            'Письмо с подтверждением отправлено. Если его нет в папке Входящие, проверьте папку Спам.',
       },
       'legal': {
         'title': 'Юридическая Информация',
@@ -214,32 +247,39 @@ class LanguageService {
         'sections': [
           {
             'title': '1. Условия Использования',
-            'content': 'Используя приложение FocusGuard, вы полностью соглашаетесь с этими условиями. Приложение создано для повышения продуктивности и улучшения концентрации.'
+            'content':
+                'Используя приложение FocusGuard, вы полностью соглашаетесь с этими условиями. Приложение создано для повышения продуктивности и улучшения концентрации.'
           },
           {
             'title': '2. Политика Конфиденциальности',
-            'content': 'Мы ценим вашу конфиденциальность. FocusGuard собирает только минимальные статистические данные, необходимые для основных функций приложения.'
+            'content':
+                'Мы ценим вашу конфиденциальность. FocusGuard собирает только минимальные статистические данные, необходимые для основных функций приложения.'
           },
           {
             'title': '3. Ответственность Пользователя',
-            'content': 'Вы несете личную ответственность за безопасность своей учетной записи и пароля. Если вы заметите несанкционированное использование вашего аккауnta, немедленно сообщите нам.'
+            'content':
+                'Вы несете личную ответственность за безопасность своей учетной записи и пароля. Если вы заметите несанкционированное использование вашего аккауnta, немедленно сообщите нам.'
           },
           {
             'title': '4. Безопасность Данных',
-            'content': 'Все личные и статистические данные защищены методами шифрования AES-256 в соответствии с отраслевыми стандартами.'
+            'content':
+                'Все личные и статистические данные защищены методами шифрования AES-256 в соответствии с отраслевыми стандартами.'
           },
         ]
       },
       'permissions': {
         'title': 'Нужны Разрешения',
-        'subtitle': 'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
+        'subtitle':
+            'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
         'overlay': {
           'title': 'Поверх других приложений',
-          'desc': 'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
+          'desc':
+              'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
         },
         'usage': {
           'title': 'Доступ к использованию',
-          'desc': 'Требуется для определения открытого приложения и его блокировки.',
+          'desc':
+              'Требуется для определения открытого приложения и его блокировки.',
         },
       },
       'errors': {
@@ -258,19 +298,28 @@ class LanguageService {
         'subtitle': 'Choose app language to continue.',
         'continue': 'Continue',
       },
-      'common': {'continue': 'Continue', 'back': 'Back', 'save': 'Save', 'login': 'Log In', 'cancel': 'Cancel'},
+      'common': {
+        'continue': 'Continue',
+        'back': 'Back',
+        'save': 'Save',
+        'login': 'Log In',
+        'cancel': 'Cancel'
+      },
       'onboarding': [
         {
           'title': 'Deep Focus Center',
-          'text': 'Turn off social media and unnecessary notifications, focus only on important goals.'
+          'text':
+              'Turn off social media and unnecessary notifications, focus only on important goals.'
         },
         {
           'title': 'Lock Distracting Apps',
-          'text': 'Block apps that steal your time and direct your day toward productive activities.'
+          'text':
+              'Block apps that steal your time and direct your day toward productive activities.'
         },
         {
           'title': 'Performance Analysis',
-          'text': 'Track where your minutes are going and analyze all your results.'
+          'text':
+              'Track where your minutes are going and analyze all your results.'
         },
       ],
       'login': {
@@ -284,8 +333,10 @@ class LanguageService {
         'terms': 'Terms of Use and Privacy Policy',
         'forgot_password': 'Forgot password?',
         'forgot_password_title': 'Reset Password',
-        'forgot_password_desc': 'Enter your registered email address. We will send you a link to reset your password.',
-        'reset_link_sent': 'Reset link has been sent to your Gmail. Please check your inbox.',
+        'forgot_password_desc':
+            'Enter your registered email address. We will send you a link to reset your password.',
+        'reset_link_sent':
+            'Reset link has been sent to your Gmail. Please check your inbox.',
         'welcome_back': 'Welcome back, {name}!',
       },
       'register': {
@@ -299,7 +350,8 @@ class LanguageService {
         'have_account': 'Already have an account? ',
         'login_now': 'Log In',
         'welcome_new': 'Successfully registered, {name}!',
-        'check_spam': 'Verification email sent. If not in Inbox, please check your Spam folder.',
+        'check_spam':
+            'Verification email sent. If not in Inbox, please check your Spam folder.',
       },
       'legal': {
         'title': 'Legal Information',
@@ -307,28 +359,34 @@ class LanguageService {
         'sections': [
           {
             'title': '1. Terms of Use',
-            'content': 'By using the FocusGuard app, you fully agree to these terms. The app is designed to increase productivity and help with concentration.'
+            'content':
+                'By using the FocusGuard app, you fully agree to these terms. The app is designed to increase productivity and help with concentration.'
           },
           {
             'title': '2. Privacy Policy',
-            'content': 'We value your privacy. FocusGuard only collects minimal statistical data necessary for the main functions of the app.'
+            'content':
+                'We value your privacy. FocusGuard only collects minimal statistical data necessary for the main functions of the app.'
           },
           {
             'title': '3. User Responsibility',
-            'content': 'You are personally responsible for the security of your account and password. If you notice unauthorized use of your account, you must inform us immediately.'
+            'content':
+                'You are personally responsible for the security of your account and password. If you notice unauthorized use of your account, you must inform us immediately.'
           },
           {
             'title': '4. Data Security',
-            'content': 'All personal and statistical data are protected by AES-256 encryption methods in accordance with industry standards.'
+            'content':
+                'All personal and statistical data are protected by AES-256 encryption methods in accordance with industry standards.'
           },
         ]
       },
       'permissions': {
         'title': 'Permissions Required',
-        'subtitle': 'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
+        'subtitle':
+            'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
         'overlay': {
           'title': 'Display Over Other Apps',
-          'desc': 'Required to show the lock screen when you open a blocked app.',
+          'desc':
+              'Required to show the lock screen when you open a blocked app.',
         },
         'usage': {
           'title': 'Usage Access',
@@ -351,7 +409,7 @@ class LanguageService {
   dynamic translate(String key) {
     List<String> keys = key.split('.');
     dynamic value = _translations[_currentLanguage] ?? _translations['en'];
-    
+
     for (String k in keys) {
       if (value is Map && value.containsKey(k)) {
         value = value[k];
