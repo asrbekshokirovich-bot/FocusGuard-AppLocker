@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_usage/app_usage.dart';
 import 'language_screen.dart';
+import 'dashboard_screen.dart';
+import 'permissions_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,8 +34,35 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 4000), () {
-      if (mounted) {
+    Future.delayed(const Duration(milliseconds: 3000), () async {
+      if (!mounted) return;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final bool isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+
+      if (isLoggedIn) {
+        // Ruxsatlarni tekshirish
+        bool hasPermissions = true;
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          bool overlayOk = await Permission.systemAlertWindow.isGranted;
+          bool usageOk = false;
+          try {
+            DateTime now = DateTime.now();
+            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+            usageOk = true;
+          } catch (_) {}
+          
+          hasPermissions = overlayOk && usageOk;
+        }
+
+        if (mounted) {
+          if (hasPermissions) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+          } else {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+          }
+        }
+      } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));
       }
     });

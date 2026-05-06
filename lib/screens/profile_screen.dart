@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_translation_service.dart';
 import 'premium_screen.dart';
 import 'my_plans_screen.dart';
@@ -357,16 +358,21 @@ class ProfileScreen extends StatelessWidget {
                                           lang.translate('profile.logout'),
                                           style: GoogleFonts.inter(),
                                         ),
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          Navigator.of(
-                                            context,
-                                            rootNavigator: true,
-                                          ).pushReplacement(
-                                            MaterialPageRoute(
-                                              builder: (context) => const SplashScreen(),
-                                            ),
-                                          );
+                                        onPressed: () async {
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await prefs.remove('is_logged_in');
+                                          
+                                          if (context.mounted) {
+                                            Navigator.pop(context);
+                                            Navigator.of(
+                                              context,
+                                              rootNavigator: true,
+                                            ).pushReplacement(
+                                              MaterialPageRoute(
+                                                builder: (context) => const SplashScreen(),
+                                              ),
+                                            );
+                                          }
                                         },
                                       ),
                                     ],

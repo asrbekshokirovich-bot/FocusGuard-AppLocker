@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
@@ -194,6 +195,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         if (!mounted) return;
                         
+                        // Tizimga kirganligini eslab qolish
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('is_logged_in', true);
+
                         if (hasPermissions) {
                           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
                         } else {
