@@ -125,9 +125,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<void> _handlePermissionSequence(Map<String, dynamic> app) async {
     bool overlayOk = await Permission.systemAlertWindow.isGranted;
-    bool usageOk = await _checkUsagePermission();
+    // Usage accessni bu yerda tekshirmaymiz (redirektni oldini olish uchun)
 
-    if (!overlayOk || !usageOk) {
+    if (!overlayOk) {
       // Agar ruxsatlar bo'lmasa, switchni qaytaramiz va oynani chiqaramiz
       _resetSwitch(app);
       _showPermissionPromptDialog();
@@ -156,19 +156,19 @@ class _BlockListScreenState extends State<BlockListScreen> {
         content: Text(lang.translate('profile.permission_dialog_desc')),
         actions: [
           CupertinoDialogAction(
-            child: Text(lang.translate('profile.btn_understand')),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          CupertinoDialogAction(
             isDefaultAction: true,
             child: Text(lang.translate('profile.btn_redirect')),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+                MaterialPageRoute(builder: (context) => const PermissionsScreen(isFromOnboarding: false)),
               );
             },
+          ),
+          CupertinoDialogAction(
+            child: Text(lang.translate('profile.btn_understand')),
+            onPressed: () => Navigator.pop(ctx),
           ),
         ],
       ),
@@ -408,6 +408,15 @@ class _BlockListScreenState extends State<BlockListScreen> {
             value: app['blocked'],
             activeColor: Theme.of(context).primaryColor,
             onChanged: (val) async {
+              if (val && app['isReal'] == true) {
+                // Avval ruxsatni tekshiramiz
+                bool overlayOk = await Permission.systemAlertWindow.isGranted;
+                if (!overlayOk) {
+                  _showPermissionPromptDialog();
+                  return; // Switchni surishga yo'l qo'ymaymiz
+                }
+              }
+
               setState(() {
                 app['blocked'] = val;
               });

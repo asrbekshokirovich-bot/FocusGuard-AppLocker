@@ -65,6 +65,20 @@ class FirebaseService {
     }
   }
 
+  // Email mavjudligini tekshirish
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final result = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .get();
+      return result.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('Check Email Exists Error: $e');
+      return false;
+    }
+  }
+
   // Foydalanuvchi ma'lumotlarini olish
   Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {

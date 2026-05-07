@@ -354,7 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               CupertinoIcons.lock_shield,
                               lang.translate('profile.menu_permissions'),
                               const Color(0xFF34C759),
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen())),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen(isFromOnboarding: false))),
                             ),
                             _buildSettingsItem(
                               context,

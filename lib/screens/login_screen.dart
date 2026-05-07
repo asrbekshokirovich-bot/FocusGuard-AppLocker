@@ -29,12 +29,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final FocusNode _passwordFocus = FocusNode();
   
   bool _isLoading = false;
+  bool _emailError = false;
+  bool _passwordError = false;
 
   @override
   void initState() {
     super.initState();
     _emailFocus.addListener(() => setState(() {}));
     _passwordFocus.addListener(() => setState(() {}));
+    
+    // Yozishni boshlaganda xatolikni yo'qotish
+    _emailController.addListener(() {
+      if (_emailError && _emailController.text.isNotEmpty) {
+        setState(() => _emailError = false);
+      }
+    });
+    _passwordController.addListener(() {
+      if (_passwordError && _passwordController.text.isNotEmpty) {
+        setState(() => _passwordError = false);
+      }
+    });
   }
 
   @override
@@ -154,6 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     focusNode: _emailFocus,
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
+                    isError: _emailError,
                   ),
                   const SizedBox(height: 14),
 
@@ -166,6 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     isPassword: true,
                     obscureText: _obscureText,
+                    isError: _passwordError,
                     onToggleVisibility: () {
                       setState(() {
                         _obscureText = !_obscureText;
@@ -209,6 +225,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: ElevatedButton(
                         onPressed: _isLoading ? null : () async {
+                        // Validatsiya
+                        setState(() {
+                          _emailError = _emailController.text.trim().isEmpty;
+                          _passwordError = _passwordController.text.trim().isEmpty;
+                        });
+
+                        if (_emailError || _passwordError) return;
+
                         setState(() => _isLoading = true);
                         try {
                           final result = await FirebaseService().signInWithEmail(
@@ -392,6 +416,7 @@ class _LoginScreenState extends State<LoginScreen> {
     TextEditingController? controller,
     bool isPassword = false,
     bool obscureText = false,
+    bool isError = false,
     VoidCallback? onToggleVisibility,
   }) {
     final bool isFocused = focusNode?.hasFocus ?? false;
@@ -403,16 +428,20 @@ class _LoginScreenState extends State<LoginScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isFocused 
-              ? const Color(0xFF007AFF).withOpacity(0.5) 
-              : Colors.transparent,
+          color: isError
+              ? const Color(0xFFFF3B30)
+              : isFocused 
+                  ? const Color(0xFF007AFF).withOpacity(0.5) 
+                  : Colors.transparent,
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: isFocused 
-                ? const Color(0xFF007AFF).withOpacity(0.12)
-                : Colors.black.withOpacity(0.02),
+            color: isError
+                ? const Color(0xFFFF3B30).withOpacity(0.1)
+                : isFocused 
+                    ? const Color(0xFF007AFF).withOpacity(0.12)
+                    : Colors.black.withOpacity(0.02),
             blurRadius: isFocused ? 12 : 8,
             offset: isFocused ? const Offset(0, 4) : const Offset(0, 2),
           ),
@@ -513,18 +542,33 @@ class _LoginScreenState extends State<LoginScreen> {
               style: const TextStyle(color: Color(0xFF007AFF)),
             ),
             onPressed: () async {
-              if (resetEmailController.text.trim().isEmpty) return;
+              final String email = resetEmailController.text.trim();
+              if (email.isEmpty) return;
               
+              // Navigator.pop dan oldin tekshiramiz
               try {
-                await FirebaseService().sendPasswordResetEmail(resetEmailController.text.trim());
+                // Email formatini tekshirish (ixtiyoriy lekin yaxshi)
+                if (!email.contains('@')) {
+                   _showErrorMessage('invalid-email');
+                   return;
+                }
+
+                bool exists = await FirebaseService().checkEmailExists(email);
+                
+                if (!exists) {
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  _showErrorMessage('user-not-found');
+                  return;
+                }
+
+                await FirebaseService().sendPasswordResetEmail(email);
                 if (!mounted) return;
                 Navigator.pop(context);
                 _showSuccessDialog(context);
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Reset Error: $e')),
-                );
+                _showErrorMessage(e.toString());
               }
             },
           ),

@@ -130,6 +130,7 @@ class AppTranslationService {
         'save': 'Saqlash',
         'login': 'Tizimga Kirish',
         'cancel': 'Bekor qilish',
+        'done': 'Bajarildi',
       },
       'settings': {
         'language': {
@@ -167,10 +168,9 @@ class AppTranslationService {
         'cancel': 'Bekor qilish',
         'menu_permissions': 'Ruxsatlar',
         'permission_dialog_title': 'Ruxsatlar zarur',
-        'permission_dialog_desc':
-            'Ushbu funksiyadan foydalanish uchun profil bo\'limidagi ruxsatlarni berishingizni so\'raymiz.',
-        'btn_redirect': 'Bo\'limga yo\'naltirish',
-        'btn_understand': 'Tushunarli',
+        'permission_dialog_desc': 'Ilovani bloklash uchun maxsus ruxsatlarni berishingiz kerak.',
+        'btn_redirect': 'Sozlamalar',
+        'btn_understand': 'Yopish',
       },
       'permissions': {
         'title': 'Ruxsatlar Kerak',
@@ -218,6 +218,8 @@ class AppTranslationService {
         'recent_sessions': 'Oxirgi seanslar',
         'today': 'Bugun',
         'yesterday': 'Kecha',
+        'pro_banner_title': 'PRO Tahlilni faollashtiring!',
+        'pro_banner_desc': 'Aqlli solishtirish va bashorat funksiyalariga to\'liq kirishga ega bo\'ling...',
       },
       'dashboard': {
         'greeting': 'Salom,',
@@ -513,6 +515,7 @@ class AppTranslationService {
         'save': 'Save',
         'login': 'Log In',
         'cancel': 'Cancel',
+        'done': 'Done',
       },
       'settings': {
         'language': {
@@ -550,10 +553,9 @@ class AppTranslationService {
         'cancel': 'Cancel',
         'menu_permissions': 'Permissions',
         'permission_dialog_title': 'Permissions Required',
-        'permission_dialog_desc':
-            'Please grant necessary permissions from the Profile section to use this feature.',
-        'btn_redirect': 'Redirect to Section',
-        'btn_understand': 'I Understand',
+        'permission_dialog_desc': 'Special permissions are needed to block apps.',
+        'btn_redirect': 'Settings',
+        'btn_understand': 'Close',
       },
       'permissions': {
         'title': 'Permissions Required',
@@ -774,12 +776,6 @@ class AppTranslationService {
         'done': 'Done',
         'premium_banner_title': 'Go Premium',
         'premium_banner_desc': 'Remove all limits and unlock new features',
-        'strict_mode_info':
-            'When this mode is enabled, you cannot stop the session until the set time expires, and access to blocked apps is restricted.',
-        'anti_distract_info':
-            'All notifications from social networks and distracting apps will be completely turned off.',
-        'allowed_apps_info':
-            'Only the most essential apps you select (e.g., dictionary or calculator) are allowed.',
         'sounds': {
           'title': 'Nature Sounds',
           'none': 'None',
@@ -895,7 +891,9 @@ class AppTranslationService {
         'continue': 'Продолжить',
         'back': 'Назад',
         'save': 'Сохранить',
-        'login': 'Войти в систему'
+        'login': 'Войти в систему',
+        'cancel': 'Отмена',
+        'done': 'Готово',
       },
       'settings': {
         'language': {
@@ -934,10 +932,9 @@ class AppTranslationService {
         'cancel': 'Отмена',
         'menu_permissions': 'Разрешения',
         'permission_dialog_title': 'Нужны разрешения',
-        'permission_dialog_desc':
-            'Пожалуйста, предоставьте необходимые разрешения в разделе «Профиль», чтобы использовать эту функцию.',
-        'btn_redirect': 'Перейти в раздел',
-        'btn_understand': 'Понятно',
+        'permission_dialog_desc': 'Для блокировки приложений требуются специальные разрешения.',
+        'btn_redirect': 'Настройки',
+        'btn_understand': 'Закрыть',
       },
       'permissions': {
         'title': 'Нужны Разрешения',
@@ -1310,7 +1307,9 @@ class AppTranslationService {
         'continue': '계속하기',
         'back': '뒤로',
         'save': '저장',
-        'login': '로그인'
+        'login': '로그인',
+        'cancel': '취소',
+        'done': '완료',
       },
       'nav': {
         'focus': '포커스',
@@ -1345,10 +1344,9 @@ class AppTranslationService {
         'cancel': '취소',
         'menu_permissions': '권한 설정',
         'permission_dialog_title': '권한 필요',
-        'permission_dialog_desc':
-            '이 기능을 사용하려면 프로필 섹션에서 필요한 권한을 허용해 주세요.',
-        'btn_redirect': '설정으로 이동',
-        'btn_understand': '알겠습니다',
+        'permission_dialog_desc': '앱을 차단하려면 특별한 권한이 필요합니다.',
+        'btn_redirect': '설정',
+        'btn_understand': '닫기',
       },
       'permissions': {
         'title': '권한 필요',
@@ -1585,6 +1583,12 @@ class AppTranslationService {
           'games': '게임',
           'other': '기타'
         },
+        'permission_dialog': {
+          'title': '주의: 권한 필요 🛡️',
+          'content': '앱 차단 기능을 활성화하려면 설정에서 다음 2가지 권한을 허용해야 합니다:\n\n1. "다른 앱 위에 표시"\n2. "사용 정보 접근"\n\n지금 설정으로 이동합니다. 권한을 허용한 후 돌아오면 시스템이 자동으로 시작됩니다.',
+          'cancel': '나중에',
+          'confirm': '설정으로 이동'
+        },
         'permissions': {
           'step_1_title': '1단계: 오버레이 권한',
           'step_1_desc': '앱 차단 화면을 표시하려면 \'다른 앱 위에 표시\' 권한을 허용하십시오.',
@@ -1642,7 +1646,9 @@ class AppTranslationService {
         'continue': 'Weiter',
         'back': 'Zurück',
         'save': 'Speichern',
-        'login': 'Anmelden'
+        'login': 'Anmelden',
+        'cancel': 'Abbrechen',
+        'done': 'Fertig',
       },
       'settings': {
         'language': {
@@ -1682,10 +1688,9 @@ class AppTranslationService {
         'cancel': 'Abbrechen',
         'menu_permissions': 'Berechtigungen',
         'permission_dialog_title': 'Berechtigungen erforderlich',
-        'permission_dialog_desc':
-            'Bitte erteilen Sie die erforderlichen Berechtigungen im Profilbereich, um diese Funktion zu nutzen.',
-        'btn_redirect': 'Zum Bereich weiterleiten',
-        'btn_understand': 'Verstanden',
+        'permission_dialog_desc': 'Zum Blockieren von Apps sind spezielle Berechtigungen erforderlich.',
+        'btn_redirect': 'Einstellungen',
+        'btn_understand': 'Schließen',
       },
       'permissions': {
         'title': 'Berechtigungen erforderlich',
@@ -1931,6 +1936,12 @@ class AppTranslationService {
           'games': 'Spiele',
           'other': 'Andere'
         },
+        'permission_dialog': {
+          'title': 'Achtung: Berechtigung erforderlich 🛡️',
+          'content': 'Um die App-Sperre zu aktivieren, müssen Sie die folgenden 2 Berechtigungen in den Einstellungen gewähren:\n\n1. "Über anderen Apps anzeigen"\n2. "Nutzungszugriff"\n\nWir leiten Sie jetzt zu den Einstellungen weiter. Sobald dies erlaubt ist, startet das System automatisch.',
+          'cancel': 'Nicht jetzt',
+          'confirm': 'Zu den Einstellungen'
+        },
         'permissions': {
           'step_1_title': 'Schritt 1: Overlay-Berechtigung',
           'step_1_desc':
@@ -2004,7 +2015,9 @@ class AppTranslationService {
         'continue': 'Continuer',
         'back': 'Retour',
         'save': 'Enregistrer',
-        'login': 'Connexion'
+        'login': 'Connexion',
+        'cancel': 'Annuler',
+        'done': 'Terminé',
       },
       'settings': {
         'language': {
@@ -2043,10 +2056,9 @@ class AppTranslationService {
         'cancel': 'Annuler',
         'menu_permissions': 'Autorisations',
         'permission_dialog_title': 'Autorisations requises',
-        'permission_dialog_desc':
-            'Veuillez accorder les autorisations nécessaires dans la section Profil pour utiliser cette fonction.',
-        'btn_redirect': 'Rediriger vers la section',
-        'btn_understand': 'Compris',
+        'permission_dialog_desc': 'Des autorisations spéciales sont nécessaires pour bloquer les applications.',
+        'btn_redirect': 'Paramètres',
+        'btn_understand': 'Fermer',
       },
       'permissions': {
         'title': 'Autorisations Requises',
@@ -2295,6 +2307,12 @@ class AppTranslationService {
           'communication': 'Communication',
           'games': 'Jeux',
           'other': 'Autres'
+        },
+        'permission_dialog': {
+          'title': 'Attention: Autorisation Requise 🛡️',
+          'content': 'Pour activer le blocage d\'applications, vous devez accorder les 2 autorisations suivantes dans les paramètres :\n\n1. "Afficher sur d\'autres applications"\n2. "Accès à l\'utilisation"\n\nNous allons vous rediriger vers les paramètres maintenant. Une fois accordé, le système démarrera automatiquement.',
+          'cancel': 'Pas maintenant',
+          'confirm': 'Aller aux paramètres'
         },
         'permissions': {
           'step_1_title': 'Étape 1: Superposition',
