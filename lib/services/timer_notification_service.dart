@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'app_translation_service.dart';
 
 class TimerNotificationService {
   static final TimerNotificationService _instance = TimerNotificationService._internal();
@@ -75,5 +76,95 @@ class TimerNotificationService {
   /// Taymer to'xtaganda bildirishnomani o'chir
   Future<void> cancelTimerNotification() async {
     await _plugin.cancel(id: _notificationId);
+  }
+
+  /// Daraja oshganda tabrik xabarini ko'rsat
+  Future<void> showLevelUpNotification({
+    required int newLevel,
+    required String rankTitle,
+  }) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    await init();
+
+    final lang = AppTranslationService();
+    String title = lang.translate('notifications.level_up_title') ?? 'Yangi daraja! 🎉';
+    String body = lang.translate('notifications.level_up_body') ?? 
+        'Tabriklaymiz! Siz $newLevel-darajaga ko\'tarildingiz. Yangi maqomingiz: $rankTitle';
+    
+    // Placeholderlarni almashtirish
+    body = body.replaceAll('{level}', newLevel.toString()).replaceAll('{rank}', rankTitle);
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'achievement_channel',
+      'Yutuqlar',
+      channelDescription: 'Yangi darajaga erishganda tabriklash',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      id: 777,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
+  /// Kunlik maqsad bajarilmaganda achinarli xabar yuborish
+  Future<void> showGoalMissedNotification() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    await init();
+
+    final lang = AppTranslationService();
+    String title = lang.translate('notifications.goal_not_met_title') ?? 'Boy berilgan imkoniyat... 😔';
+    String body = lang.translate('notifications.goal_not_met_body') ?? 
+        'Bugun maqsadingizga erisha olmadingiz. Ertaga o\'zingizni isbotlashga va\'da berasizmi?';
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'daily_goals_channel',
+      'Kunlik Maqsadlar',
+      channelDescription: 'Maqsadga erishilmaganda eslatish',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      id: 888,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
+  /// Kunlik maqsad bajarilganda tabrik xabari
+  Future<void> showGoalAchievedNotification() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    await init();
+
+    final lang = AppTranslationService();
+    String title = lang.translate('notifications.goal_met_title') ?? 'Maqsad bajarildi! 🎯';
+    String body = lang.translate('notifications.goal_met_body') ?? 
+        'Bugungi maqsadingizga to\'liq erishdingiz! Irodangizga qoyil.';
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'daily_goals_channel',
+      'Kunlik Maqsadlar',
+      channelDescription: 'Maqsadga erishilganda tabriklash',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      id: 889,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
   }
 }

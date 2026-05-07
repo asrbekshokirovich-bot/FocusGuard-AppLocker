@@ -11,6 +11,7 @@ import 'screens/legal_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/language_screen.dart';
 import 'screens/overlay_screen.dart';
+import 'services/streak_reminder_service.dart';
 
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
@@ -33,6 +34,12 @@ void main() async {
   await AppTranslationService().init();
   await LanguageService().init();
   await ThemeService().init();
+  
+  // Fon xizmatini ishga tushirish
+  await initializeBackgroundService();
+  
+  // Streak eslatmasini faollashtirish (Test uchun 15:19 ga qo'ydik)
+  StreakReminderService().scheduleDailyReminder(hour: 15, minute: 19);
 
   runApp(
     DevicePreview(

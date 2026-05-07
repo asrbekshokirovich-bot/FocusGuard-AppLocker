@@ -153,7 +153,8 @@ class AppTranslationService {
         'premium_desc':
             'Fokusingizni yangi bosqichga olib chiqing! Cheksiz bloklash va kengaytirilgan tahlillardan foydalaning.',
         'premium_btn': 'Batafsil',
-        'premium_unverified_error': 'Premium sotib olish uchun avval emailingizni tasdiqlashingiz kerak.',
+        'premium_unverified_error':
+            'Premium sotib olish uchun avval emailingizni tasdiqlashingiz kerak.',
         'section_for_you': 'Siz uchun',
         'section_settings': 'Sozlamalar',
         'menu_level': 'Daraja va Maqom',
@@ -168,7 +169,8 @@ class AppTranslationService {
         'cancel': 'Bekor qilish',
         'menu_permissions': 'Ruxsatlar',
         'permission_dialog_title': 'Ruxsatlar zarur',
-        'permission_dialog_desc': 'Ilovani bloklash uchun maxsus ruxsatlarni berishingiz kerak.',
+        'permission_dialog_desc':
+            'Ilovani bloklash uchun maxsus ruxsatlarni berishingiz kerak.',
         'btn_redirect': 'Sozlamalar',
         'btn_understand': 'Yopish',
       },
@@ -186,6 +188,13 @@ class AppTranslationService {
           'desc':
               'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
         },
+        'notifications': {
+          'title': 'Bildirishnomalar',
+          'desc': 'Eslatmalar va yutuqlar haqida xabar berish uchun kerak.',
+        },
+        'notification_dialog_title': 'Bildirishnomalar',
+        'notification_dialog_desc':
+            'Fokus vaqti tugashi, kunlik eslatmalar va boshqa umumiy bildirishnomalarni o\'tkazib yubormaslik uchun ruxsat bering.',
       },
       'stats': {
         'title': 'Statistika',
@@ -219,7 +228,8 @@ class AppTranslationService {
         'today': 'Bugun',
         'yesterday': 'Kecha',
         'pro_banner_title': 'PRO Tahlilni faollashtiring!',
-        'pro_banner_desc': 'Aqlli solishtirish va bashorat funksiyalariga to\'liq kirishga ega bo\'ling...',
+        'pro_banner_desc':
+            'Aqlli solishtirish va bashorat funksiyalariga to\'liq kirishga ega bo\'ling...',
       },
       'dashboard': {
         'greeting': 'Salom,',
@@ -272,7 +282,7 @@ class AppTranslationService {
         'rank_13': 'Master',
         'rank_14': 'Grandmaster',
         'rank_15': 'Fokus Qiroli',
-        'rank_16': 'Fokus Xudosi',
+        'rank_16': 'Afsonaviy Fokuschi',
         'hour_suffix': 'soat',
         'streak': 'kun',
       },
@@ -293,6 +303,15 @@ class AppTranslationService {
         'daily_analysis_desc': 'Kunning oxirida natijalar haqida xulosa',
         'permission_notice':
             'Bildirishnomalar qurilmangiz sozlamalarida ruxsat etilgan bo\'lishi kerak.',
+        'streak_reminder_title': 'Olovni o\'chirib qo\'ymang! 🔥',
+        'streak_reminder_body':
+            'Bugun hali fokus qilmadingiz. Streak\'ni saqlab qolish uchun hozir vaqt ajrating!',
+        'level_up_body':
+            'Tabriklaymiz! Siz {level}-darajaga ko\'tarildingiz. Yangi maqomiz: {rank}',
+        'goal_not_met_title': 'Maqsadga erishilmadi... 😔',
+        'goal_not_met_body': 'Bugun belgilangan maqsadingizga erisha olmadingiz. Vaqt - qaytib kelmas boylik, uni boy berganingiz juda achinarli. Ertaga albatta bajarasiz deb ishonamiz!',
+        'goal_met_title': 'Maqsad bajarildi! 🎯',
+        'goal_met_body': 'Bugungi maqsadingizga to\'liq erishdingiz! Irodangiz va intizomingizga qoyil. Shunday davom eting!',
       },
       'themes': {
         'title': 'Mavzular',
@@ -343,10 +362,14 @@ class AppTranslationService {
         'status_deep': 'Chuqur Diqqat',
         'status_light': 'Yengil Fokus',
         'change_time': 'Vaqtni o\'zgartirish',
-        'strict_mode': 'Qat\'iy Rejim',
+        'strict_mode': 'Temir Intizom',
         'strict_desc': 'Boshlangandan keyin chiqib bo\'lmaydi',
         'strict_mode_info':
-            'Bu rejim yoqilganda, belgilangan vaqt tugamaguncha seansni to\'xtata olmaysiz va bloklangan ilovalardan foydalanish cheklanadi.',
+            'Temir Intizom yoqilganda, irodangiz sinovdan o\'tadi. Taymer tugamaguncha taslim bo\'lish imkoniyati cheklanadi. Diqqatingizni faqat maqsadingizga qarating!',
+        'stop_confirm_title': 'Seansni to\'xtatish',
+        'stop_confirm_body': 'Haqiqatan ham seansni to\'xtatmoqchimisiz? Maqsadingizga erishishingizga oz qoldi!',
+        'continue': 'Davom etish',
+        'give_up': 'To\'xtatish',
         'anti_distract': 'Anti-Chalg\'itish',
         'anti_distract_desc': 'Bildirishnomalar to\'liq o\'chirilgan',
         'anti_distract_info':
@@ -538,7 +561,8 @@ class AppTranslationService {
         'premium_desc':
             'Take your focus to the next level! Use unlimited blocking and advanced analytics.',
         'premium_btn': 'Details',
-        'premium_unverified_error': 'You must verify your email first to purchase Premium.',
+        'premium_unverified_error':
+            'You must verify your email first to purchase Premium.',
         'section_for_you': 'For You',
         'section_settings': 'Settings',
         'menu_level': 'Level & Status',
@@ -553,7 +577,8 @@ class AppTranslationService {
         'cancel': 'Cancel',
         'menu_permissions': 'Permissions',
         'permission_dialog_title': 'Permissions Required',
-        'permission_dialog_desc': 'Special permissions are needed to block apps.',
+        'permission_dialog_desc':
+            'Special permissions are needed to block apps.',
         'btn_redirect': 'Settings',
         'btn_understand': 'Close',
       },
@@ -570,6 +595,13 @@ class AppTranslationService {
           'title': 'Usage Access',
           'desc': 'Required to detect open apps and block them.',
         },
+        'notifications': {
+          'title': 'Notifications',
+          'desc': 'Required for reminders and achievement updates.',
+        },
+        'notification_dialog_title': 'Enable Notifications',
+        'notification_dialog_desc':
+            'Please allow notifications to receive focus alerts, streak reminders, and other general app notifications.',
       },
       'stats': {
         'title': 'Statistics',
@@ -656,7 +688,7 @@ class AppTranslationService {
         'rank_13': 'Master',
         'rank_14': 'Grandmaster',
         'rank_15': 'Focus King',
-        'rank_16': 'Focus God',
+        'rank_16': 'Focus Legend',
         'hour_suffix': 'h',
         'streak': 'days',
       },
@@ -677,6 +709,15 @@ class AppTranslationService {
         'daily_analysis_desc': 'Summary of results at the end of the day',
         'permission_notice':
             'Notifications must be allowed in your device settings.',
+        'streak_reminder_title': 'Don\'t let the fire go out! 🔥',
+        'streak_reminder_body':
+            'You haven\'t focused today yet. Take a moment now to keep your streak alive!',
+        'level_up_body':
+            'Congratulations! You\'ve reached level {level}. Your new rank: {rank}',
+        'goal_not_met_title': 'Goal not reached... 😔',
+        'goal_not_met_body': 'You didn\'t reach your goal today. Time is a treasure that never returns, it\'s sad to lose it. We believe you can do it tomorrow!',
+        'goal_met_title': 'Goal Achieved! 🎯',
+        'goal_met_body': 'You fully achieved today\'s goal! Impressive willpower and discipline. Keep it up!',
       },
       'themes': {
         'title': 'Themes',
@@ -727,10 +768,13 @@ class AppTranslationService {
         'status_deep': 'Deep Focus',
         'status_light': 'Light Focus',
         'change_time': 'Change time',
-        'strict_mode': 'Strict Mode',
+        'strict_mode': 'Iron Discipline',
         'strict_desc': 'Cannot exit once started',
-        'strict_mode_info':
-            'In this mode, you cannot stop the session until the timer ends, and access to blocked apps is restricted.',
+        'strict_mode_info': 'When Iron Discipline is active, your willpower is tested. You cannot easily give up until the timer finishes. Keep your focus entirely on your goal!',
+        'stop_confirm_title': 'Giving up?',
+        'stop_confirm_body': 'Do you really want to give up? You are so close to reaching your goal!',
+        'continue': 'Keep going',
+        'give_up': 'I give up',
         'anti_distract': 'Anti-Distraction',
         'anti_distract_desc': 'Notifications completely silent',
         'anti_distract_info':
@@ -932,7 +976,8 @@ class AppTranslationService {
         'cancel': 'Отмена',
         'menu_permissions': 'Разрешения',
         'permission_dialog_title': 'Нужны разрешения',
-        'permission_dialog_desc': 'Для блокировки приложений требуются специальные разрешения.',
+        'permission_dialog_desc':
+            'Для блокировки приложений требуются специальные разрешения.',
         'btn_redirect': 'Настройки',
         'btn_understand': 'Закрыть',
       },
@@ -948,8 +993,15 @@ class AppTranslationService {
         'usage': {
           'title': 'Доступ к использованию',
           'desc':
-              'Требуется для определения открытого приложения и его блокировки.',
+              'Требуется для обнаружения открытых приложений и их блокировки.',
         },
+        'notifications': {
+          'title': 'Уведомления',
+          'desc': 'Необходимы для напоминаний и достижений.',
+        },
+        'notification_dialog_title': 'Включить уведомления',
+        'notification_dialog_desc':
+            'Пожалуйста, разрешите уведомления, чтобы получать оповещения о фокусе, напоминания о сериях и другие важные уведомления.',
       },
       'stats': {
         'title': 'Статистика',
@@ -1055,6 +1107,16 @@ class AppTranslationService {
         'daily_analysis_desc': 'Итоги результатов в конце дня',
         'permission_notice':
             'Уведомления должны быть разрешены в настройках вашего устройства.',
+        'streak_reminder_title': 'Не дайте огню погаснуть! 🔥',
+        'streak_reminder_body':
+            'Вы еще не фокусировались сегодня. Уделите немного времени, чтобы сохранить серию!',
+        'level_up_title': 'Новый уровень! 🎉',
+        'level_up_body':
+            'Поздравляем! Вы достигли уровня {level}. Ваш новый статус: {rank}',
+        'goal_not_met_title': 'Цель не достигнута... 😔',
+        'goal_not_met_body': 'Вы не достигли своей цели сегодня. Время - это сокровище, которое никогда не возвращается, очень жаль его терять. Мы верим, что завтра вы справитесь!',
+        'goal_met_title': 'Цель достигнута! 🎯',
+        'goal_met_body': 'Вы полностью достигли сегодняшней цели! Восхитительная сила воли и дисциплина. Так держать!',
       },
       'themes': {
         'title': 'Темы',
@@ -1105,10 +1167,13 @@ class AppTranslationService {
         'status_deep': 'Глубокое Внимание',
         'status_light': 'Легкий Фокус',
         'change_time': 'Изменить время',
-        'strict_mode': 'Строгий Режим',
-        'strict_desc': 'Нельзя выйти после начала',
-        'strict_mode_info':
-            'В этом режиме вы не сможете остановить сессию до окончания времени, а доступ к заблокированным приложениям будет ограничен.',
+        'strict_mode': 'Железная дисциплина',
+        'strict_desc': 'Нельзя выйти после старта',
+        'strict_mode_info': 'Когда включена Железная дисциплина, ваша воля проходит проверку. Вы не сможете легко сдаться до завершения таймера. Сосредоточьтесь только на своей цели!',
+        'stop_confirm_title': 'Сдаетесь?',
+        'stop_confirm_body': 'Вы действительно хотите сдаться? Вы так близки к достижению цели!',
+        'continue': 'Продолжить',
+        'give_up': 'Я сдаюсь',
         'anti_distract': 'Анти-Отвлечение',
         'anti_distract_desc': 'Уведомления полностью отключены',
         'anti_distract_info':
@@ -1201,7 +1266,7 @@ class AppTranslationService {
         'rank_13': 'Мастер',
         'rank_14': 'Грандмастер',
         'rank_15': 'Король Фокуса',
-        'rank_16': 'Бог Фокуса',
+        'rank_16': 'Легенда Фокуса',
         'hour_suffix': 'ч.',
         'streak': 'дн.',
       },
@@ -1350,8 +1415,7 @@ class AppTranslationService {
       },
       'permissions': {
         'title': '권한 필요',
-        'subtitle':
-            '앱 차단 서비스가 올바르게 작동하려면 휴대폰 설정에서 다음 권한을 허용해야 합니다.',
+        'subtitle': '앱 차단 서비스가 올바르게 작동하려면 휴대폰 설정에서 다음 권한을 허용해야 합니다.',
         'overlay': {
           'title': '다른 앱 위에 표시',
           'desc': '차단된 앱을 열 때 잠금 화면을 표시하는 데 필요합니다.',
@@ -1360,6 +1424,13 @@ class AppTranslationService {
           'title': '사용 정보 접근',
           'desc': '열려 있는 앱을 감지하고 차단하는 데 필요합니다.',
         },
+        'notifications': {
+          'title': '알림 권한',
+          'desc': '알림 및 업적 업데이트에 필요합니다.',
+        },
+        'notification_dialog_title': '알림 활성화',
+        'notification_dialog_desc':
+            '집중 알림, 스트릭 알림 및 기타 일반 앱 알림을 받으려면 알림을 허용해 주세요.',
       },
       'levels': {
         'title': '레벨 및 진행 상황',
@@ -1384,7 +1455,7 @@ class AppTranslationService {
         'rank_13': '우주의 생산성',
         'rank_14': '차원 이동자',
         'rank_15': '영원한 마스터',
-        'rank_16': '집중의 신',
+        'rank_16': '집중의 전설',
       },
       'notifications': {
         'title': '알림 설정',
@@ -1402,6 +1473,18 @@ class AppTranslationService {
         'daily_analysis_title': '일일 분석',
         'daily_analysis_desc': '하루 일과 종료 시 결과 요약',
         'permission_notice': '기기 설정에서 알림 권한이 허용되어야 합니다.',
+        'strict_mode_info':
+            '엄격 모드가 켜져 있으면 타이머가 끝날 때까지 종료하거나 중지할 수 없습니다. 이는 방해 요소로부터 최대한의 보호를 제공합니다.',
+        'anti_distract_info':
+            '방해 금지 모드는 모든 수신 알림을 일시적으로 음소거하여 온전히 집중할 수 있게 합니다.',
+        'streak_reminder_title': '불꽃이 꺼지지 않게 하세요! 🔥',
+        'streak_reminder_body':
+            '오늘은 아직 집중하지 않았습니다. 스트릭을 유지하기 위해 지금 잠시 시간을 내보세요!',
+        'level_up_body': '축하합니다! {level} 레벨에 도달했습니다. 새로운 등급: {rank}',
+        'goal_not_met_title': '목표 달성 실패... 😔',
+        'goal_not_met_body': '오늘 목표를 달성하지 못했습니다. 시간은 되돌릴 수 없는 보물인데 잃어버리게 되어 정말 안타깝습니다. 내일은 꼭 해내실 거라 믿어요!',
+        'goal_met_title': '목표 달성! 🎯',
+        'goal_met_body': '오늘의 목표를 완전히 달성했습니다! 놀라운 의지력과 규율입니다. 계속 정진하세요!',
       },
       'stats': {
         'title': '통계',
@@ -1506,10 +1589,13 @@ class AppTranslationService {
         'status_deep': '딥 포커스',
         'status_light': '라이트 포커스',
         'change_time': '시간 변경',
-        'strict_mode': '엄격 모드',
+        'strict_mode': '철의 규율',
         'strict_desc': '시작하면 종료할 수 없음',
-        'strict_mode_info':
-            '이 모드에서는 타이머가 종료될 때까지 세션을 중지할 수 없으며, 차단된 앱에 대한 액세스가 제한됩니다.',
+        'strict_mode_info': '철의 규율이 활성화되면 당신의 의지력이 시험받습니다. 타이머가 끝날 때까지 쉽게 포기할 수 없습니다. 오직 목표에만 집중하세요!',
+        'stop_confirm_title': '포기하시겠습니까?',
+        'stop_confirm_body': '정말 포기하시겠습니까? 목표 달성이 얼마 남지 않았습니다!',
+        'continue': '계속하기',
+        'give_up': '포기하기',
         'anti_distract': '방해 금지',
         'anti_distract_desc': '알림 완전 무음',
         'anti_distract_info': '소셜 미디어 및 방해되는 앱의 모든 알림이 완전히 무음 처리됩니다.',
@@ -1585,7 +1671,8 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': '주의: 권한 필요 🛡️',
-          'content': '앱 차단 기능을 활성화하려면 설정에서 다음 2가지 권한을 허용해야 합니다:\n\n1. "다른 앱 위에 표시"\n2. "사용 정보 접근"\n\n지금 설정으로 이동합니다. 권한을 허용한 후 돌아오면 시스템이 자동으로 시작됩니다.',
+          'content':
+              '앱 차단 기능을 활성화하려면 설정에서 다음 2가지 권한을 허용해야 합니다:\n\n1. "다른 앱 위에 표시"\n2. "사용 정보 접근"\n\n지금 설정으로 이동합니다. 권한을 허용한 후 돌아오면 시스템이 자동으로 시작됩니다.',
           'cancel': '나중에',
           'confirm': '설정으로 이동'
         },
@@ -1688,7 +1775,8 @@ class AppTranslationService {
         'cancel': 'Abbrechen',
         'menu_permissions': 'Berechtigungen',
         'permission_dialog_title': 'Berechtigungen erforderlich',
-        'permission_dialog_desc': 'Zum Blockieren von Apps sind spezielle Berechtigungen erforderlich.',
+        'permission_dialog_desc':
+            'Zum Blockieren von Apps sind spezielle Berechtigungen erforderlich.',
         'btn_redirect': 'Einstellungen',
         'btn_understand': 'Schließen',
       },
@@ -1706,6 +1794,13 @@ class AppTranslationService {
           'desc':
               'Erforderlich, um geöffnete Apps zu erkennen und zu blockieren.',
         },
+        'notifications': {
+          'title': 'Benachrichtigungen',
+          'desc': 'Erforderlich für Erinnerungen und Erfolgs-Updates.',
+        },
+        'notification_dialog_title': 'Benachrichtigungen aktivieren',
+        'notification_dialog_desc':
+            'Bitte erlauben Sie Benachrichtigungen, um Fokus-Warnungen, Streak-Erinnerungen und andere allgemeine App-Benachrichtigungen zu erhalten.',
       },
       'stats': {
         'title': 'Statistik',
@@ -1789,7 +1884,7 @@ class AppTranslationService {
         'rank_13': 'Meister',
         'rank_14': 'Großmeister',
         'rank_15': 'Fokus-König',
-        'rank_16': 'Fokus-Gott',
+        'rank_16': 'Fokus-Legende',
         'hour_suffix': 'Std.',
         'streak': 'Tage',
       },
@@ -1810,6 +1905,16 @@ class AppTranslationService {
         'daily_analysis_desc': 'Ergebniszusammenfassung am Tagesende',
         'permission_notice':
             'Benachrichtigungen müssen in den Geräteeinstellungen erlaubt sein.',
+        'streak_reminder_title': 'Lass das Feuer nicht ausgehen! 🔥',
+        'streak_reminder_body':
+            'Du hast heute noch nicht fokussiert. Nimm dir jetzt einen Moment Zeit, um deinen Streak am Leben zu erhalten!',
+        'level_up_title': 'Level-Aufstieg! 🎉',
+        'level_up_body':
+            'Herzlichen Glückwunsch! Du hast Level {level} erreicht. Dein neuer Rang: {rank}',
+        'goal_not_met_title': 'Ziel nicht erreicht... 😔',
+        'goal_not_met_body': 'Du hast dein heutiges Ziel nicht erreicht. Zeit ist ein Schatz, der nie zurückkehrt, es ist traurig, sie zu verlieren. Wir glauben an dich für morgen!',
+        'goal_met_title': 'Ziel erreicht! 🎯',
+        'goal_met_body': 'Du hast das heutige Ziel voll erreicht! Beeindruckende Willenskraft und Disziplin. Mach weiter so!',
       },
       'themes': {
         'title': 'Themen',
@@ -1860,10 +1965,13 @@ class AppTranslationService {
         'status_deep': 'Tiefe Konzentration',
         'status_light': 'Leichter Fokus',
         'change_time': 'Zeit ändern',
-        'strict_mode': 'Strikter Modus',
+        'strict_mode': 'Eiserne Disziplin',
         'strict_desc': 'Beenden nach Start nicht möglich',
-        'strict_mode_info':
-            'In diesem Modus können Sie die Sitzung nicht vor Ablauf der Zeit stoppen.',
+        'strict_mode_info': 'Wenn die Eiserne Disziplin aktiv ist, wird deine Willenskraft auf die Probe gestellt. Du kannst nicht einfach aufgeben, bis der Timer abgelaufen ist. Konzentriere dich ganz auf dein Ziel!',
+        'stop_confirm_title': 'Aufgeben?',
+        'stop_confirm_body': 'Willst du wirklich aufgeben? Du bist so kurz davor, dein Ziel zu erreichen!',
+        'continue': 'Weiter machen',
+        'give_up': 'Ich gebe auf',
         'anti_distract': 'Anti-Ablenkung',
         'anti_distract_desc': 'Benachrichtigungen komplett stumm',
         'anti_distract_info':
@@ -1938,7 +2046,8 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': 'Achtung: Berechtigung erforderlich 🛡️',
-          'content': 'Um die App-Sperre zu aktivieren, müssen Sie die folgenden 2 Berechtigungen in den Einstellungen gewähren:\n\n1. "Über anderen Apps anzeigen"\n2. "Nutzungszugriff"\n\nWir leiten Sie jetzt zu den Einstellungen weiter. Sobald dies erlaubt ist, startet das System automatisch.',
+          'content':
+              'Um die App-Sperre zu aktivieren, müssen Sie die folgenden 2 Berechtigungen in den Einstellungen gewähren:\n\n1. "Über anderen Apps anzeigen"\n2. "Nutzungszugriff"\n\nWir leiten Sie jetzt zu den Einstellungen weiter. Sobald dies erlaubt ist, startet das System automatisch.',
           'cancel': 'Nicht jetzt',
           'confirm': 'Zu den Einstellungen'
         },
@@ -2056,7 +2165,8 @@ class AppTranslationService {
         'cancel': 'Annuler',
         'menu_permissions': 'Autorisations',
         'permission_dialog_title': 'Autorisations requises',
-        'permission_dialog_desc': 'Des autorisations spéciales sont nécessaires pour bloquer les applications.',
+        'permission_dialog_desc':
+            'Des autorisations spéciales sont nécessaires pour bloquer les applications.',
         'btn_redirect': 'Paramètres',
         'btn_understand': 'Fermer',
       },
@@ -2074,6 +2184,13 @@ class AppTranslationService {
           'desc':
               'Requis pour détecter les applications ouvertes et les bloquer.',
         },
+        'notifications': {
+          'title': 'Notifications',
+          'desc': 'Requis pour les rappels et les mises à jour des réussites.',
+        },
+        'notification_dialog_title': 'Activer les notifications',
+        'notification_dialog_desc':
+            'Veuillez autoriser les notifications pour recevoir des alertes de focus, des rappels quotidiens et d\'autres notifications générales de l\'application.',
       },
       'stats': {
         'title': 'Statistiques',
@@ -2158,7 +2275,7 @@ class AppTranslationService {
         'rank_13': 'Maître',
         'rank_14': 'Grand maître',
         'rank_15': 'Roi du Focus',
-        'rank_16': 'Dieu du Focus',
+        'rank_16': 'Légende du Focus',
         'hour_suffix': 'h',
         'streak': 'jours',
       },
@@ -2179,6 +2296,15 @@ class AppTranslationService {
         'daily_analysis_desc': 'Résumé des résultats en fin de journée',
         'permission_notice':
             'Les notifications doivent être autorisées dans les réglages de l\'appareil.',
+        'streak_reminder_title': 'Ne laissez pas le feu s\'éteindre ! 🔥',
+        'streak_reminder_body':
+            'Vous n\'avez pas encore focus aujourd\'hui. Prenez un moment maintenant pour garder votre streak actif !',
+        'level_up_body':
+            'Félicitations ! Vous avez atteint le niveau {level}. Votre nouveau statut : {rank}',
+        'goal_not_met_title': 'Objectif non atteint... 😔',
+        'goal_not_met_body': 'Vous n\'avez pas atteint votre objectif aujourd\'hui. Le temps est un trésor qui ne revient jamais, il est triste de le perdre. Nous croyons en vous pour demain !',
+        'goal_met_title': 'Objectif Atteint ! 🎯',
+        'goal_met_body': 'Vous avez pleinement atteint l\'objectif d\'aujourd\'hui ! Une volonté et une discipline impressionnantes. Continuez ainsi !',
       },
       'themes': {
         'title': 'Thèmes',
@@ -2229,10 +2355,13 @@ class AppTranslationService {
         'status_deep': 'Concentration Profonde',
         'status_light': 'Focus Léger',
         'change_time': 'Changer le temps',
-        'strict_mode': 'Mode Strict',
+        'strict_mode': 'Discipline de Fer',
         'strict_desc': 'Sortie impossible après le début',
-        'strict_mode_info':
-            'Dans ce mode, siz ne pourrez pas arrêter la session avant la fin du temps.',
+        'strict_mode_info': 'Lorsque la Discipline de Fer est active, votre volonté est mise à l\'épreuve. Vous ne pouvez pas abandonner facilement avant la fin du minuteur. Restez concentré uniquement sur votre objectif !',
+        'stop_confirm_title': 'Abandonner ?',
+        'stop_confirm_body': 'Voulez-vous vraiment abandonner ? Vous êtes si proche d\'atteindre votre objectif !',
+        'continue': 'Continuer',
+        'give_up': 'J\'abandonne',
         'anti_distract': 'Anti-Distraction',
         'anti_distract_desc': 'Notifications totalement muettes',
         'anti_distract_info':
@@ -2310,7 +2439,8 @@ class AppTranslationService {
         },
         'permission_dialog': {
           'title': 'Attention: Autorisation Requise 🛡️',
-          'content': 'Pour activer le blocage d\'applications, vous devez accorder les 2 autorisations suivantes dans les paramètres :\n\n1. "Afficher sur d\'autres applications"\n2. "Accès à l\'utilisation"\n\nNous allons vous rediriger vers les paramètres maintenant. Une fois accordé, le système démarrera automatiquement.',
+          'content':
+              'Pour activer le blocage d\'applications, vous devez accorder les 2 autorisations suivantes dans les paramètres :\n\n1. "Afficher sur d\'autres applications"\n2. "Accès à l\'utilisation"\n\nNous allons vous rediriger vers les paramètres maintenant. Une fois accordé, le système démarrera automatiquement.',
           'cancel': 'Pas maintenant',
           'confirm': 'Aller aux paramètres'
         },

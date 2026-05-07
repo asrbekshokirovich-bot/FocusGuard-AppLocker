@@ -12,6 +12,9 @@ import 'stats_screen.dart';
 import 'profile_screen.dart';
 
 import '../services/language_service.dart';
+import '../services/level_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -37,6 +40,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const StatsScreen(),
       const ProfileScreen(),
     ];
+    
+    // Foydalanuvchi statistikalarini tekshirish
+    LevelService().ensureUserStatsInitialized();
+
+    // Bildirishnoma ruxsatini tekshirish
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkNotificationPermission();
+    });
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isDenied || status.isPermanentlyDenied) {
+      _showNotificationDialog();
+    }
+  }
+
+  void _showNotificationDialog() {
+    final lang = AppTranslationService();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            const Icon(CupertinoIcons.bell_fill, color: Color(0xFF007AFF)),
+            const SizedBox(width: 12),
+            Expanded(child: Text(lang.translate('permissions.notification_dialog_title') ?? 'Bildirishnomalar', style: lang.getFont(fontSize: 18, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Text(
+          lang.translate('permissions.notification_dialog_desc') ?? 'Fokus vaqti tugashi va kunlik eslatmalarni o\'tkazib yubormaslik uchun bildirishnomalarga ruxsat bering.',
+          style: lang.getFont(fontSize: 15, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(lang.translate('profile.btn_understand') ?? 'Tushunarli', style: lang.getFont(color: Colors.grey, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007AFF),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(lang.translate('profile.btn_redirect') ?? 'Sozlamalar', style: lang.getFont(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -50,111 +110,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         children: [
           // Premium Header with XP and Streak (Only show on Focus tab)
+          // Premium Header with XP and Streak (Only show on Focus tab)
           if (_currentIndex == 0)
-          Container(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 20,
-                bottom: 20,
-                left: 20,
-                right: 20,
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Level & XP
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              '${lang.translate('levels.level')} 4',
-                              style: lang.getFont(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF007AFF),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                lang.translate('levels.master'),
+          StreamBuilder<DocumentSnapshot>(
+            stream: LevelService().getUserStatsStream(),
+            builder: (context, snapshot) {
+              int level = 1;
+              int xp = 0;
+              int streak = 0;
+              String rankTitle = lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
+              double progress = 0.0;
+
+              if (snapshot.hasData && snapshot.data!.exists) {
+                final data = snapshot.data!.data() as Map<String, dynamic>;
+                level = data['level'] ?? 1;
+                xp = data['xp'] ?? 0;
+                streak = data['streak'] ?? 0;
+                rankTitle = LevelService().getRankTitle(level, lang);
+                
+                // XP progress bar uchun (1000 XP per level)
+                int currentLevelXP = xp % 1000;
+                progress = currentLevelXP / 1000.0;
+              }
+
+              return Container(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 20,
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Level & XP
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '${lang.translate('levels.level')} $level',
                                 style: lang.getFont(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF007AFF),
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  rankTitle,
+                                  style: lang.getFont(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // XP Progress Bar
+                          Container(
+                            height: 10,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: progress.clamp(0.05, 1.0), // Minimal ko'rinishi uchun 0.05
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF007AFF), Color(0xFF5AC8FA)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // XP Progress Bar
-                        Container(
-                          height: 10,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(5),
                           ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: 0.65,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF007AFF), Color(0xFF5AC8FA)],
-                                ),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Streak Counter
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF9500).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const FaIcon(
+                            FontAwesomeIcons.fireFlameCurved,
+                            color: Color(0xFFFF9500),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$streak ${lang.translate('levels.streak')}',
+                            style: lang.getFont(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFFF9500),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Streak Counter
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF9500).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        const FaIcon(
-                          FontAwesomeIcons.fireFlameCurved,
-                          color: Color(0xFFFF9500),
-                          size: 22,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '7 ${lang.translate('levels.streak')}',
-                          style: lang.getFont(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFFFF9500),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              );
+            },
+          ),
           Expanded(
             child: IndexedStack(
               index: _currentIndex,

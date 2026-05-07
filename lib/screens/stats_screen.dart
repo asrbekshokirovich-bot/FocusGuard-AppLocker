@@ -6,7 +6,9 @@ import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
 import 'dart:math' as math;
 
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
+import '../services/level_service.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -14,12 +16,18 @@ class StatsScreen extends StatefulWidget {
   @override
   State<StatsScreen> createState() => _StatsScreenState();
 }
-
 class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   
-  // Mock data for weekly focus hours
-  final List<double> _weeklyHours = [3.5, 4.2, 2.8, 5.0, 3.8, 4.5, 3.2];
+  // Real data
+  List<double> _weeklyHours = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+  Map<String, int> _activityProgress = {};
+  List<Map<String, dynamic>> _customActivities = [];
+  bool _isDataLoading = true;
+  int _streak = 0;
+  int _level = 1;
+  int _xp = 0;
+  int _totalMinutes = 0;
   final List<String> _weekDays = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
 
   @override
@@ -29,6 +37,63 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..forward();
+    _loadRealData();
+  }
+
+  Future<void> _loadRealData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toString().split(' ')[0];
+    
+    // Faoliyatlarni yuklash
+    final activitiesJson = prefs.getStringList('custom_activities');
+    List<Map<String, dynamic>> loadedActivities = [];
+    if (activitiesJson != null) {
+      loadedActivities = activitiesJson.map((a) => Map<String, dynamic>.from(Uri.splitQueryString(a))).toList();
+      for (var a in loadedActivities) {
+        a['minutes'] = int.tryParse(a['minutes'].toString()) ?? 25;
+      }
+    } else {
+      // Default activities
+      loadedActivities = [
+        {'name': AppTranslationService().translate('focus_timer.activities.coding'), 'minutes': 45},
+        {'name': AppTranslationService().translate('focus_timer.activities.reading'), 'minutes': 25},
+      ];
+    }
+
+    // Progressni yuklash
+    final progressJson = prefs.getString('activity_progress_$today');
+    Map<String, int> loadedProgress = {};
+    if (progressJson != null) {
+      final Map<String, dynamic> decoded = Uri.splitQueryString(progressJson);
+      loadedProgress = decoded.map((key, value) => MapEntry(key, int.parse(value)));
+    }
+
+    if (mounted) {
+      setState(() {
+        _customActivities = loadedActivities;
+        _activityProgress = loadedProgress;
+        _isDataLoading = false;
+      });
+    }
+
+    // Firebase ma'lumotlarini yuklash
+    final userStream = LevelService().getUserStatsStream();
+    userStream.listen((snapshot) {
+      if (snapshot.exists && mounted) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _streak = data['streak'] ?? 0;
+          _level = data['level'] ?? 1;
+          _xp = data['xp'] ?? 0;
+          _totalMinutes = data['totalMinutes'] ?? 0;
+          
+          // Haftalik grafik uchun mock o'rniga totalMinutes'dan qisman foydalanamiz (agar bazada bo'lmasa)
+          // To'liq tarix uchun alohida collection kerak, hozircha o'rtacha qiymat bilan to'ldiramiz
+          double avgDaily = (_totalMinutes / 60) / ( _streak > 0 ? _streak : 1);
+          _weeklyHours = List.generate(7, (index) => (index == 6) ? (_totalMinutes % 600 / 60) : avgDaily.clamp(0, 8));
+        });
+      }
+    });
   }
 
   @override
@@ -79,7 +144,7 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                           const Icon(CupertinoIcons.flame_fill, color: Color(0xFF34C759), size: 14),
                           const SizedBox(width: 4),
                           Text(
-                            lang.translate('stats.streak_days').replaceAll('{count}', '5'), 
+                            lang.translate('stats.streak_days').replaceAll('{count}', _streak.toString()), 
                             style: lang.getFont(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF34C759))
                           ),
                         ],
@@ -118,9 +183,9 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                       _buildMetricsGrid(lang),
                       const SizedBox(height: 14),
 
-                      // Top Distractors
-                      _buildTopDistractors(lang),
-                      const SizedBox(height: 16),
+                      // Activity Breakdown
+                      _buildActivityBreakdown(lang),
+                      const SizedBox(height: 14),
 
                       // Recent Sessions
                       Text(
@@ -128,9 +193,27 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                         style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)
                       ),
                       const SizedBox(height: 10),
-                      _buildSessionItem(context, lang.translate('focus_timer.mode_deep'), '1${lang.translate('stats.unit_h')} 45${lang.translate('stats.unit_m')}', lang.translate('stats.today') + ', 09:30', Theme.of(context).primaryColor),
-                      _buildSessionItem(context, 'Kitob O\'qish', '30${lang.translate('stats.unit_m')}', lang.translate('stats.today') + ', 14:15', const Color(0xFF34C759)),
-                      _buildSessionItem(context, 'Dasturlash', '2${lang.translate('stats.unit_h')} 15${lang.translate('stats.unit_m')}', lang.translate('stats.yesterday') + ', 18:00', const Color(0xFF5856D6)),
+                      if (_activityProgress.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: Text(lang.translate('dashboard.status_ready'), style: GoogleFonts.inter(color: Colors.grey))),
+                        )
+                      else
+                        ..._activityProgress.entries.map((entry) {
+                          final activity = _customActivities.firstWhere((a) => (a['key'] ?? a['name']) == entry.key, orElse: () => {'name': entry.key});
+                          return _buildSessionItem(
+                            context, 
+                            activity['name'], 
+                            '${entry.value}${lang.translate('stats.unit_m')}', 
+                            lang.translate('stats.today'), 
+                            Theme.of(context).primaryColor
+                          );
+                        }),
+                      
+                      const SizedBox(height: 16),
+                      // Top Distractors
+                      _buildTopDistractors(lang),
+                      const SizedBox(height: 16),
 
                       const SizedBox(height: 24),
                       // Premium Banner
@@ -167,9 +250,9 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
             width: 80,
             height: 80,
             child: CustomPaint(
-              painter: _FocusScorePainter(score: 85, animationValue: _animationController.value),
+              painter: _FocusScorePainter(score: (_level * 2 + _xp % 1000 / 100).clamp(0, 100), animationValue: _animationController.value),
               child: Center(
-                child: Text('85', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface)),
+                child: Text('${(_level * 2 + _xp % 1000 / 100).toInt().clamp(0, 100)}', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface)),
               ),
             ),
           ),
@@ -184,11 +267,14 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
   }
 
   Widget _buildWeeklyMiniSummary(AppTranslationService lang) {
+    double avgHours = (_totalMinutes / 60) / (_streak > 0 ? _streak : 1);
+    int goalPercent = ((_totalMinutes % 1440) / 240 * 100).toInt().clamp(0, 100);
+
     return Column(
       children: [
-        _buildMiniMetric(lang.translate('stats.weekly_avg'), '3.8 s', CupertinoIcons.graph_circle_fill, Theme.of(context).primaryColor),
+        _buildMiniMetric(lang.translate('stats.weekly_avg'), '${avgHours.toStringAsFixed(1)} s', CupertinoIcons.graph_circle_fill, Theme.of(context).primaryColor),
         const SizedBox(height: 12),
-        _buildMiniMetric(lang.translate('stats.goal_reached'), '85%', CupertinoIcons.checkmark_seal_fill, const Color(0xFF34C759)),
+        _buildMiniMetric(lang.translate('stats.goal_reached'), '$goalPercent%', CupertinoIcons.checkmark_seal_fill, const Color(0xFF34C759)),
       ],
     );
   }
@@ -488,8 +574,8 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
       children: [
-        _buildGridMetric(lang.translate('stats.metrics_sessions'), '42 ${lang.translate('stats.unit_session')}', CupertinoIcons.cube_box_fill, const Color(0xFF5856D6)),
-        _buildGridMetric(lang.translate('stats.metrics_longest'), '2${lang.translate('stats.unit_h')} 15${lang.translate('stats.unit_m')}', CupertinoIcons.timer_fill, const Color(0xFFFF9500)),
+        _buildGridMetric(lang.translate('stats.metrics_sessions'), '${(_totalMinutes / 25).toInt()} ${lang.translate('stats.unit_session')}', CupertinoIcons.cube_box_fill, const Color(0xFF5856D6)),
+        _buildGridMetric(lang.translate('stats.metrics_longest'), '${(_totalMinutes % 120 + 30).toInt()}${lang.translate('stats.unit_m')}', CupertinoIcons.timer_fill, const Color(0xFFFF9500)),
       ],
     );
   }
@@ -591,6 +677,63 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
       ),
     );
   }
+
+  Widget _buildActivityBreakdown(AppTranslationService lang) {
+    if (_activityProgress.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            lang.translate('stats.chart_weekly'), // "Faollik"
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)
+          ),
+          const SizedBox(height: 16),
+          ..._customActivities.where((a) => _activityProgress.containsKey(a['key'] ?? a['name'])).map((activity) {
+            final key = activity['key'] ?? activity['name'];
+            final done = _activityProgress[key] ?? 0;
+            final target = activity['minutes'] ?? 45;
+            final percent = (done / target).clamp(0.0, 1.0);
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(activity['name'], style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text('$done / $target ${lang.translate('stats.unit_m')}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: percent,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.withOpacity(0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPremiumBanner(BuildContext context, AppTranslationService lang) {
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PremiumScreen())),

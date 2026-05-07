@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
 import '../services/timer_notification_service.dart';
+import '../services/level_service.dart';
+import '../services/focus_timer_service.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
@@ -24,7 +28,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   int _remainingSeconds = 45 * 60;
   bool _isRunning = false;
   bool _isPaused = false;
-  Timer? _timer;
+  final _timerService = FocusTimerService();
+  StreamSubscription? _timerSubscription;
+  
+  bool _isStrictMode = true;
+  bool _isAntiDistract = true;
   
   String _selectedSound = 'none';
   int _selectedMode = 0; // 0: Deep Work, 1: Light Focus
@@ -40,6 +48,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   
   double _dailyGoalHours = 4.0;
   double _currentProgressHours = 2.5;
+  Map<String, int> _activityProgress = {}; // Activity key/name -> minutes spent today
   String _motivationPhrase = 'Bugun ajoyib kun bo\'ladi!';
   final TextEditingController _motivationController = TextEditingController(text: 'Bugun ajoyib kun bo\'ladi!');
   late ScrollController _marqueeController;
@@ -55,11 +64,115 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     _marqueeController = ScrollController();
     _activityPageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _startMarquee());
+
+    _timerService.init();
+    _timerService.syncState();
+    
+    _timerSubscription = _timerService.timerStream.listen((event) {
+      if (mounted) {
+        setState(() {
+          _remainingSeconds = event['seconds'] ?? _remainingSeconds;
+          _isRunning = event['isRunning'] ?? _isRunning;
+          _isPaused = event['isPaused'] ?? _isPaused;
+        });
+        
+        if (_remainingSeconds == 0 && _isRunning == false && event['wasRunning'] == true) {
+          _onTimerComplete(event['duration'] ?? (_selectedMinutes * 60));
+        }
+      }
+    });
+
+    _loadDailyProgress();
+  }
+
+  Future<void> _loadDailyProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastReset = prefs.getString('last_progress_reset') ?? '';
+    final today = DateTime.now().toString().split(' ')[0];
+
+    if (lastReset != today) {
+      // Kechagi maqsad tekshiruvi
+      final lastGoal = prefs.getDouble('daily_goal_hours') ?? 4.0;
+      final lastProgress = prefs.getDouble('daily_progress_hours') ?? 0.0;
+      
+      if (lastProgress < lastGoal && lastReset != '') {
+        // Maqsadga erishilmagan - bildirishnoma yuborish
+        TimerNotificationService().showGoalMissedNotification();
+      }
+
+      // Yangi kun - progressni nolga tushiramiz
+      await prefs.setDouble('daily_progress_hours', 0.0);
+      await prefs.setString('last_progress_reset', today);
+    }
+
+    setState(() {
+      _dailyGoalHours = prefs.getDouble('daily_goal_hours') ?? 4.0;
+      _currentProgressHours = prefs.getDouble('daily_progress_hours') ?? 0.0;
+      _motivationPhrase = prefs.getString('motivation_phrase') ?? AppTranslationService().translate('focus_timer.motivation_default');
+      _motivationController.text = _motivationPhrase;
+      
+      // Faoliyatlarni yuklash
+      final activitiesJson = prefs.getStringList('custom_activities');
+      if (activitiesJson != null) {
+        _customActivities = activitiesJson.map((a) => Map<String, dynamic>.from(Uri.splitQueryString(a))).toList();
+        // Convert minutes back to int
+        for (var a in _customActivities) {
+          a['minutes'] = int.tryParse(a['minutes'].toString()) ?? 25;
+        }
+      }
+      
+      // Faoliyat progressini yuklash
+      final progressJson = prefs.getString('activity_progress_$today');
+      if (progressJson != null) {
+        final Map<String, dynamic> decoded = Uri.splitQueryString(progressJson);
+        _activityProgress = decoded.map((key, value) => MapEntry(key, int.parse(value)));
+      } else {
+        _activityProgress = {};
+      }
+    });
+    
+    // Background servicega maqsadni yuborish
+    _timerService.updateDailyGoal((_dailyGoalHours * 3600).toInt());
+  }
+
+  Future<void> _saveGoal(double goal) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('daily_goal_hours', goal);
+    setState(() => _dailyGoalHours = goal);
+  }
+
+  Future<void> _updateProgress(int secondsAdded) async {
+    final prefs = await SharedPreferences.getInstance();
+    double hoursAdded = secondsAdded / 3600;
+    double newProgress = _currentProgressHours + hoursAdded;
+    
+    await prefs.setDouble('daily_progress_hours', newProgress);
+    setState(() => _currentProgressHours = newProgress);
+    
+    // XP va Level Service bilan integratsiya
+    await LevelService().addXP((secondsAdded / 60).toInt());
+
+    // Faoliyat progressini yangilash
+    if (_selectedActivityIndex < _customActivities.length) {
+      final activity = _customActivities[_selectedActivityIndex];
+      final activityKey = activity['key'] ?? activity['name'];
+      final currentActivityMinutes = _activityProgress[activityKey] ?? 0;
+      final minutesToAdd = (secondsAdded / 60).round();
+      
+      setState(() {
+        _activityProgress[activityKey] = currentActivityMinutes + minutesToAdd;
+      });
+      
+      // Saqlash
+      final today = DateTime.now().toString().split(' ')[0];
+      final progressString = Uri(queryParameters: _activityProgress.map((key, value) => MapEntry(key, value.toString()))).query;
+      await prefs.setString('activity_progress_$today', progressString);
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _timerSubscription?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
     _motivationController.dispose();
@@ -72,68 +185,81 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  void _startTimer() {
-    if (_isRunning || _remainingSeconds <= 0) return;
-    _timer?.cancel();
-    setState(() {
-      _isRunning = true;
-      _isPaused = false;
-    });
-    // Bildirishnomani ko'rsat
-    _showTimerNotification();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        setState(() {
-          _remainingSeconds--;
-        });
-        // Har soniyada bildirishnomani yangilash
-        _showTimerNotification();
-      } else {
-        _stopTimer();
-        _onTimerComplete();
-      }
-    });
-  }
-
-  void _showTimerNotification() {
+  void _startTimer() async {
     final lang = AppTranslationService();
-    final modeName = _selectedMode == 0
-        ? lang.translate('focus_timer.status_deep')
-        : lang.translate('focus_timer.status_light');
-    TimerNotificationService().updateTimer(
-      timeRemaining: _formattedTime,
-      modeName: modeName,
-      levelTitle: '${lang.translate('levels.level')} 4 · ${lang.translate('levels.master')}',
+    
+    // Haqiqiy daraja va unvonni olish
+    final stats = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .get();
+    
+    int level = 1;
+    String rankTitle = lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
+    
+    if (stats.exists) {
+      level = stats.data()?['level'] ?? 1;
+      rankTitle = LevelService().getRankTitle(level, lang);
+    }
+
+    final levelLabel = lang.translate('levels.level') ?? 'Daraja';
+    final fullLevelTitle = '$levelLabel $level · $rankTitle';
+    
+    _timerService.startTimer(
+      minutes: _selectedMinutes,
+      modeName: _selectedMode == 0 ? lang.translate('focus_timer.status_deep') : lang.translate('focus_timer.status_light'),
       modeIcon: _selectedMode == 0 ? '⚡' : '🌿',
+      levelTitle: fullLevelTitle,
+      isStrict: _selectedMode == 0,
     );
   }
 
   void _pauseTimer() {
-    _timer?.cancel();
-    setState(() {
-      _isRunning = false;
-      _isPaused = true;
-    });
+    _timerService.pauseTimer();
+  }
+  
+  void _resumeTimer() {
+    _timerService.resumeTimer();
   }
 
   void _stopTimer() {
-    _timer?.cancel();
-    setState(() {
-      _isRunning = false;
-      _isPaused = false;
-      _remainingSeconds = _selectedMinutes * 60;
-    });
-    // Bildirishnomani o'chir
-    TimerNotificationService().cancelTimerNotification();
+    if (_isStrictMode && _isRunning) {
+      _showStopConfirmationDialog();
+    } else {
+      _timerService.stopTimer();
+    }
   }
 
-  void _onTimerComplete() {
+  void _showStopConfirmationDialog() {
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(lang.translate('focus_timer.stop_confirm_title') ?? 'Taslim bo\'lasizmi?'),
+        content: Text(lang.translate('focus_timer.stop_confirm_body') ?? 'Haqiqatan ham taslim bo\'lmoqchimisiz? Maqsadingizga erishishingizga oz qoldi!'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('focus_timer.continue') ?? 'Davom etish'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+              _timerService.stopTimer();
+            },
+            child: Text(lang.translate('focus_timer.give_up') ?? 'Taslim bo\'lish'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onTimerComplete(int durationSeconds) async {
+    _updateProgress(durationSeconds);
+    
     HapticFeedback.vibrate();
     FlutterRingtonePlayer().playAlarm(looping: false);
-
-    setState(() {
-      _currentProgressHours += (_selectedMinutes / 60.0);
-    });
 
     final lang = AppTranslationService();
     showCupertinoDialog(
@@ -259,6 +385,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                         setState(() {
                           _customActivities.add({'name': nameController.text, 'minutes': tempMinutes});
                         });
+                        
+                        // Saqlash
+                        _saveActivities();
+                        
                         Navigator.pop(context);
                         
                         // Auto-scroll to the new page
@@ -455,10 +585,19 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   setState(() {
                     _motivationPhrase = _motivationController.text;
                   });
+                  
+                  // Background servicega maqsadni yuborish
+                  _timerService.updateDailyGoal((_dailyGoalHours * 3600).toInt());
+                  
+                  // SharedPreferences ga saqlash
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setDouble('daily_goal_hours', _dailyGoalHours);
+                  await prefs.setString('motivation_phrase', _motivationPhrase);
+                  
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(
@@ -605,9 +744,17 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     return ValueListenableBuilder<String>(
       valueListenable: lang.languageNotifier,
       builder: (context, _, __) {
-        return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Column(
+        return PopScope(
+          canPop: !(_isStrictMode && _isRunning),
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (_isStrictMode && _isRunning) {
+              _showStopConfirmationDialog();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Column(
         children: [
           const SizedBox(height: 10), 
           Expanded(
@@ -766,6 +913,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                               lang.translate('focus_timer.strict_mode'),
                               lang.translate('focus_timer.strict_desc'),
                               true,
+                              value: _isStrictMode,
+                              onChanged: (v) => setState(() => _isStrictMode = v),
                               onTap: () => _showFeatureInfo(
                                 lang.translate('focus_timer.strict_mode'),
                                 lang.translate('focus_timer.strict_mode_info'), // Need to add this to service
@@ -780,6 +929,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                               lang.translate('focus_timer.anti_distract'),
                               lang.translate('focus_timer.anti_distract_desc'),
                               true,
+                              value: _isAntiDistract,
+                              onChanged: (v) => setState(() => _isAntiDistract = v),
                               onTap: () => _showFeatureInfo(
                                 lang.translate('focus_timer.anti_distract'),
                                 lang.translate('focus_timer.anti_distract_info'), // Need to add this to service
@@ -1028,9 +1179,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
             ),
           ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  },
+);
 }
 
   String _getLocalizedSoundName(String sound, AppTranslationService lang) {
@@ -1155,7 +1307,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildOptionRow(IconData icon, Color iconColor, String title, String subtitle, bool isToggle, {VoidCallback? onTap}) {
+  Widget _buildOptionRow(IconData icon, Color iconColor, String title, String subtitle, bool isToggle, {bool? value, ValueChanged<bool>? onChanged, VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -1182,7 +1334,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
             if (isToggle)
               Transform.scale(
                 scale: 0.85,
-                child: CupertinoSwitch(value: true, activeColor: const Color(0xFF34C759), onChanged: (v) {}),
+                child: CupertinoSwitch(
+                  value: value ?? false,
+                  activeColor: const Color(0xFF34C759),
+                  onChanged: _isRunning ? null : onChanged,
+                ),
               )
             else
               const Icon(CupertinoIcons.chevron_right, color: Color(0xFFC7C7CC), size: 18),
@@ -1260,6 +1416,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     bool active = _selectedActivityIndex == index;
     Color color = _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759);
     
+    final activityKey = _customActivities[index]['key'] ?? _customActivities[index]['name'];
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
@@ -1290,6 +1448,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     setState(() {
                       _customActivities.removeAt(index);
                     });
+                    _saveActivities();
                     Navigator.pop(context);
                   },
                   child: Text(lang.translate('focus_timer.delete')),
@@ -1322,7 +1481,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
               ),
               const SizedBox(height: 2),
               Text(
-                '$minutes ${lang.translate('focus_timer.min')}',
+                '${_activityProgress[activityKey] ?? 0} / $minutes ${lang.translate('focus_timer.min')}',
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
@@ -1366,6 +1525,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
         ),
       ),
     );
+  }
+
+  Future<void> _saveActivities() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activitiesJson = _customActivities.map((a) => Uri(queryParameters: a.map((key, value) => MapEntry(key, value.toString()))).query).toList();
+    await prefs.setStringList('custom_activities', activitiesJson);
   }
 }
 

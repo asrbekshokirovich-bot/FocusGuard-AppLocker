@@ -6,6 +6,8 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
+import 'timer_notification_service.dart';
+import 'app_translation_service.dart';
 
 bool _isServiceInitialized = false;
 
@@ -59,8 +61,136 @@ void onStart(ServiceInstance service) async {
     // Bildirishnoma sozlamalari
     service.setForegroundNotificationInfo(
       title: "Focus Guard",
-      content: "Bloklash tizimi faol",
+      content: "Tayyorlanmoqda...",
     );
+  }
+
+  // Taymer holati o'zgaruvchilari
+  int remainingSeconds = 0;
+  bool isTimerRunning = false;
+  String modeName = "";
+  String modeIcon = "";
+  String levelTitle = "";
+  bool isStrict = false;
+  
+  // Kunlik maqsad o'zgaruvchilari
+  int todayFocusSeconds = 0;
+  int dailyGoalSeconds = 14400; // Standart 4 soat
+  bool analysisSent = false;
+  int lastDay = DateTime.now().day;
+
+  // Taymerni saqlash va yuklash
+  final prefs = await SharedPreferences.getInstance();
+  
+  void syncTimer() {
+    service.invoke('timerTick', {
+      'seconds': remainingSeconds,
+      'isRunning': isTimerRunning,
+      'modeName': modeName,
+      'modeIcon': modeIcon,
+    });
+
+    if (service is AndroidServiceInstance && isTimerRunning) {
+      int m = remainingSeconds ~/ 60;
+      int s = remainingSeconds % 60;
+      String timeStr = "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+      
+      service.setForegroundNotificationInfo(
+        title: "Focus Guard · $timeStr",
+        content: "$modeIcon $modeName | $levelTitle",
+      );
+    }
+  }
+
+  service.on('startTimer').listen((event) async {
+    if (event == null) return;
+    remainingSeconds = (event['minutes'] as int) * 60;
+    modeName = event['modeName'];
+    modeIcon = event['modeIcon'];
+    levelTitle = event['levelTitle'];
+    isStrict = event['isStrict'];
+    isTimerRunning = true;
+    
+    // Tugash vaqtini saqlash
+    final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
+    await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
+    await prefs.setBool('timer_is_running', true);
+    await prefs.setString('timer_mode_name', modeName);
+    await prefs.setString('timer_mode_icon', modeIcon);
+    await prefs.setString('timer_level_title', levelTitle);
+
+    syncTimer();
+  });
+
+  service.on('stopTimer').listen((event) async {
+    isTimerRunning = false;
+    remainingSeconds = 0;
+    await prefs.remove('timer_end_timestamp');
+    await prefs.setBool('timer_is_running', false);
+    
+    if (service is AndroidServiceInstance) {
+      service.setForegroundNotificationInfo(
+        title: "Focus Guard",
+        content: "Monitoring faol",
+      );
+    }
+    syncTimer();
+  });
+
+  service.on('pauseTimer').listen((event) async {
+    isTimerRunning = false;
+    await prefs.setBool('timer_is_running', false);
+    // Qolgan vaqtni saqlab qo'yamiz
+    await prefs.setInt('timer_remaining_seconds', remainingSeconds);
+    syncTimer();
+  });
+
+  service.on('resumeTimer').listen((event) async {
+    isTimerRunning = true;
+    await prefs.setBool('timer_is_running', true);
+    syncTimer();
+  });
+
+  service.on('updateDailyGoal').listen((event) async {
+    if (event == null) return;
+    dailyGoalSeconds = (event['seconds'] as int);
+    await prefs.setInt('daily_goal_seconds', dailyGoalSeconds);
+  });
+
+  service.on('requestTimerSync').listen((event) {
+    syncTimer();
+  });
+
+  // Avvalgi holatni tiklash
+  final savedEndTime = prefs.getInt('timer_end_timestamp');
+  final savedIsRunning = prefs.getBool('timer_is_running') ?? false;
+  if (savedEndTime != null && savedIsRunning) {
+    final end = DateTime.fromMillisecondsSinceEpoch(savedEndTime);
+    final now = DateTime.now();
+    if (end.isAfter(now)) {
+      remainingSeconds = end.difference(now).inSeconds;
+      isTimerRunning = true;
+      modeName = prefs.getString('timer_mode_name') ?? "";
+      modeIcon = prefs.getString('timer_mode_icon') ?? "";
+      levelTitle = prefs.getString('timer_level_title') ?? "";
+    } else {
+      await prefs.remove('timer_end_timestamp');
+      await prefs.setBool('timer_is_running', false);
+    }
+  }
+
+  // Kunlik ma'lumotlarni yuklash
+  todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
+  dailyGoalSeconds = prefs.getInt('daily_goal_seconds') ?? 14400;
+  analysisSent = prefs.getBool('analysis_sent_${DateTime.now().day}') ?? false;
+  lastDay = prefs.getInt('last_tracked_day') ?? DateTime.now().day;
+
+  // Kun almashganini tekshirish
+  if (lastDay != DateTime.now().day) {
+    todayFocusSeconds = 0;
+    analysisSent = false;
+    await prefs.setInt('today_focus_seconds', 0);
+    await prefs.setInt('last_tracked_day', DateTime.now().day);
   }
 
   service.on('stopService').listen((event) {
@@ -83,8 +213,57 @@ void onStart(ServiceInstance service) async {
     await loadBlockedApps();
   });
 
-  // Loop har 800ms da - yanada tezroq aniqlash uchun
-  Timer.periodic(const Duration(milliseconds: 800), (timer) async {
+  // Loop har 1 soniya da
+  Timer.periodic(const Duration(seconds: 1), (timer) async {
+    // 1. Taymer logikasi
+    if (isTimerRunning) {
+      if (remainingSeconds > 0) {
+        remainingSeconds--;
+        if (remainingSeconds % 5 == 0) { // Har 5 soniyada UI ga vaqtni yuboramiz (resursni tejash uchun)
+          syncTimer();
+        } else if (remainingSeconds < 10) { // Oxirgi 10 soniyada har soniya
+          syncTimer();
+        }
+      } else {
+        isTimerRunning = false;
+        await prefs.setBool('timer_is_running', false);
+        service.invoke('timerFinished');
+        syncTimer();
+      }
+      
+      // Har soniyada progressni oshiramiz
+      todayFocusSeconds++;
+      if (todayFocusSeconds % 10 == 0) { // Har 10 soniyada saqlaymiz
+        await prefs.setInt('today_focus_seconds', todayFocusSeconds);
+      }
+    }
+
+    // 2. Kunlik tahlil logikasi
+    final now = DateTime.now();
+    
+    // Kun almashganini tekshirish (yarim tunda reset)
+    if (now.day != lastDay) {
+      todayFocusSeconds = 0;
+      analysisSent = false;
+      lastDay = now.day;
+      await prefs.setInt('today_focus_seconds', 0);
+      await prefs.setInt('last_tracked_day', lastDay);
+    }
+
+    // Soat 23:55 da tahlil bildirishnomasini yuborish
+    if (now.hour == 23 && now.minute == 55 && !analysisSent) {
+      analysisSent = true;
+      await prefs.setBool('analysis_sent_${now.day}', true);
+      
+      final notificationService = TimerNotificationService();
+      if (todayFocusSeconds < dailyGoalSeconds) {
+        await notificationService.showGoalMissedNotification();
+      } else {
+        await notificationService.showGoalAchievedNotification();
+      }
+    }
+
+    // 2. Bloklash logikasi (800ms o'rniga 1s da bir marta tekshirsa ham yetarli)
     try {
       if (blockedApps.isEmpty) return;
 

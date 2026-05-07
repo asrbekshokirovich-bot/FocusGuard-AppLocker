@@ -19,6 +19,7 @@ class PermissionsScreen extends StatefulWidget {
 class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindingObserver {
   bool _isOverlayGranted = false;
   bool _isUsageGranted = false;
+  bool _isNotificationsGranted = false;
   bool _isLoading = true;
 
   @override
@@ -54,11 +55,13 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     
     bool overlay = await Permission.systemAlertWindow.isGranted;
     bool usage = await _checkUsagePermission();
+    bool notifications = await Permission.notification.isGranted;
     
     if (mounted) {
       setState(() {
         _isOverlayGranted = overlay;
         _isUsageGranted = usage;
+        _isNotificationsGranted = notifications;
         _isLoading = false;
       });
     }
@@ -89,6 +92,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     } catch (_) {
       await AppSettings.openAppSettings(type: AppSettingsType.settings);
     }
+  }
+
+  Future<void> _requestNotifications() async {
+    await Permission.notification.request();
+    await _checkPermissions();
   }
 
   @override
@@ -158,6 +166,18 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         lang: lang,
                       ),
                       
+                      const SizedBox(height: 16),
+                      
+                      _buildPermissionCard(
+                        title: lang.translate('permissions.notifications.title'),
+                        description: lang.translate('permissions.notifications.desc'),
+                        icon: Icons.notifications_active_rounded,
+                        color: const Color(0xFFFF2D55),
+                        isGranted: _isNotificationsGranted,
+                        onTap: _requestNotifications,
+                        lang: lang,
+                      ),
+                      
                       const Spacer(),
                       
                       Container(
@@ -176,7 +196,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: (_isOverlayGranted && _isUsageGranted) ? () {
+                          onPressed: (_isOverlayGranted && _isUsageGranted && _isNotificationsGranted) ? () {
                             if (widget.isFromOnboarding) {
                               Navigator.pushReplacement(
                                 context, 
