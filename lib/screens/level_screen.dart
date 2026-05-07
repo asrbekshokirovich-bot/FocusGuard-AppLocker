@@ -15,8 +15,7 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
-  final double _currentProgress = 0.45; // 45% progress to next level
-  final int _currentLevel = 4;
+  // Real data variables will be used from StreamBuilder
 
   @override
   void initState() {
@@ -43,38 +42,56 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     return ValueListenableBuilder<String>(
       valueListenable: lang.languageNotifier,
       builder: (context, _, __) {
-        return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildSliverAppBar(lang),
-              SliverToBoxAdapter(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildCurrentStatusCard(lang),
-                      const SizedBox(height: 16),
-                      Text(
-                        lang.translate('levels.all_levels'),
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          letterSpacing: -0.5,
-                        ),
+        return StreamBuilder<DocumentSnapshot>(
+          stream: LevelService().getUserStatsStream(),
+          builder: (context, snapshot) {
+            int level = 1;
+            int xp = 0;
+            double progress = 0.0;
+            int totalMinutes = 0;
+
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              level = data['level'] ?? 1;
+              xp = data['xp'] ?? 0;
+              totalMinutes = data['totalMinutes'] ?? 0;
+              progress = (xp % 1000) / 1000.0;
+            }
+
+            return Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              body: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildSliverAppBar(lang),
+                  SliverToBoxAdapter(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildCurrentStatusCard(lang, level, progress, xp),
+                          const SizedBox(height: 16),
+                          Text(
+                            lang.translate('levels.all_levels'),
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _buildLevelsList(lang, level),
+                          const SizedBox(height: 32),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      _buildLevelsList(lang),
-                      const SizedBox(height: 32),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -133,7 +150,10 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildCurrentStatusCard(AppTranslationService lang) {
+  Widget _buildCurrentStatusCard(AppTranslationService lang, int currentLevel, double currentProgress, int xp) {
+    String rankTitle = LevelService().getRankTitle(currentLevel, lang);
+    double remainingHours = (1000 - (xp % 1000)) / 10 / 60;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -164,7 +184,7 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
           ),
           const SizedBox(height: 16),
           Text(
-            lang.translate('levels.master'),
+            rankTitle,
             style: GoogleFonts.inter(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -172,7 +192,7 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
             ),
           ),
           Text(
-            lang.translate('levels.level') + ' $_currentLevel',
+            lang.translate('levels.level') + ' $currentLevel',
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -192,7 +212,7 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
                 ),
               ),
               Text(
-                '${(_currentProgress * 100).toInt()}%',
+                '${(currentProgress * 100).toInt()}%',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -202,23 +222,18 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
             ],
           ),
           const SizedBox(height: 10),
-          AnimatedBuilder(
-            animation: _progressAnimation,
-            builder: (context, child) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: _progressAnimation.value,
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                  minHeight: 10,
-                ),
-              );
-            },
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: currentProgress,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              minHeight: 10,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            lang.translate('levels.remaining_hours').replaceAll('{hours}', '4.5'),
+            lang.translate('levels.remaining_hours').replaceAll('{hours}', remainingHours.toStringAsFixed(1)),
             style: GoogleFonts.inter(
               fontSize: 13,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -230,7 +245,7 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildLevelsList(AppTranslationService lang) {
+  Widget _buildLevelsList(AppTranslationService lang, int currentLevel) {
     final List<Map<String, dynamic>> levels = [
       {'level': 1, 'name': lang.translate('levels.rank_1'), 'hours': '0-1 ${lang.translate('levels.hour_suffix')}', 'unlocked': true},
       {'level': 2, 'name': lang.translate('levels.rank_2'), 'hours': '1-3 ${lang.translate('levels.hour_suffix')}', 'unlocked': true},
@@ -257,8 +272,8 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
       itemCount: levels.length,
       itemBuilder: (context, index) {
         final level = levels[index];
-        final bool isCurrent = level['level'] == _currentLevel;
-        final bool isUnlocked = level['unlocked'];
+        final bool isCurrent = level['level'] == currentLevel;
+        final bool isUnlocked = level['level'] <= currentLevel;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
