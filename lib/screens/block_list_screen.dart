@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
+import 'permissions_screen.dart';
 
 class BlockListScreen extends StatefulWidget {
   const BlockListScreen({super.key});
@@ -123,74 +124,14 @@ class _BlockListScreenState extends State<BlockListScreen> {
   }
 
   Future<void> _handlePermissionSequence(Map<String, dynamic> app) async {
-    final lang = AppTranslationService();
-    // 1. Overlay ruxsatini tekshirish
     bool overlayOk = await Permission.systemAlertWindow.isGranted;
-    if (!overlayOk) {
-      bool proceed = await _showStepDialog(
-        title: lang.translate('block_list.permissions.step_1_title'),
-        content: lang.translate('block_list.permissions.step_1_desc'),
-        btnText: lang.translate('block_list.permissions.step_1_btn'),
-        onConfirm: () async => await Permission.systemAlertWindow.request(),
-      );
-      if (!proceed) {
-        _resetSwitch(app);
-        return;
-      }
-      // Ruxsat berib qaytgandan keyin yana tekshirish (recursively yoki keyingi qadamga o'tish)
-      overlayOk = await Permission.systemAlertWindow.isGranted;
-      if (!overlayOk) {
-        _resetSwitch(app);
-        return;
-      }
-    }
-
-    // 2. Usage Access ruxsatini tekshirish
     bool usageOk = await _checkUsagePermission();
-    if (!usageOk) {
-      bool proceed = await _showStepDialog(
-        title: lang.translate('block_list.permissions.step_2_title'),
-        content: lang.translate('block_list.permissions.step_2_desc'),
-        btnText: lang.translate('block_list.permissions.step_2_btn'),
-        onConfirm: () async {
-          try {
-            await launchUrl(
-              Uri.parse('intent:#Intent;action=android.settings.USAGE_ACCESS_SETTINGS;end'),
-              mode: LaunchMode.externalApplication,
-            );
-          } catch (_) {
-            await AppSettings.openAppSettings(type: AppSettingsType.settings);
-          }
-        },
-      );
-      if (!proceed) {
-        _resetSwitch(app);
-        return;
-      }
-      // Qaytgandan keyin tekshirish uchun biroz kutish kerak (tizim yangilanishi uchun)
-      await Future.delayed(const Duration(seconds: 1));
-      usageOk = await _checkUsagePermission();
-      if (!usageOk) {
-        _resetSwitch(app);
-        return;
-      }
-    }
 
-    // 3. Notification ruxsatini tekshirish (Android 13+)
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      bool notifyOk = await _checkNotificationPermission();
-      if (!notifyOk) {
-        bool proceed = await _showStepDialog(
-          title: lang.translate('block_list.permissions.step_3_title'),
-          content: lang.translate('block_list.permissions.step_3_desc'),
-          btnText: lang.translate('block_list.permissions.step_3_btn'),
-          onConfirm: () async => await Permission.notification.request(),
-        );
-        if (!proceed) {
-          _resetSwitch(app);
-          return;
-        }
-      }
+    if (!overlayOk || !usageOk) {
+      // Agar ruxsatlar bo'lmasa, switchni qaytaramiz va oynani chiqaramiz
+      _resetSwitch(app);
+      _showPermissionPromptDialog();
+      return;
     }
 
     // Hamma ruxsatlar bo'lsa xizmatni yoqish
@@ -206,37 +147,32 @@ class _BlockListScreenState extends State<BlockListScreen> {
     });
   }
 
-  Future<bool> _showStepDialog({
-    required String title,
-    required String content,
-    required String btnText,
-    required Function onConfirm,
-  }) async {
+  void _showPermissionPromptDialog() {
     final lang = AppTranslationService();
-    bool confirmed = false;
-    await showCupertinoDialog(
+    showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Text(content),
+        title: Text(lang.translate('profile.permission_dialog_title')),
+        content: Text(lang.translate('profile.permission_dialog_desc')),
         actions: [
           CupertinoDialogAction(
-            child: Text(lang.translate('block_list.permissions.cancel')),
+            child: Text(lang.translate('profile.btn_understand')),
             onPressed: () => Navigator.pop(ctx),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            onPressed: () async {
-              confirmed = true;
+            child: Text(lang.translate('profile.btn_redirect')),
+            onPressed: () {
               Navigator.pop(ctx);
-              await onConfirm();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+              );
             },
-            child: Text(btnText),
           ),
         ],
       ),
     );
-    return confirmed;
   }
 
   Future<void> _offerDisableNotifications(String packageName, String appName) async {

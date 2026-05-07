@@ -195,11 +195,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 final prefs = await SharedPreferences.getInstance();
                                 await prefs.setBool('is_logged_in', true);
 
-                                // Ruxsatlar oynasiga o'tish
+                                // Dashboard oynasiga o'tish
                                 if (mounted) {
                                   Navigator.pushAndRemoveUntil(
                                     context, 
-                                    MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+                                    MaterialPageRoute(builder: (context) => const DashboardScreen()),
                                     (route) => false,
                                   );
                                 }

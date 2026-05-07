@@ -56,11 +56,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }
 
         if (mounted) {
-          if (hasPermissions) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
-          } else {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
-          }
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
         }
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));

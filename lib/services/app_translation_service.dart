@@ -149,7 +149,8 @@ class AppTranslationService {
         'verify_now': 'Tasdiqlash',
         'verify_sent': 'Tasdiqlash xati Gmail pochtangizga yuborildi.',
         'premium_title': 'FocusGuard Premium',
-        'premium_desc': 'Fokusingizni yangi bosqichga olib chiqing! Cheksiz bloklash va kengaytirilgan tahlillardan foydalaning.',
+        'premium_desc':
+            'Fokusingizni yangi bosqichga olib chiqing! Cheksiz bloklash va kengaytirilgan tahlillardan foydalaning.',
         'premium_btn': 'Batafsil',
         'premium_unverified_error': 'Premium sotib olish uchun avval emailingizni tasdiqlashingiz kerak.',
         'section_for_you': 'Siz uchun',
@@ -164,6 +165,27 @@ class AppTranslationService {
         'logout_confirm_title': 'Chiqish',
         'logout_confirm_desc': 'Rostdan ham tizimdan chiqishni xohlaysizmi?',
         'cancel': 'Bekor qilish',
+        'menu_permissions': 'Ruxsatlar',
+        'permission_dialog_title': 'Ruxsatlar zarur',
+        'permission_dialog_desc':
+            'Ushbu funksiyadan foydalanish uchun profil bo\'limidagi ruxsatlarni berishingizni so\'raymiz.',
+        'btn_redirect': 'Bo\'limga yo\'naltirish',
+        'btn_understand': 'Tushunarli',
+      },
+      'permissions': {
+        'title': 'Ruxsatlar Kerak',
+        'subtitle':
+            'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
+        'overlay': {
+          'title': 'Boshqa ilovalar ustida',
+          'desc':
+              'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
+        },
+        'usage': {
+          'title': 'Ilovalardan foydalanish',
+          'desc':
+              'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
+        },
       },
       'stats': {
         'title': 'Statistika',
@@ -524,8 +546,28 @@ class AppTranslationService {
         'menu_help': 'Help & Support',
         'logout': 'Log Out',
         'logout_confirm_title': 'Logout',
-        'logout_confirm_desc': 'Are you sure you want to log out?',
+        'logout_confirm_desc': 'Do you really want to log out?',
         'cancel': 'Cancel',
+        'menu_permissions': 'Permissions',
+        'permission_dialog_title': 'Permissions Required',
+        'permission_dialog_desc':
+            'Please grant necessary permissions from the Profile section to use this feature.',
+        'btn_redirect': 'Redirect to Section',
+        'btn_understand': 'I Understand',
+      },
+      'permissions': {
+        'title': 'Permissions Required',
+        'subtitle':
+            'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
+        'overlay': {
+          'title': 'Display Over Other Apps',
+          'desc':
+              'Required to show the lock screen when you open a blocked app.',
+        },
+        'usage': {
+          'title': 'Usage Access',
+          'desc': 'Required to detect open apps and block them.',
+        },
       },
       'stats': {
         'title': 'Statistics',
@@ -876,7 +918,8 @@ class AppTranslationService {
         'premium_desc':
             'Поднимите свой фокус на новый уровень! Используйте безлимитную блокировку и расширенную аналитику.',
         'premium_btn': 'Подробнее',
-        'premium_unverified_error': 'Для покупки Premium сначала необходимо подтвердить свой email.',
+        'premium_unverified_error':
+            'Для покупки Premium сначала необходимо подтвердить свой email.',
         'section_for_you': 'Для вас',
         'section_settings': 'Настройки',
         'menu_level': 'Уровень и Статус',
@@ -889,6 +932,27 @@ class AppTranslationService {
         'logout_confirm_title': 'Выход',
         'logout_confirm_desc': 'Вы действительно хотите выйти из системы?',
         'cancel': 'Отмена',
+        'menu_permissions': 'Разрешения',
+        'permission_dialog_title': 'Нужны разрешения',
+        'permission_dialog_desc':
+            'Пожалуйста, предоставьте необходимые разрешения в разделе «Профиль», чтобы использовать эту функцию.',
+        'btn_redirect': 'Перейти в раздел',
+        'btn_understand': 'Понятно',
+      },
+      'permissions': {
+        'title': 'Нужны Разрешения',
+        'subtitle':
+            'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
+        'overlay': {
+          'title': 'Поверх других приложений',
+          'desc':
+              'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
+        },
+        'usage': {
+          'title': 'Доступ к использованию',
+          'desc':
+              'Требуется для определения открытого приложения и его блокировки.',
+        },
       },
       'stats': {
         'title': 'Статистика',
@@ -1277,8 +1341,27 @@ class AppTranslationService {
         'menu_help': '도움말 및 지원',
         'logout': '로그아웃',
         'logout_confirm_title': '로그아웃 확인',
-        'logout_confirm_desc': '정말로 로그아웃 하시겠습니까?',
+        'logout_confirm_desc': '정말로 로그아웃하시겠습니까?',
         'cancel': '취소',
+        'menu_permissions': '권한 설정',
+        'permission_dialog_title': '권한 필요',
+        'permission_dialog_desc':
+            '이 기능을 사용하려면 프로필 섹션에서 필요한 권한을 허용해 주세요.',
+        'btn_redirect': '설정으로 이동',
+        'btn_understand': '알겠습니다',
+      },
+      'permissions': {
+        'title': '권한 필요',
+        'subtitle':
+            '앱 차단 서비스가 올바르게 작동하려면 휴대폰 설정에서 다음 권한을 허용해야 합니다.',
+        'overlay': {
+          'title': '다른 앱 위에 표시',
+          'desc': '차단된 앱을 열 때 잠금 화면을 표시하는 데 필요합니다.',
+        },
+        'usage': {
+          'title': '사용 정보 접근',
+          'desc': '열려 있는 앱을 감지하고 차단하는 데 필요합니다.',
+        },
       },
       'levels': {
         'title': '레벨 및 진행 상황',
@@ -1582,7 +1665,8 @@ class AppTranslationService {
         'premium_desc':
             'Bringen Sie Ihren Fokus auf die nächste Stufe! Nutzen Sie unbegrenzte Blockierung und erweiterte Analysen.',
         'premium_btn': 'Details',
-        'premium_unverified_error': 'Sie müssen zuerst Ihre E-Mail verifizieren, um Premium zu kaufen.',
+        'premium_unverified_error':
+            'Sie müssen zuerst Ihre E-Mail verifizieren, um Premium zu kaufen.',
         'section_for_you': 'Für Sie',
         'section_settings': 'Einstellungen',
         'menu_level': 'Stufe & Status',
@@ -1593,8 +1677,30 @@ class AppTranslationService {
         'menu_help': 'Hilfe & Support',
         'logout': 'Abmelden',
         'logout_confirm_title': 'Abmelden',
-        'logout_confirm_desc': 'Sind Sie sicher, dass Sie sich abmelden möchten?',
+        'logout_confirm_desc':
+            'Sind Sie sicher, dass Sie sich abmelden möchten?',
         'cancel': 'Abbrechen',
+        'menu_permissions': 'Berechtigungen',
+        'permission_dialog_title': 'Berechtigungen erforderlich',
+        'permission_dialog_desc':
+            'Bitte erteilen Sie die erforderlichen Berechtigungen im Profilbereich, um diese Funktion zu nutzen.',
+        'btn_redirect': 'Zum Bereich weiterleiten',
+        'btn_understand': 'Verstanden',
+      },
+      'permissions': {
+        'title': 'Berechtigungen erforderlich',
+        'subtitle':
+            'Damit der App-Blockierungsdienst korrekt funktioniert, müssen Sie die folgenden Berechtigungen in Ihren Telefoneinstellungen gewähren.',
+        'overlay': {
+          'title': 'Über anderen Apps anzeigen',
+          'desc':
+              'Erforderlich, um den Sperrbildschirm anzuzeigen, wenn Sie eine blockierte App öffnen.',
+        },
+        'usage': {
+          'title': 'Nutzungszugriff',
+          'desc':
+              'Erforderlich, um geöffnete Apps zu erkennen und zu blockieren.',
+        },
       },
       'stats': {
         'title': 'Statistik',
@@ -1921,7 +2027,8 @@ class AppTranslationService {
         'premium_desc':
             'Passez votre focus au niveau supérieur ! Utilisez le blocage illimité et les analyses avancées.',
         'premium_btn': 'Détails',
-        'premium_unverified_error': 'Vous devez d\'abord vérifier votre e-mail pour acheter Premium.',
+        'premium_unverified_error':
+            'Vous devez d\'abord vérifier votre e-mail pour acheter Premium.',
         'section_for_you': 'Pour vous',
         'section_settings': 'Paramètres',
         'menu_level': 'Niveau et Statut',
@@ -1932,8 +2039,29 @@ class AppTranslationService {
         'menu_help': 'Aide et Support',
         'logout': 'Déconnexion',
         'logout_confirm_title': 'Déconnexion',
-        'logout_confirm_desc': 'Êtes-vous sûr de vouloir vous déconnecter ?',
+        'logout_confirm_desc': 'Voulez-vous vraiment vous déconnecter?',
         'cancel': 'Annuler',
+        'menu_permissions': 'Autorisations',
+        'permission_dialog_title': 'Autorisations requises',
+        'permission_dialog_desc':
+            'Veuillez accorder les autorisations nécessaires dans la section Profil pour utiliser cette fonction.',
+        'btn_redirect': 'Rediriger vers la section',
+        'btn_understand': 'Compris',
+      },
+      'permissions': {
+        'title': 'Autorisations Requises',
+        'subtitle':
+            'Pour que le service de blocage d\'applications fonctionne correctement, vous devez accorder les autorisations suivantes dans les paramètres de votre téléphone.',
+        'overlay': {
+          'title': 'Afficher sur d\'autres applications',
+          'desc':
+              'Requis pour afficher l\'écran de verrouillage lorsque vous ouvrez une application bloquée.',
+        },
+        'usage': {
+          'title': 'Accès à l\'utilisation',
+          'desc':
+              'Requis pour détecter les applications ouvertes et les bloquer.',
+        },
       },
       'stats': {
         'title': 'Statistiques',

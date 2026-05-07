@@ -154,21 +154,6 @@ class LanguageService {
           },
         ]
       },
-      'permissions': {
-        'title': 'Ruxsatlar Kerak',
-        'subtitle':
-            'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
-        'overlay': {
-          'title': 'Boshqa ilovalar ustida',
-          'desc':
-              'Bloklangan ilovaga kirganingizda ustidan qulf ekranini chiqarish uchun kerak.',
-        },
-        'usage': {
-          'title': 'Ilovalardan foydalanish',
-          'desc':
-              'Qaysi ilova ochilganini aniqlash va uni bloklash uchun kerak.',
-        },
-      },
       'errors': {
         'invalid_email': 'Email manzili noto\'g\'ri formatda.',
         'user_not_found': 'Bunday foydalanuvchi topilmadi.',
@@ -267,21 +252,6 @@ class LanguageService {
           },
         ]
       },
-      'permissions': {
-        'title': 'Нужны Разрешения',
-        'subtitle':
-            'Для корректной работы службы блокировки приложений необходимо предоставить следующие разрешения в настройках телефона.',
-        'overlay': {
-          'title': 'Поверх других приложений',
-          'desc':
-              'Требуется для отображения экрана блокировки при открытии заблокированного приложения.',
-        },
-        'usage': {
-          'title': 'Доступ к использованию',
-          'desc':
-              'Требуется для определения открытого приложения и его блокировки.',
-        },
-      },
       'errors': {
         'invalid_email': 'Неверный формат email.',
         'user_not_found': 'Пользователь не найден.',
@@ -378,20 +348,6 @@ class LanguageService {
                 'All personal and statistical data are protected by AES-256 encryption methods in accordance with industry standards.'
           },
         ]
-      },
-      'permissions': {
-        'title': 'Permissions Required',
-        'subtitle':
-            'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
-        'overlay': {
-          'title': 'Display Over Other Apps',
-          'desc':
-              'Required to show the lock screen when you open a blocked app.',
-        },
-        'usage': {
-          'title': 'Usage Access',
-          'desc': 'Required to detect open apps and block them.',
-        },
       },
       'errors': {
         'invalid_email': 'Invalid email format.',

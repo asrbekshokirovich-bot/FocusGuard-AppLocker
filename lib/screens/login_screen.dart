@@ -238,8 +238,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
 
-                            // Har doim birinchi bo'lib ruxsatlar oynasiga o'tamiz
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+                            // Har doim birinchi bo'lib Dashboardga o'tamiz
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
                           }
                         } catch (e) {
                           if (mounted) {

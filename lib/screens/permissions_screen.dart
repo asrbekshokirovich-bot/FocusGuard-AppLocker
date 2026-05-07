@@ -6,7 +6,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../services/language_service.dart';
+import '../services/app_translation_service.dart';
 import '../services/background_service.dart';
 import 'dashboard_screen.dart';
 
@@ -83,102 +83,107 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
   @override
   Widget build(BuildContext context) {
-    final lang = LanguageService();
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                lang.translate('permissions.title'),
-                style: LanguageService.getFont(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                lang.translate('permissions.subtitle'),
-                style: LanguageService.getFont(
-                  fontSize: 15,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 40),
-              
-              _buildPermissionCard(
-                title: lang.translate('permissions.overlay.title'),
-                description: lang.translate('permissions.overlay.desc'),
-                icon: Icons.layers_rounded,
-                color: const Color(0xFF007AFF),
-                isGranted: _isOverlayGranted,
-                onTap: _requestOverlay,
-                lang: lang,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              _buildPermissionCard(
-                title: lang.translate('permissions.usage.title'),
-                description: lang.translate('permissions.usage.desc'),
-                icon: Icons.pie_chart_rounded,
-                color: const Color(0xFFFF9500),
-                isGranted: _isUsageGranted,
-                onTap: _requestUsage,
-                lang: lang,
-              ),
-              
-              const Spacer(),
-              
-              Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    if (_isOverlayGranted && _isUsageGranted)
-                      BoxShadow(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                  ],
-                ),
-                child: ElevatedButton(
-                  onPressed: (_isOverlayGranted && _isUsageGranted) ? () {
-                    Navigator.pushReplacement(
-                      context, 
-                      MaterialPageRoute(builder: (context) => const DashboardScreen())
-                    );
-                  } : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                    disabledBackgroundColor: Theme.of(context).primaryColor.withOpacity(0.3),
-                  ),
-                  child: Text(
-                    lang.translate('common.continue'),
-                    style: LanguageService.getFont(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+    final lang = AppTranslationService();
+    return ValueListenableBuilder<String>(
+      valueListenable: lang.languageNotifier,
+      builder: (context, _, __) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    lang.translate('permissions.title'),
+                    style: lang.getFont(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      letterSpacing: -1,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  Text(
+                    lang.translate('permissions.subtitle'),
+                    style: lang.getFont(
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  _buildPermissionCard(
+                    title: lang.translate('permissions.overlay.title'),
+                    description: lang.translate('permissions.overlay.desc'),
+                    icon: Icons.layers_rounded,
+                    color: const Color(0xFF007AFF),
+                    isGranted: _isOverlayGranted,
+                    onTap: _requestOverlay,
+                    lang: lang,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  _buildPermissionCard(
+                    title: lang.translate('permissions.usage.title'),
+                    description: lang.translate('permissions.usage.desc'),
+                    icon: Icons.pie_chart_rounded,
+                    color: const Color(0xFFFF9500),
+                    isGranted: _isUsageGranted,
+                    onTap: _requestUsage,
+                    lang: lang,
+                  ),
+                  
+                  const Spacer(),
+                  
+                  Container(
+                    width: double.infinity,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        if (_isOverlayGranted && _isUsageGranted)
+                          BoxShadow(
+                            color: Theme.of(context).primaryColor.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: (_isOverlayGranted && _isUsageGranted) ? () {
+                        Navigator.pushReplacement(
+                          context, 
+                          MaterialPageRoute(builder: (context) => const DashboardScreen())
+                        );
+                      } : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                        disabledBackgroundColor: Theme.of(context).primaryColor.withOpacity(0.3),
+                      ),
+                      child: Text(
+                        lang.translate('common.continue'),
+                        style: lang.getFont(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -189,7 +194,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     required Color color,
     required bool isGranted,
     required VoidCallback onTap,
-    required LanguageService lang,
+    required AppTranslationService lang,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -225,7 +230,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: lang.getFont(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
@@ -234,7 +239,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: GoogleFonts.inter(
+                  style: lang.getFont(
                     fontSize: 12,
                     color: const Color(0xFF8E8E93),
                   ),
@@ -253,8 +258,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: Text(
-              isGranted ? "Yoqilgan" : "Ruxsat",
-              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+              isGranted ? lang.translate('common.save') : lang.translate('language.continue'),
+              style: lang.getFont(fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
         ],
