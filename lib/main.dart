@@ -38,8 +38,8 @@ void main() async {
   // Fon xizmatini ishga tushirish
   await initializeBackgroundService();
   
-  // Streak eslatmasini faollashtirish (Test uchun 15:19 ga qo'ydik)
-  StreakReminderService().scheduleDailyReminder(hour: 15, minute: 19);
+  // Streak eslatmasini faollashtirish (Har kuni 10:20 da)
+  StreakReminderService().scheduleDailyReminder(hour: 10, minute: 20);
 
   runApp(
     DevicePreview(
