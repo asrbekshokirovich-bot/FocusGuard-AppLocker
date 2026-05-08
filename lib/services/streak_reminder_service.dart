@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'app_translation_service.dart';
 
 class StreakReminderService {
-  static final StreakReminderService _instance = StreakReminderService._internal();
+  static final StreakReminderService _instance =
+      StreakReminderService._internal();
   factory StreakReminderService() => _instance;
   StreakReminderService._internal();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   static const int _reminderId = 888;
   bool _initialized = false;
 
@@ -17,7 +19,7 @@ class StreakReminderService {
     if (_initialized) return;
 
     tz.initializeTimeZones();
-    
+
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
 
@@ -29,14 +31,15 @@ class StreakReminderService {
   }
 
   /// Har kuni ma'lum bir vaqtda eslatma yuborishni rejalashtirish
-  Future<void> scheduleDailyReminder({int hour = 16, int minute = 20}) async {
+  Future<void> scheduleDailyReminder({int hour = 10, int minute = 20}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     await init();
 
     final lang = AppTranslationService();
-    
+
     // Bildirishnoma sozlamalari
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       'streak_reminder_channel',
       'Streak Eslatmalari',
       channelDescription: 'Fokus qilishni eslatib turuvchi bildirishnomalar',
@@ -44,7 +47,8 @@ class StreakReminderService {
       priority: Priority.high,
     );
 
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    const NotificationDetails details =
+        NotificationDetails(android: androidDetails);
 
     // Vaqtni hisoblash
     final now = tz.TZDateTime.now(tz.local);
@@ -64,8 +68,10 @@ class StreakReminderService {
 
     await _plugin.zonedSchedule(
       id: _reminderId,
-      title: lang.translate('notifications.streak_reminder_title') ?? 'Olovni o\'chirib qo\'ymang! 🔥',
-      body: lang.translate('notifications.streak_reminder_body') ?? 'Bugun hali fokus qilmadingiz. Streak\'ni saqlab qolish uchun hozir vaqt ajrating!',
+      title: lang.translate('notifications.streak_reminder_title') ??
+          'Olovni o\'chirib qo\'ymang! 🔥',
+      body: lang.translate('notifications.streak_reminder_body') ??
+          'Bugun hali fokus qilmadingiz. Streak\'ni saqlab qolish uchun hozir vaqt ajrating!',
       scheduledDate: scheduledDate,
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
