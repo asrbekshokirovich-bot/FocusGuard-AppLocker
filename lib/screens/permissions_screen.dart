@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
-import '../services/background_service.dart';
+import '../services/service_starter.dart';
 import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {

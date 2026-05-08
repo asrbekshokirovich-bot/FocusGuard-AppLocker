@@ -15,6 +15,7 @@ import 'services/streak_reminder_service.dart';
 
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
+import 'services/service_starter.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
 import 'package:firebase_core/firebase_core.dart';
