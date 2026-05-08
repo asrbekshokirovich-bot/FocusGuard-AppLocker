@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
+import '../services/background_service.dart';
 import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {
@@ -204,10 +205,13 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: (_isOverlayGranted && _isUsageGranted && _isNotificationsGranted) ? () {
+                          onPressed: (_isOverlayGranted && _isUsageGranted && _isNotificationsGranted) ? () async {
+                            // Ruxsatlar berildi — agar bloklangan ilovalar bo'lsa, xizmatni boshlaymiz
+                            await startBackgroundServiceIfReady();
+                            if (!mounted) return;
                             if (widget.isFromOnboarding) {
                               Navigator.pushReplacement(
-                                context, 
+                                context,
                                 MaterialPageRoute(builder: (context) => const DashboardScreen())
                               );
                             } else {

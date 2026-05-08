@@ -42,6 +42,8 @@ void main() async {
   
   // Fon xizmatini ishga tushirish
   await initializeBackgroundService();
+  // Agar barcha ruxsatlar va bloklangan ilovalar bo'lsa, xizmatni darhol boshlaymiz
+  await startBackgroundServiceIfReady();
   
   // Streak eslatmasini faollashtirish (Har kuni 11:25 da)
   StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
