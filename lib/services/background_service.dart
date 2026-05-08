@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide NotificationVisibility;
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
@@ -15,6 +16,19 @@ Future<void> initializeBackgroundService() async {
   if (kIsWeb || _isServiceInitialized) return;
   
   try {
+    // Android 8+ uchun bildirishnoma kanalini avval yaratish kerak.
+    // Aks holda startForeground "Bad notification" xatosi bilan ilova yiqiladi.
+    const channel = AndroidNotificationChannel(
+      'app_locker_channel',
+      'App Locker Service',
+      description: 'Keeps app blocker running in background',
+      importance: Importance.low,
+    );
+    final notifications = FlutterLocalNotificationsPlugin();
+    await notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
     // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
     final service = FlutterBackgroundService();
