@@ -188,18 +188,24 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   void _startTimer() async {
     final lang = AppTranslationService();
     
-    // Haqiqiy daraja va unvonni olish
-    final stats = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(FirebaseAuth.instance.currentUser?.uid)
-        .get();
-    
     int level = 1;
     String rankTitle = lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
     
-    if (stats.exists) {
-      level = stats.data()?['level'] ?? 1;
-      rankTitle = LevelService().getRankTitle(level, lang);
+    try {
+      // Haqiqiy daraja va unvonni olish (timeout bilan)
+      final stats = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .get()
+          .timeout(const Duration(seconds: 2));
+      
+      if (stats.exists) {
+        level = stats.data()?['level'] ?? 1;
+        rankTitle = LevelService().getRankTitle(level, lang);
+      }
+    } catch (e) {
+      debugPrint('Error getting stats for timer: $e');
+      // Xatolik bo'lsa ham standart daraja bilan davom etamiz
     }
 
     final levelLabel = lang.translate('levels.level') ?? 'Daraja';

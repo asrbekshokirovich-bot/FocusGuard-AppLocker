@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/app_translation_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'focus_timer_screen.dart';
 import 'block_list_screen.dart';
@@ -51,14 +52,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _checkNotificationPermission() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool hasSeenPrompt = prefs.getBool('has_seen_notification_prompt') ?? false;
+    
+    if (hasSeenPrompt) return; // Allaqachon ko'rgan bo'lsa qaytib so'ramaymiz
+
+    // 2 soniya kutamiz (UI yaxshilab yuklanishi uchun)
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
     final status = await Permission.notification.status;
-    if (status.isDenied || status.isPermanentlyDenied) {
+    if (!status.isGranted) {
       _showNotificationDialog();
     }
   }
 
-  void _showNotificationDialog() {
+  void _showNotificationDialog() async {
     final lang = AppTranslationService();
+    final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) return;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -78,12 +92,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              await prefs.setBool('has_seen_notification_prompt', true);
+              if (context.mounted) Navigator.pop(context);
+            },
             child: Text(lang.translate('profile.btn_understand') ?? 'Tushunarli', style: lang.getFont(color: Colors.grey, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              await prefs.setBool('has_seen_notification_prompt', true);
+              if (context.mounted) Navigator.pop(context);
               await openAppSettings();
             },
             style: ElevatedButton.styleFrom(

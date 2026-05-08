@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/app_translation_service.dart';
+import '../services/level_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LevelScreen extends StatefulWidget {
   const LevelScreen({super.key});
@@ -13,7 +15,6 @@ class LevelScreen extends StatefulWidget {
 
 class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _progressAnimation;
 
   // Real data variables will be used from StreamBuilder
 
@@ -23,9 +24,6 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    );
-    _progressAnimation = Tween<double>(begin: 0, end: _currentProgress).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
     _animationController.forward();
   }

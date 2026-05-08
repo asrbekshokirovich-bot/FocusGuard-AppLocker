@@ -56,7 +56,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }
 
         if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+          if (hasPermissions) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+          } else {
+            // Agar ruxsatlar yetishmasa, PermissionsScreen ga yuboramiz
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen(isFromOnboarding: true)));
+          }
         }
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));

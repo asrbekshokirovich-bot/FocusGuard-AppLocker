@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'app_translation_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TimerNotificationService {
   static final TimerNotificationService _instance = TimerNotificationService._internal();
@@ -22,6 +23,14 @@ class TimerNotificationService {
 
     await _plugin.initialize(settings: settings);
     _initialized = true;
+  }
+
+  Future<bool> _shouldShow(String subKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    bool main = prefs.getBool('notification_main') ?? true;
+    if (!main) return false;
+    if (subKey.isEmpty) return true;
+    return prefs.getBool(subKey) ?? true;
   }
 
   /// Taymer boshlanganda bildirishnomani ko'rsat
@@ -84,6 +93,7 @@ class TimerNotificationService {
     required String rankTitle,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (!await _shouldShow('notification_achievements')) return;
     await init();
 
     final lang = AppTranslationService();
@@ -115,6 +125,7 @@ class TimerNotificationService {
   /// Kunlik maqsad bajarilmaganda achinarli xabar yuborish
   Future<void> showGoalMissedNotification() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (!await _shouldShow('notification_analysis')) return;
     await init();
 
     final lang = AppTranslationService();
@@ -143,6 +154,7 @@ class TimerNotificationService {
   /// Kunlik maqsad bajarilganda tabrik xabari
   Future<void> showGoalAchievedNotification() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (!await _shouldShow('notification_analysis')) return;
     await init();
 
     final lang = AppTranslationService();

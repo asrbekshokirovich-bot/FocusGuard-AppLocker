@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/app_translation_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationsSettingsScreen extends StatefulWidget {
   const NotificationsSettingsScreen({super.key});
@@ -18,6 +19,33 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
   bool _dailyAnalysis = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _mainNotifications = prefs.getBool('notification_main') ?? true;
+      _focusReminders = prefs.getBool('notification_focus') ?? true;
+      _achievementAlerts = prefs.getBool('notification_achievements') ?? true;
+      _planReminders = prefs.getBool('notification_plans') ?? true;
+      _dailyAnalysis = prefs.getBool('notification_analysis') ?? false;
+    });
+  }
+
+  Future<void> _updateSetting(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+    setState(() {
+      if (key == 'notification_main') _mainNotifications = value;
+      if (key == 'notification_focus') _focusReminders = value;
+      if (key == 'notification_achievements') _achievementAlerts = value;
+      if (key == 'notification_plans') _planReminders = value;
+      if (key == 'notification_analysis') _dailyAnalysis = value;
+    });
+  }
   Widget build(BuildContext context) {
     final lang = AppTranslationService();
     return ValueListenableBuilder<String>(
@@ -41,9 +69,10 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           lang.translate('notifications.push_title'), 
                           lang.translate('notifications.push_desc'), 
                           _mainNotifications, 
-                          (val) => setState(() => _mainNotifications = val),
+                          (val) => _updateSetting('notification_main', val),
                           CupertinoIcons.bell_fill,
                           Theme.of(context).primaryColor,
+                          true, // Master switch is always enabled
                         ),
                       ]),
                       
@@ -54,18 +83,20 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           lang.translate('notifications.focus_reminders_title'), 
                           lang.translate('notifications.focus_reminders_desc'), 
                           _focusReminders, 
-                          (val) => setState(() => _focusReminders = val),
+                          (val) => _updateSetting('notification_focus', val),
                           CupertinoIcons.timer_fill,
                           const Color(0xFFFF9500),
+                          _mainNotifications,
                         ),
                         _buildDivider(),
                         _buildSwitchItem(
                           lang.translate('notifications.achievements_title'), 
                           lang.translate('notifications.achievements_desc'), 
                           _achievementAlerts, 
-                          (val) => setState(() => _achievementAlerts = val),
+                          (val) => _updateSetting('notification_achievements', val),
                           CupertinoIcons.star_fill,
                           const Color(0xFFFFCC00),
+                          _mainNotifications,
                         ),
                       ]),
 
@@ -76,18 +107,20 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
                           lang.translate('notifications.plans_reminders_title'), 
                           lang.translate('notifications.plans_reminders_desc'), 
                           _planReminders, 
-                          (val) => setState(() => _planReminders = val),
+                          (val) => _updateSetting('notification_plans', val),
                           CupertinoIcons.calendar_badge_plus,
                           const Color(0xFF34C759),
+                          _mainNotifications,
                         ),
                         _buildDivider(),
                         _buildSwitchItem(
                           lang.translate('notifications.daily_analysis_title'), 
                           lang.translate('notifications.daily_analysis_desc'), 
                           _dailyAnalysis, 
-                          (val) => setState(() => _dailyAnalysis = val),
+                          (val) => _updateSetting('notification_analysis', val),
                           CupertinoIcons.graph_circle_fill,
                           Theme.of(context).primaryColor,
+                          _mainNotifications,
                         ),
                       ]),
                       
@@ -189,8 +222,10 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
     );
   }
 
-  Widget _buildSwitchItem(String title, String subtitle, bool value, Function(bool) onChanged, IconData icon, Color color) {
-    return Padding(
+  Widget _buildSwitchItem(String title, String subtitle, bool value, Function(bool) onChanged, IconData icon, Color color, bool isEnabled) {
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.4,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
@@ -225,12 +260,13 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
               ],
             ),
           ),
-          CupertinoSwitch(
-            value: value,
-            activeColor: Theme.of(context).primaryColor,
-            onChanged: onChanged,
-          ),
-        ],
+            CupertinoSwitch(
+              value: isEnabled ? value : false,
+              activeColor: Theme.of(context).primaryColor,
+              onChanged: isEnabled ? onChanged : null,
+            ),
+          ],
+        ),
       ),
     );
   }

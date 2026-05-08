@@ -35,6 +35,14 @@ class FocusTimerService {
     required String levelTitle,
     required bool isStrict,
   }) async {
+    // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz
+    bool isRunning = await _service.isRunning();
+    if (!isRunning) {
+      await _service.startService();
+      // Xizmat boshlanishi uchun biroz kutamiz
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
     _service.invoke('startTimer', {
       'minutes': minutes,
       'modeName': modeName,
