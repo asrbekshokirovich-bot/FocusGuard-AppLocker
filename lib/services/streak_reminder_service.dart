@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter/foundation.dart';
 import 'app_translation_service.dart';
 
@@ -19,6 +20,12 @@ class StreakReminderService {
     if (_initialized) return;
 
     tz.initializeTimeZones();
+    try {
+      final currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone.identifier));
+    } catch (e) {
+      debugPrint('Timezone initialization error: $e');
+    }
 
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
@@ -31,7 +38,7 @@ class StreakReminderService {
   }
 
   /// Har kuni ma'lum bir vaqtda eslatma yuborishni rejalashtirish
-  Future<void> scheduleDailyReminder({int hour = 10, int minute = 40}) async {
+  Future<void> scheduleDailyReminder({int hour = 11, int minute = 25}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     await init();
 

@@ -18,6 +18,7 @@ import 'services/background_service.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
@@ -26,9 +27,13 @@ void main() async {
   // Firebase initialization
   try {
     await Firebase.initializeApp();
+    // Firestore oflayn rejimini yoqish
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
-    // Ehtimol google-services.json fayli hali qo'shilmagan
   }
   
   await AppTranslationService().init();
@@ -38,8 +43,8 @@ void main() async {
   // Fon xizmatini ishga tushirish
   await initializeBackgroundService();
   
-  // Streak eslatmasini faollashtirish (Har kuni 10:40 da)
-  StreakReminderService().scheduleDailyReminder(hour: 10, minute: 40);
+  // Streak eslatmasini faollashtirish (Har kuni 11:25 da)
+  StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
 
   runApp(
     DevicePreview(

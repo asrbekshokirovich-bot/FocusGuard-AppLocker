@@ -27,9 +27,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Darhol tekshirmasdan, oyna yuklanishini kutamiz
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
-        _checkPermissions();
+        _checkPermissions(isPassive: true);
       }
     });
   }
@@ -47,15 +47,23 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     }
   }
 
-  Future<void> _checkPermissions() async {
+  Future<void> _checkPermissions({bool isPassive = false}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       setState(() => _isLoading = false);
       return;
     }
     
     bool overlay = await Permission.systemAlertWindow.isGranted;
-    bool usage = await _checkUsagePermission();
     bool notifications = await Permission.notification.isGranted;
+    
+    // Usage ruxsatini faqat passiv tekshiramiz (trigger qilmaslik uchun)
+    bool usage = false;
+    if (isPassive) {
+      // SharedPreferences dan oldingi holatni olishimiz mumkin yoki shunchaki false qaytaramiz
+      usage = _isUsageGranted; 
+    } else {
+      usage = await _checkUsagePermission();
+    }
     
     if (mounted) {
       setState(() {

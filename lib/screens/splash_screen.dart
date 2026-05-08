@@ -41,16 +41,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       final User? user = FirebaseAuth.instance.currentUser;
 
       if (user != null) {
-        // Ruxsatlarni tekshirish
+        // Ruxsatlarni tekshirish (faqat passiv)
         bool hasPermissions = true;
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
           bool overlayOk = await Permission.systemAlertWindow.isGranted;
           bool usageOk = false;
           try {
+            // Shunchaki ruxsat holatini tekshirish
             DateTime now = DateTime.now();
-            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now).timeout(const Duration(milliseconds: 500));
             usageOk = true;
-          } catch (_) {}
+          } catch (_) {
+            usageOk = false;
+          }
           
           hasPermissions = overlayOk && usageOk;
         }

@@ -47,7 +47,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   int _selectedActivityIndex = 0;
   
   double _dailyGoalHours = 4.0;
-  double _currentProgressHours = 2.5;
+  double _currentProgressHours = 0.0;
   Map<String, int> _activityProgress = {}; // Activity key/name -> minutes spent today
   String _motivationPhrase = 'Bugun ajoyib kun bo\'ladi!';
   final TextEditingController _motivationController = TextEditingController(text: 'Bugun ajoyib kun bo\'ladi!');
@@ -192,20 +192,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     String rankTitle = lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
     
     try {
-      // Haqiqiy daraja va unvonni olish (timeout bilan)
-      final stats = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .get()
-          .timeout(const Duration(seconds: 2));
-      
-      if (stats.exists) {
-        level = stats.data()?['level'] ?? 1;
-        rankTitle = LevelService().getRankTitle(level, lang);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Haqiqiy daraja va unvonni olish (timeout bilan va keshdan)
+        final stats = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(const Duration(seconds: 1));
+        
+        if (stats.exists) {
+          level = stats.data()?['level'] ?? 1;
+          rankTitle = LevelService().getRankTitle(level, lang);
+        }
       }
     } catch (e) {
       debugPrint('Error getting stats for timer: $e');
-      // Xatolik bo'lsa ham standart daraja bilan davom etamiz
     }
 
     final levelLabel = lang.translate('levels.level') ?? 'Daraja';

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import '../services/app_translation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,11 +11,13 @@ import 'focus_timer_screen.dart';
 import 'block_list_screen.dart';
 import 'stats_screen.dart';
 import 'profile_screen.dart';
+import 'permissions_screen.dart';
 
 import '../services/language_service.dart';
 import '../services/level_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:app_usage/app_usage.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -46,9 +48,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     LevelService().ensureUserStatsInitialized();
 
     // Bildirishnoma ruxsatini tekshirish
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkNotificationPermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final bool redirected = await _checkCriticalPermissions();
+      if (!redirected) {
+        _checkNotificationPermission();
+      }
     });
+  }
+
+  Future<bool> _checkCriticalPermissions() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    
+    // 1 soniya kutamiz
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return false;
+
+    bool hasOverlay = await Permission.systemAlertWindow.isGranted;
+    bool hasUsage = false;
+    try {
+      DateTime now = DateTime.now();
+      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      hasUsage = true;
+    } catch (_) {
+      hasUsage = false;
+    }
+
+    if (!hasOverlay || !hasUsage) {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PermissionsScreen())
+        );
+      }
+      return true;
+    }
+    return false;
   }
 
   Future<void> _checkNotificationPermission() async {
