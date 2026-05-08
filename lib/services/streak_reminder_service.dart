@@ -31,7 +31,7 @@ class StreakReminderService {
   }
 
   /// Har kuni ma'lum bir vaqtda eslatma yuborishni rejalashtirish
-  Future<void> scheduleDailyReminder({int hour = 10, int minute = 20}) async {
+  Future<void> scheduleDailyReminder({int hour = 10, int minute = 40}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     await init();
 
