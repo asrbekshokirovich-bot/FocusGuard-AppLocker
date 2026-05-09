@@ -25,11 +25,16 @@ subprojects {
     val p = this
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        if (android != null && android.namespace == null) {
-            android.namespace = "com.example." + p.name.replace(":", ".")
+        if (android != null) {
+            if (android.namespace == null) {
+                android.namespace = "com.example." + p.name.replace(":", ".")
+            }
+            // Force compileSdk on all subprojects to fix legacy plugins
+            // referencing android:attr/lStar (e.g. usage_stats package)
+            android.compileSdkVersion(36)
         }
     }
-    
+
     project.configurations.all {
         resolutionStrategy {
             force("androidx.core:core:1.13.1")
