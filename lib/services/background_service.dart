@@ -31,7 +31,7 @@ Future<void> initializeBackgroundService() async {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidNotifications?.createNotificationChannel(channel);
 
-    // Pre-create the overlay's foreground service channel with MIN
+    // Pre-create the overlay's foreground service channel with LOW
     // importance so the "Ilova cheklangan" banner doesn't pop with a
     // sound/vibration each time the cover appears.
     //
@@ -40,12 +40,18 @@ Future<void> initializeBackgroundService() async {
     // in the package source). Once a channel exists Android keeps our
     // settings even if the package later recreates a channel with the
     // same id at IMPORTANCE_DEFAULT.
+    //
+    // IMPORTANCE_LOW (not MIN) is required: Samsung One UI's
+    // EdgeLightingPolicyManager evicts MIN-priority foreground service
+    // notifications, which kills the overlay process and makes the
+    // cover blink off ~5s after it appears. LOW is the lowest level
+    // Samsung keeps for sticky foreground services.
     await androidNotifications?.createNotificationChannel(
       const AndroidNotificationChannel(
         'Overlay Channel',
         'Overlay Channel',
         description: 'Blocking screen for restricted apps',
-        importance: Importance.min,
+        importance: Importance.low,
         playSound: false,
         enableVibration: false,
         showBadge: false,
@@ -124,8 +130,13 @@ void onStart(ServiceInstance service) async {
   // ko'rsatsa ham overlay tushib qolmasligini ta'minlaydi.
   // currentBlockedApp — overlay hozir qaysi paket uchun ko'rsatilmoqda;
   // bir paketga bir marta vibratsiya berishimiz uchun.
+  // suppressUntil — foydalanuvchi "Orqaga qaytish" tugmasini bossa,
+  // shundan keyin 5 soniya overlayni qayta ko'rsatmaymiz. Aks holda
+  // home intent uchgunicha biz yana overlayni ochib yuboramiz va
+  // foydalanuvchi loop'da qoladi.
   int notBlockedTicks = 0;
   String? currentBlockedApp;
+  DateTime? suppressUntil;
 
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
@@ -245,11 +256,21 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Bloklangan ilovalar ro'yxatini yuklaymiz
+  // Bloklangan ilovalar ro'yxatini yuklaymiz.
+  //
+  // CRITICAL: SharedPreferences keeps a per-isolate Dart-side cache
+  // that is populated on the first getInstance() call. When the UI
+  // isolate writes blocked_apps via setStringList, our cache stays
+  // stale. Without prefs.reload() the toggle on the block-list screen
+  // looks like it does nothing — the user can never untoggle a
+  // blocked app and newly added apps are never picked up. reload()
+  // forces a re-read from the platform side so we always see the
+  // freshest list.
   List<String> blockedApps = [];
   final loadBlockedApps = () async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
       blockedApps = prefs.getStringList('blocked_apps') ?? [];
     } catch (_) {}
   };
@@ -259,6 +280,15 @@ void onStart(ServiceInstance service) async {
   // Ro'yxat o'zgarganda yangilash uchun listener
   service.on('updateBlockedApps').listen((event) async {
     await loadBlockedApps();
+  });
+
+  // Foydalanuvchi overlay'dagi "Orqaga qaytish" tugmasini bosganda
+  // overlay isolate biz tomonga shu eventni yuboradi. Biz keyingi 5
+  // soniya overlay'ni qayta ko'rsatmaymiz, foydalanuvchi home'ga
+  // chiqib ulgursin.
+  service.on('overlayClosedByUser').listen((event) {
+    suppressUntil = DateTime.now().add(const Duration(seconds: 5));
+    currentBlockedApp = null;
   });
 
   // Loop har 1 soniya da
@@ -385,6 +415,12 @@ void onStart(ServiceInstance service) async {
         // Bloklangan ilova foreground'da. Cover ko'rsatish (kerak bo'lsa)
         // va yangi seans bo'lsa bitta vibratsiya berish.
         notBlockedTicks = 0;
+
+        // Foydalanuvchi hozirgina "Orqaga qaytish"ni bosgan bo'lsa,
+        // home intent ishga tushishi uchun bir necha soniya jim turamiz.
+        if (suppressUntil != null && now.isBefore(suppressUntil!)) {
+          return;
+        }
 
         bool hasOverlayPermission =
             await FlutterOverlayWindow.isPermissionGranted();

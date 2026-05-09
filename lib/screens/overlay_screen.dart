@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -104,16 +105,21 @@ class _OverlayScreenState extends State<OverlayScreen> {
               const SizedBox(height: 50),
               ElevatedButton(
                 onPressed: () async {
-                  // Avval foydalanuvchini bloklangan ilovadan chiqaramiz
-                  // (home ekranga olib boramiz). Bu ilovani background'ga
-                  // tushiradi va Focus Guard'ning aniqlash sikli endi
-                  // bloklangan paketni ko'rmaydi — overlay qayta
-                  // chiqib ketmaydi.
-                  //
-                  // ACTION_MAIN + CATEGORY_HOME — Android'ning standart
-                  // launcher chaqiruvi. FLAG_ACTIVITY_NEW_TASK overlay
-                  // service kontekstidan startActivity ishlashi uchun
-                  // shart.
+                  // Background isolate'ga "foydalanuvchi tugmani bosdi"
+                  // deb xabar beramiz — u keyingi 5 soniya overlayni
+                  // qayta ko'rsatmaydi, home intent ishga tushishi va
+                  // foydalanuvchi launcher'ga chiqishi uchun fursat
+                  // berishi kerak. Aks holda detection bizdan oldin
+                  // ishlab overlay'ni darhol qaytadan ochib yuboradi.
+                  try {
+                    FlutterBackgroundService().invoke('overlayClosedByUser');
+                  } catch (_) {}
+
+                  // Foydalanuvchini bloklangan ilovadan chiqaramiz
+                  // (home ekranga). ACTION_MAIN + CATEGORY_HOME —
+                  // Android'ning standart launcher chaqiruvi.
+                  // FLAG_ACTIVITY_NEW_TASK overlay service kontekstidan
+                  // startActivity ishlashi uchun shart.
                   try {
                     const intent = AndroidIntent(
                       action: 'action_main',

@@ -174,9 +174,18 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-// Overlay oynasi uchun alohida kirish nuqtasi
+// Overlay oynasi uchun alohida kirish nuqtasi.
+//
+// Bu funksiya flutter_overlay_window paketi tomonidan yangi Flutter
+// engine'da ishga tushiriladi. Standart bindings hali ulanmagan,
+// shuning uchun avval ularni qo'lda yoqamiz va Dart-tomon plugin
+// reyestrini ham ishga tushiramiz — aks holda android_intent_plus
+// (home intent uchun) va flutter_background_service (asosiy isolate
+// bilan aloqa uchun) overlay ichida MissingPluginException beradi.
 @pragma("vm:entry-point")
 void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: OverlayScreen(),
