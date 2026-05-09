@@ -278,22 +278,28 @@ void onStart(ServiceInstance service) async {
       }
     }
 
-    // 2. Bloklash logikasi - hybrid detection
-    //    PRIMARY: UsageStats.queryEvents (real-time, ~1s)
-    //    FALLBACK: AppUsage.getAppUsage (late but reliable)
+    // 2. Bloklash logikasi - aggressive multi-source detection.
+    //
+    // Some apps slip past a "latest event" check because foreground
+    // events are interleaved with launchers, system UI, IME, etc.
+    // Instead, collect EVERY recently-active package from both
+    // queryEvents and getAppUsage, then check whether any of them is
+    // in the blocked list. This way we catch the blocked app even if
+    // it isn't the very last event Android reported.
     try {
       if (blockedApps.isEmpty) return;
 
-      String? currentApp;
       DateTime now = DateTime.now();
+      final Set<String> recentApps = <String>{};
+      String? latestApp; // best-effort "current" foreground for overlay logic
 
-      // 1) PRIMARY: real-time foreground events
+      // 1) Real-time foreground events (last 5s window)
       try {
-        DateTime startDate = now.subtract(const Duration(seconds: 30));
+        DateTime startDate = now.subtract(const Duration(seconds: 5));
         List<EventUsageInfo> events =
             await UsageStats.queryEvents(startDate, now);
 
-        // ACTIVITY_RESUMED = 1 (also old name MOVE_TO_FOREGROUND)
+        // ACTIVITY_RESUMED = 1 (old name MOVE_TO_FOREGROUND)
         final foregroundEvents = events
             .where((e) =>
                 e.eventType == "1" &&
@@ -301,40 +307,61 @@ void onStart(ServiceInstance service) async {
                 e.timeStamp != null)
             .toList();
 
+        for (final e in foregroundEvents) {
+          recentApps.add(e.packageName!);
+        }
+
         if (foregroundEvents.isNotEmpty) {
           foregroundEvents.sort((a, b) {
             final ta = int.tryParse(a.timeStamp ?? "0") ?? 0;
             final tb = int.tryParse(b.timeStamp ?? "0") ?? 0;
             return tb.compareTo(ta);
           });
-          currentApp = foregroundEvents.first.packageName;
-          debugPrint('[FocusGuard] queryEvents -> $currentApp '
-              '(${foregroundEvents.length} fg events)');
+          latestApp = foregroundEvents.first.packageName;
+          debugPrint('[FocusGuard] queryEvents fg=${foregroundEvents.length} '
+              'recent=${recentApps.length} latest=$latestApp');
         } else {
-          debugPrint('[FocusGuard] queryEvents returned 0 fg events '
+          debugPrint('[FocusGuard] queryEvents 0 fg events '
               '(total ${events.length})');
         }
       } catch (e) {
         debugPrint('[FocusGuard] queryEvents failed: $e');
       }
 
-      // 2) FALLBACK: aggregated stats - used when events return nothing
-      if (currentApp == null) {
-        try {
-          DateTime startDate = now.subtract(const Duration(minutes: 1));
-          List<AppUsageInfo> infoList =
-              await AppUsage().getAppUsage(startDate, now);
-          if (infoList.isNotEmpty) {
-            infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
-            final latestInfo = infoList.first;
-            if (now.difference(latestInfo.endDate).inSeconds <= 10) {
-              currentApp = latestInfo.packageName;
-              debugPrint('[FocusGuard] getAppUsage fallback -> $currentApp');
-            }
+      // 2) Aggregated usage as a second source
+      try {
+        DateTime startDate = now.subtract(const Duration(seconds: 30));
+        List<AppUsageInfo> infoList =
+            await AppUsage().getAppUsage(startDate, now);
+        for (final info in infoList) {
+          // Anything used in the last 5 seconds counts as "recent"
+          if (now.difference(info.endDate).inSeconds <= 5) {
+            recentApps.add(info.packageName);
           }
-        } catch (e) {
-          debugPrint('[FocusGuard] getAppUsage failed: $e');
         }
+        if (latestApp == null && infoList.isNotEmpty) {
+          infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
+          final latestInfo = infoList.first;
+          if (now.difference(latestInfo.endDate).inSeconds <= 10) {
+            latestApp = latestInfo.packageName;
+            debugPrint('[FocusGuard] getAppUsage fallback -> $latestApp');
+          }
+        }
+      } catch (e) {
+        debugPrint('[FocusGuard] getAppUsage failed: $e');
+      }
+
+      // Always remove ourselves from the recent set; we don't block ourselves.
+      recentApps.remove('com.focusguard.app');
+
+      // If ANY recently-active package is on the blocked list, that's
+      // what we surface — even if it isn't the very latest event.
+      String? currentApp;
+      try {
+        currentApp = recentApps.firstWhere((p) => blockedApps.contains(p));
+        debugPrint('[FocusGuard] HIT blocked app in recent set: $currentApp');
+      } catch (_) {
+        currentApp = latestApp;
       }
 
       if (currentApp == null) return;
