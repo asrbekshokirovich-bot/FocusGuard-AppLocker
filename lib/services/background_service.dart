@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide NotificationVisibility;
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_usage/app_usage.dart';
 import 'package:usage_stats/usage_stats.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
@@ -277,30 +278,66 @@ void onStart(ServiceInstance service) async {
       }
     }
 
-    // 2. Bloklash logikasi - real-time event-based detection
+    // 2. Bloklash logikasi - hybrid detection
+    //    PRIMARY: UsageStats.queryEvents (real-time, ~1s)
+    //    FALLBACK: AppUsage.getAppUsage (late but reliable)
     try {
       if (blockedApps.isEmpty) return;
 
-      DateTime endDate = DateTime.now();
-      // Oxirgi 10 soniyalik foreground eventlarni tekshiramiz
-      DateTime startDate = endDate.subtract(const Duration(seconds: 10));
+      String? currentApp;
+      DateTime now = DateTime.now();
 
-      // queryEvents real-time foreground/background eventlarni qaytaradi
-      // (getAppUsage agregatlangan stats ni qaytaradi - kechikishi mumkin)
-      List<EventUsageInfo> events = await UsageStats.queryEvents(startDate, endDate);
+      // 1) PRIMARY: real-time foreground events
+      try {
+        DateTime startDate = now.subtract(const Duration(seconds: 30));
+        List<EventUsageInfo> events =
+            await UsageStats.queryEvents(startDate, now);
 
-      // Faqat MOVE_TO_FOREGROUND (eventType "1") eventlarini olamiz
-      final foregroundEvents = events
-          .where((e) => e.eventType == "1" && e.packageName != null && e.timeStamp != null)
-          .toList();
+        // ACTIVITY_RESUMED = 1 (also old name MOVE_TO_FOREGROUND)
+        final foregroundEvents = events
+            .where((e) =>
+                e.eventType == "1" &&
+                e.packageName != null &&
+                e.timeStamp != null)
+            .toList();
 
-      if (foregroundEvents.isEmpty) return;
+        if (foregroundEvents.isNotEmpty) {
+          foregroundEvents.sort((a, b) {
+            final ta = int.tryParse(a.timeStamp ?? "0") ?? 0;
+            final tb = int.tryParse(b.timeStamp ?? "0") ?? 0;
+            return tb.compareTo(ta);
+          });
+          currentApp = foregroundEvents.first.packageName;
+          debugPrint('[FocusGuard] queryEvents -> $currentApp '
+              '(${foregroundEvents.length} fg events)');
+        } else {
+          debugPrint('[FocusGuard] queryEvents returned 0 fg events '
+              '(total ${events.length})');
+        }
+      } catch (e) {
+        debugPrint('[FocusGuard] queryEvents failed: $e');
+      }
 
-      // Vaqt bo'yicha tartiblaymiz - eng oxirgi event bizga kerak
-      foregroundEvents.sort((a, b) =>
-          int.parse(b.timeStamp!).compareTo(int.parse(a.timeStamp!)));
+      // 2) FALLBACK: aggregated stats - used when events return nothing
+      if (currentApp == null) {
+        try {
+          DateTime startDate = now.subtract(const Duration(minutes: 1));
+          List<AppUsageInfo> infoList =
+              await AppUsage().getAppUsage(startDate, now);
+          if (infoList.isNotEmpty) {
+            infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
+            final latestInfo = infoList.first;
+            if (now.difference(latestInfo.endDate).inSeconds <= 10) {
+              currentApp = latestInfo.packageName;
+              debugPrint('[FocusGuard] getAppUsage fallback -> $currentApp');
+            }
+          }
+        } catch (e) {
+          debugPrint('[FocusGuard] getAppUsage failed: $e');
+        }
+      }
 
-      String currentApp = foregroundEvents.first.packageName!;
+      if (currentApp == null) return;
 
       // O'z ilovamiz bo'lsa bloklamaymiz va overlayni yopamiz
       if (currentApp == 'com.focusguard.app') {
@@ -313,7 +350,8 @@ void onStart(ServiceInstance service) async {
 
       if (blockedApps.contains(currentApp)) {
         // Bloklangan ilova ochilgan - overlay ko'rsatamiz
-        bool hasOverlayPermission = await FlutterOverlayWindow.isPermissionGranted();
+        bool hasOverlayPermission =
+            await FlutterOverlayWindow.isPermissionGranted();
         if (!hasOverlayPermission) return;
 
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
@@ -338,7 +376,7 @@ void onStart(ServiceInstance service) async {
         }
       }
     } catch (e) {
-      // Background xatoliklarni jimgina o'tkazib yuboramiz
+      debugPrint('[FocusGuard] Block detection error: $e');
     }
   });
 }
