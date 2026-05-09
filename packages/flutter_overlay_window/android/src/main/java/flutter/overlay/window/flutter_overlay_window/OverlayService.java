@@ -162,7 +162,15 @@ public class OverlayService extends Service implements View.OnTouchListener {
             szWindow.set(w, h);
         }
         int dx = startX == OverlayConstants.DEFAULT_XY ? 0 : startX;
-        int dy = startY == OverlayConstants.DEFAULT_XY ? -statusBarHeightPx() : startY;
+        // Patched for Focus Guard: default was -statusBarHeightPx(), but
+        // moveOverlay() then runs that pixel value through dpToPx() again,
+        // multiplying it by display density. The window slides upward by
+        // ~density*statusBar pixels and leaves a strip at the bottom of
+        // the screen uncovered (e.g. ~144 px on this Samsung device).
+        // With dy=0 the gravity=CENTER window sits naturally over the
+        // full screen — its 2516 px height already exceeds the 2400 px
+        // display, so it overhangs the status & nav bars by design.
+        int dy = startY == OverlayConstants.DEFAULT_XY ? 0 : startY;
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowSetup.width == -1999 ? -1 : WindowSetup.width,
                 WindowSetup.height != -1999 ? WindowSetup.height : screenHeight(),
@@ -316,6 +324,29 @@ public class OverlayService extends Service implements View.OnTouchListener {
             );  // "overlayMain" is custom entry point
 
             flutterEngine = engineGroup.createAndRunEngine(this, entryPoint);
+
+            // Patched for Focus Guard: FlutterEngineGroup.createAndRunEngine
+            // does NOT auto-register pub plugins on the new engine. Without
+            // this, plugins like android_intent_plus (used by the cover's
+            // "Orqaga qaytish" button to fire the HOME intent) and
+            // flutter_background_service (used to message the background
+            // isolate) are not attached, so calls to them silently no-op
+            // inside the overlay. Use reflection to call the host app's
+            // GeneratedPluginRegistrant — the package itself can't import
+            // it directly because it lives in the consumer module.
+            try {
+                Class<?> registrant = Class.forName(
+                        "io.flutter.plugins.GeneratedPluginRegistrant");
+                java.lang.reflect.Method registerWith = registrant.getMethod(
+                        "registerWith", FlutterEngine.class);
+                registerWith.invoke(null, flutterEngine);
+                Log.d("OverlayService",
+                        "Registered pub plugins on overlay engine");
+            } catch (Exception e) {
+                Log.e("OverlayService",
+                        "Failed to register pub plugins on overlay engine: "
+                                + e.getMessage());
+            }
 
             // Cache the created FlutterEngine for future use
             FlutterEngineCache.getInstance().put(OverlayConstants.CACHED_TAG, flutterEngine);
