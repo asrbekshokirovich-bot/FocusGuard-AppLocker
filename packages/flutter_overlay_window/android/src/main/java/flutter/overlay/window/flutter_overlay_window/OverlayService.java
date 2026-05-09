@@ -145,6 +145,24 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 int height = call.argument("height");
                 boolean enableDrag = call.argument("enableDrag");
                 resizeOverlay(width, height, enableDrag, result);
+            } else if (call.method.equals("goHome")) {
+                // Patched for Focus Guard: fire the HOME intent natively
+                // from Java to bypass plugin registration issues with
+                // android_intent_plus inside the overlay engine. The
+                // cover's "Orqaga qaytish" button calls this via
+                // MethodChannel('x-slayer/overlay').invokeMethod('goHome').
+                try {
+                    Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+                    homeIntent.addCategory(Intent.CATEGORY_HOME);
+                    homeIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getApplicationContext().startActivity(homeIntent);
+                    Log.d("OverlayService", "HOME intent launched from goHome");
+                    result.success(true);
+                } catch (Exception e) {
+                    Log.e("OverlayService",
+                            "Failed to launch HOME intent: " + e.getMessage());
+                    result.success(false);
+                }
             }
         });
         overlayMessageChannel.setMessageHandler((message, reply) -> {

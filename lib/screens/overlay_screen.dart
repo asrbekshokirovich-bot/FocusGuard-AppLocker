@@ -3,8 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 class OverlayScreen extends StatefulWidget {
@@ -99,19 +97,18 @@ class _OverlayScreenState extends State<OverlayScreen> {
                   } catch (_) {}
 
                   // Foydalanuvchini bloklangan ilovadan chiqaramiz
-                  // (home ekranga). ACTION_MAIN + CATEGORY_HOME —
-                  // Android'ning standart launcher chaqiruvi.
-                  // FLAG_ACTIVITY_NEW_TASK overlay service kontekstidan
-                  // startActivity ishlashi uchun shart.
+                  // (home ekranga). Native Java tomondan HOME intent
+                  // chaqiramiz — bu yondashuv plugin registration
+                  // muammolaridan butunlay xalos: OverlayService.java
+                  // 'goHome' methodini qabul qilib, to'g'ridan-to'g'ri
+                  // getApplicationContext().startActivity(homeIntent)
+                  // chaqiradi. android_intent_plus paketiga ehtiyoj
+                  // qolmaydi.
                   try {
-                    const intent = AndroidIntent(
-                      action: 'action_main',
-                      category: 'category_home',
-                      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
-                    );
-                    await intent.launch();
+                    const channel = MethodChannel('x-slayer/overlay');
+                    await channel.invokeMethod('goHome');
                   } catch (_) {
-                    // Intent ishlamasa ham overlayni yopib qo'yamiz.
+                    // Native goHome ishlamasa ham overlayni yopamiz.
                   }
                   await FlutterOverlayWindow.closeOverlay();
                 },
