@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -49,36 +47,21 @@ class _OverlayScreenState extends State<OverlayScreen> {
         mq.viewPadding.top +
         mq.viewPadding.bottom;
 
-    // Material is needed for text rendering, but kept transparent so
-    // ONLY the layers we control draw the background — no Scaffold,
-    // no SafeArea, no implicit insets eating screen edges.
+    // Solid black Material covers the entire surface — no transparency,
+    // no blur layer, no Scaffold/SafeArea so nothing eats screen edges.
     return Material(
-      color: Colors.transparent,
+      color: Colors.black,
       child: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Layer 1 — frosted blur of whatever the user was looking at.
-            // BackdropFilter blurs everything painted behind the overlay
-            // window; combined with our patched FlutterView (no system
-            // window padding) the blur reaches every edge of the screen.
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-              child: Container(
-                width: screenW,
-                height: screenH,
-                // Slight dark wash so the white text stays readable on
-                // top of bright wallpapers / app screenshots.
-                color: Colors.black.withOpacity(0.55),
-              ),
-            ),
-            // Layer 2 — the actual cover content (icon, texts, button).
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(CupertinoIcons.lock_shield_fill,
-                      color: Color(0xFF007AFF), size: 100),
+        child: Container(
+          width: screenW,
+          height: screenH,
+          color: Colors.black,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(CupertinoIcons.lock_shield_fill,
+                  color: Color(0xFF007AFF), size: 100),
               const SizedBox(height: 30),
               Text(
                 "Ilova Bloklangan",
@@ -147,10 +130,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
                       color: Colors.white),
                 ),
               ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
