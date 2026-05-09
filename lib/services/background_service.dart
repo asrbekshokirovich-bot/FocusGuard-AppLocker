@@ -390,8 +390,11 @@ void onStart(ServiceInstance service) async {
             flag: OverlayFlag.defaultFlag,
             visibility: NotificationVisibility.visibilitySecret,
             positionGravity: PositionGravity.auto,
-            height: WindowSize.matchParent,
-            width: WindowSize.matchParent,
+            // fullCover paints over the status bar and the navigation
+            // bar; matchParent stops at the safe area and leaves the
+            // blocked app's chrome visible at the edges.
+            height: WindowSize.fullCover,
+            width: WindowSize.fullCover,
           );
         }
       } else {

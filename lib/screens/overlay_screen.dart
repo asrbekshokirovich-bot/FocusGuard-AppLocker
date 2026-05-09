@@ -33,63 +33,78 @@ class _OverlayScreenState extends State<OverlayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      // Fully opaque black so the blocked app cannot bleed through.
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.black,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(CupertinoIcons.lock_shield_fill,
-                color: Color(0xFF007AFF), size: 100),
-            const SizedBox(height: 30),
-            Text(
-              "Ilova Bloklangan",
-              style: GoogleFonts.inter(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: -1,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                "Siz bu ilovani Focus Guard ilovas orqali vaqtinchalik bloklagansiz. Diqqatingizni maqsadlaringizga qarating!",
-                textAlign: TextAlign.center,
+    // Compute the absolute device size so the cover paints over every
+    // pixel even if the overlay window's reported logical size excludes
+    // system bar insets on this device.
+    final mq = MediaQueryData.fromView(WidgetsBinding.instance.window);
+    final screenW = mq.size.width;
+    final screenH = mq.size.height +
+        mq.padding.top +
+        mq.padding.bottom +
+        mq.viewPadding.top +
+        mq.viewPadding.bottom;
+
+    // Material is needed for text rendering, but kept transparent so
+    // ONLY the Container we control draws the background — no Scaffold,
+    // no SafeArea, no implicit insets eating screen edges.
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox.expand(
+        child: Container(
+          width: screenW,
+          height: screenH,
+          color: Colors.black,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(CupertinoIcons.lock_shield_fill,
+                  color: Color(0xFF007AFF), size: 100),
+              const SizedBox(height: 30),
+              Text(
+                "Ilova Bloklangan",
                 style: GoogleFonts.inter(
-                  fontSize: 16,
-                  color: Colors.white70,
-                  height: 1.5,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: -1,
                 ),
               ),
-            ),
-            const SizedBox(height: 50),
-            ElevatedButton(
-              onPressed: () async {
-                await FlutterOverlayWindow.closeOverlay();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 40, vertical: 15),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-              ),
-              child: Text(
-                "Orqaga qaytish",
-                style: GoogleFonts.inter(
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  "Siz bu ilovani Focus Guard ilovasi orqali vaqtinchalik bloklagansiz. Diqqatingizni maqsadlaringizga qarating!",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
+                    color: Colors.white70,
+                    height: 1.5,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 50),
+              ElevatedButton(
+                onPressed: () async {
+                  await FlutterOverlayWindow.closeOverlay();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+                child: Text(
+                  "Orqaga qaytish",
+                  style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
