@@ -6,7 +6,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart' hide NotificationVisibility;
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:app_usage/app_usage.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
 
@@ -277,51 +277,64 @@ void onStart(ServiceInstance service) async {
       }
     }
 
-    // 2. Bloklash logikasi (800ms o'rniga 1s da bir marta tekshirsa ham yetarli)
+    // 2. Bloklash logikasi - real-time event-based detection
     try {
       if (blockedApps.isEmpty) return;
 
       DateTime endDate = DateTime.now();
-      // 1 daqiqalik oynani tekshiramiz (ba'zi qurilmalarda kechikish bo'ladi)
-      DateTime startDate = endDate.subtract(const Duration(minutes: 1));
-      
-      List<AppUsageInfo> infoList = await AppUsage().getAppUsage(startDate, endDate);
-      
-      if (infoList.isNotEmpty) {
-        // Eng oxirgi faol ilovani juda aniq topamiz
-        infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
-        
-        // Faqat oxirgi 10 soniya ichida ishlatilgan ilovalarni ko'ramiz
-        final latestInfo = infoList.first;
-        if (endDate.difference(latestInfo.endDate).inSeconds > 10) {
-          return; // Juda eski ma'lumot bo'lsa chetlab o'tamiz
+      // Oxirgi 10 soniyalik foreground eventlarni tekshiramiz
+      DateTime startDate = endDate.subtract(const Duration(seconds: 10));
+
+      // queryEvents real-time foreground/background eventlarni qaytaradi
+      // (getAppUsage agregatlangan stats ni qaytaradi - kechikishi mumkin)
+      List<EventUsageInfo> events = await UsageStats.queryEvents(startDate, endDate);
+
+      // Faqat MOVE_TO_FOREGROUND (eventType "1") eventlarini olamiz
+      final foregroundEvents = events
+          .where((e) => e.eventType == "1" && e.packageName != null && e.timeStamp != null)
+          .toList();
+
+      if (foregroundEvents.isEmpty) return;
+
+      // Vaqt bo'yicha tartiblaymiz - eng oxirgi event bizga kerak
+      foregroundEvents.sort((a, b) =>
+          int.parse(b.timeStamp!).compareTo(int.parse(a.timeStamp!)));
+
+      String currentApp = foregroundEvents.first.packageName!;
+
+      // O'z ilovamiz bo'lsa bloklamaymiz va overlayni yopamiz
+      if (currentApp == 'com.focusguard.app') {
+        bool isOverlayActive = await FlutterOverlayWindow.isActive();
+        if (isOverlayActive) {
+          await FlutterOverlayWindow.closeOverlay();
         }
+        return;
+      }
 
-        String currentApp = latestInfo.packageName;
+      if (blockedApps.contains(currentApp)) {
+        // Bloklangan ilova ochilgan - overlay ko'rsatamiz
+        bool hasOverlayPermission = await FlutterOverlayWindow.isPermissionGranted();
+        if (!hasOverlayPermission) return;
 
-        // O'z ilovamiz bo'lsa bloklamaymiz
-        if (currentApp == 'com.focusguard.app') {
-          return;
+        bool isOverlayActive = await FlutterOverlayWindow.isActive();
+        if (!isOverlayActive) {
+          await FlutterOverlayWindow.showOverlay(
+            enableDrag: false,
+            overlayTitle: "Focus Guard",
+            overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
+            flag: OverlayFlag.defaultFlag,
+            visibility: NotificationVisibility.visibilitySecret,
+            positionGravity: PositionGravity.auto,
+            height: WindowSize.matchParent,
+            width: WindowSize.matchParent,
+          );
         }
-
-        if (blockedApps.contains(currentApp)) {
-          // Overlay ruxsatini yana bir bor tekshiramiz
-          bool hasOverlayPermission = await FlutterOverlayWindow.isPermissionGranted();
-          if (!hasOverlayPermission) return;
-
-          bool isOverlayActive = await FlutterOverlayWindow.isActive();
-          if (!isOverlayActive) {
-            await FlutterOverlayWindow.showOverlay(
-              enableDrag: false,
-              overlayTitle: "Focus Guard",
-              overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
-              flag: OverlayFlag.defaultFlag,
-              visibility: NotificationVisibility.visibilitySecret,
-              positionGravity: PositionGravity.auto,
-              height: WindowSize.matchParent,
-              width: WindowSize.matchParent,
-            );
-          }
+      } else {
+        // Bloklangan ilova emas - agar overlay ochiq bo'lsa yopamiz
+        // (bu notificationni ham yo'q qiladi)
+        bool isOverlayActive = await FlutterOverlayWindow.isActive();
+        if (isOverlayActive) {
+          await FlutterOverlayWindow.closeOverlay();
         }
       }
     } catch (e) {
