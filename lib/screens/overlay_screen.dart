@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -46,21 +49,35 @@ class _OverlayScreenState extends State<OverlayScreen> {
         mq.viewPadding.bottom;
 
     // Material is needed for text rendering, but kept transparent so
-    // ONLY the Container we control draws the background — no Scaffold,
+    // ONLY the layers we control draw the background — no Scaffold,
     // no SafeArea, no implicit insets eating screen edges.
     return Material(
       color: Colors.transparent,
       child: SizedBox.expand(
-        child: Container(
-          width: screenW,
-          height: screenH,
-          color: Colors.black,
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(CupertinoIcons.lock_shield_fill,
-                  color: Color(0xFF007AFF), size: 100),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Layer 1 — frosted blur of whatever the user was looking at.
+            // BackdropFilter blurs everything painted behind the overlay
+            // window; combined with our patched FlutterView (no system
+            // window padding) the blur reaches every edge of the screen.
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Container(
+                width: screenW,
+                height: screenH,
+                // Slight dark wash so the white text stays readable on
+                // top of bright wallpapers / app screenshots.
+                color: Colors.black.withOpacity(0.55),
+              ),
+            ),
+            // Layer 2 — the actual cover content (icon, texts, button).
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(CupertinoIcons.lock_shield_fill,
+                      color: Color(0xFF007AFF), size: 100),
               const SizedBox(height: 30),
               Text(
                 "Ilova Bloklangan",
@@ -92,13 +109,16 @@ class _OverlayScreenState extends State<OverlayScreen> {
                   // tushiradi va Focus Guard'ning aniqlash sikli endi
                   // bloklangan paketni ko'rmaydi — overlay qayta
                   // chiqib ketmaydi.
+                  //
+                  // ACTION_MAIN + CATEGORY_HOME — Android'ning standart
+                  // launcher chaqiruvi. FLAG_ACTIVITY_NEW_TASK overlay
+                  // service kontekstidan startActivity ishlashi uchun
+                  // shart.
                   try {
                     const intent = AndroidIntent(
                       action: 'action_main',
-                      category: 'android.intent.category.HOME',
-                      flags: <int>[
-                        0x10000000, // FLAG_ACTIVITY_NEW_TASK
-                      ],
+                      category: 'category_home',
+                      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
                     );
                     await intent.launch();
                   } catch (_) {
@@ -121,8 +141,10 @@ class _OverlayScreenState extends State<OverlayScreen> {
                       color: Colors.white),
                 ),
               ),
-            ],
-          ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -31,31 +31,26 @@ Future<void> initializeBackgroundService() async {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidNotifications?.createNotificationChannel(channel);
 
-    // Pre-create the overlay's foreground service channel(s) with MIN
+    // Pre-create the overlay's foreground service channel with MIN
     // importance so the "Ilova cheklangan" banner doesn't pop with a
-    // sound/vibration each time the cover appears. Once a channel
-    // exists Android keeps our settings even if the package recreates
-    // it with the same id later. We register the IDs the package is
-    // most likely to use; harmless if unused.
-    const overlayChannelIds = <String>[
-      'flutter_overlay_window',
-      'OverlayServiceChannel',
-      'OverlayChannel',
-      'overlay_window_channel',
-    ];
-    for (final id in overlayChannelIds) {
-      await androidNotifications?.createNotificationChannel(
-        AndroidNotificationChannel(
-          id,
-          'Block Overlay',
-          description: 'Blocking screen for restricted apps',
-          importance: Importance.min,
-          playSound: false,
-          enableVibration: false,
-          showBadge: false,
-        ),
-      );
-    }
+    // sound/vibration each time the cover appears.
+    //
+    // The exact channel id used by flutter_overlay_window 0.5.0 is
+    // "Overlay Channel" (with a space, see OverlayConstants.CHANNEL_ID
+    // in the package source). Once a channel exists Android keeps our
+    // settings even if the package later recreates a channel with the
+    // same id at IMPORTANCE_DEFAULT.
+    await androidNotifications?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'Overlay Channel',
+        'Overlay Channel',
+        description: 'Blocking screen for restricted apps',
+        importance: Importance.min,
+        playSound: false,
+        enableVibration: false,
+        showBadge: false,
+      ),
+    );
 
     // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
     // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
@@ -316,103 +311,69 @@ void onStart(ServiceInstance service) async {
       }
     }
 
-    // 2. Bloklash logikasi - aggressive multi-source detection.
+    // 2. Bloklash logikasi.
     //
-    // Some apps slip past a "latest event" check because foreground
-    // events are interleaved with launchers, system UI, IME, etc.
-    // Instead, collect EVERY recently-active package from both
-    // queryEvents and getAppUsage, then check whether any of them is
-    // in the blocked list. This way we catch the blocked app even if
-    // it isn't the very last event Android reported.
+    // Foreground holatining yagona ishonchli manbai — UsageStats event
+    // oqimidagi eng ohirgi ACTIVITY_RESUMED hodisasi. Boshqa hech narsa
+    // (getAppUsage agregatlari, system UI peeklari va h.k.) bizga
+    // foydalanuvchi qayerdaligini aniq ayta olmaydi. Shuning uchun
+    // har tickda quyidagini bajaramiz:
+    //
+    //   1. Oxirgi 60 soniyadagi RESUMED hodisalarini olamiz.
+    //   2. Eng so'nggi RESUMED — joriy foreground.
+    //      • Bloklangan ilova bo'lsa → coverni ushlab turamiz va
+    //        yangi seans bo'lsa bir marta vibratsiya beramiz.
+    //      • Focus Guard yoki boshqa ilova bo'lsa → coverni yopamiz.
+    //   3. Hech qanday RESUMED topilmasa (foydalanuvchi 60 soniya
+    //      mobaynida hech narsa qilmadi) → cover holatini saqlab
+    //      turamiz, hech narsani o'zgartirmaymiz.
+    //
+    // Bu yondashuv "system UI bir lahzaga ko'rinib ketgan" yoki
+    // "queryEvents bir-ikki tickda bo'sh qaytdi" kabi shovqinli
+    // hodisalardan ta'sirlanmaydi.
     try {
       if (blockedApps.isEmpty) return;
 
       DateTime now = DateTime.now();
-      final Set<String> recentApps = <String>{};
-      String? latestApp; // best-effort "current" foreground for overlay logic
 
-      // 1) Real-time foreground events (last 5s window)
+      String? currentApp;
       try {
-        DateTime startDate = now.subtract(const Duration(seconds: 5));
-        List<EventUsageInfo> events =
-            await UsageStats.queryEvents(startDate, now);
+        DateTime startDate = now.subtract(const Duration(seconds: 60));
+        final events = await UsageStats.queryEvents(startDate, now);
 
-        // ACTIVITY_RESUMED = 1 (old name MOVE_TO_FOREGROUND)
-        final foregroundEvents = events
-            .where((e) =>
-                e.eventType == "1" &&
-                e.packageName != null &&
-                e.timeStamp != null)
-            .toList();
-
-        for (final e in foregroundEvents) {
-          recentApps.add(e.packageName!);
+        // ACTIVITY_RESUMED = "1" — eng ohirgi shu turdagi event bizga
+        // hozir foreground'da kim turganini aniq aytadi.
+        EventUsageInfo? latest;
+        int latestTs = -1;
+        for (final e in events) {
+          if (e.eventType != '1') continue;
+          if (e.packageName == null || e.timeStamp == null) continue;
+          final ts = int.tryParse(e.timeStamp!) ?? -1;
+          if (ts > latestTs) {
+            latestTs = ts;
+            latest = e;
+          }
         }
-
-        if (foregroundEvents.isNotEmpty) {
-          foregroundEvents.sort((a, b) {
-            final ta = int.tryParse(a.timeStamp ?? "0") ?? 0;
-            final tb = int.tryParse(b.timeStamp ?? "0") ?? 0;
-            return tb.compareTo(ta);
-          });
-          latestApp = foregroundEvents.first.packageName;
-          debugPrint('[FocusGuard] queryEvents fg=${foregroundEvents.length} '
-              'recent=${recentApps.length} latest=$latestApp');
+        if (latest != null) {
+          currentApp = latest.packageName;
+          debugPrint('[FocusGuard] latest RESUMED -> $currentApp');
         } else {
-          debugPrint('[FocusGuard] queryEvents 0 fg events '
-              '(total ${events.length})');
+          debugPrint('[FocusGuard] no RESUMED in last 60s '
+              '(${events.length} events total)');
         }
       } catch (e) {
         debugPrint('[FocusGuard] queryEvents failed: $e');
       }
 
-      // 2) Aggregated usage as a second source
-      try {
-        DateTime startDate = now.subtract(const Duration(seconds: 30));
-        List<AppUsageInfo> infoList =
-            await AppUsage().getAppUsage(startDate, now);
-        for (final info in infoList) {
-          // Anything used in the last 5 seconds counts as "recent"
-          if (now.difference(info.endDate).inSeconds <= 5) {
-            recentApps.add(info.packageName);
-          }
-        }
-        if (latestApp == null && infoList.isNotEmpty) {
-          infoList.sort((a, b) => b.endDate.compareTo(a.endDate));
-          final latestInfo = infoList.first;
-          if (now.difference(latestInfo.endDate).inSeconds <= 10) {
-            latestApp = latestInfo.packageName;
-            debugPrint('[FocusGuard] getAppUsage fallback -> $latestApp');
-          }
-        }
-      } catch (e) {
-        debugPrint('[FocusGuard] getAppUsage failed: $e');
-      }
-
-      // Always remove ourselves from the recent set; we don't block ourselves.
-      recentApps.remove('com.focusguard.app');
-
-      // If ANY recently-active package is on the blocked list, that's
-      // what we surface — even if it isn't the very latest event.
-      String? currentApp;
-      try {
-        currentApp = recentApps.firstWhere((p) => blockedApps.contains(p));
-        debugPrint('[FocusGuard] HIT blocked app in recent set: $currentApp');
-      } catch (_) {
-        currentApp = latestApp;
-      }
-
       if (currentApp == null) {
-        // Detection couldn't read anything this tick — DO NOT touch the
-        // overlay state. A noisy reading shouldn't tear the cover down.
+        // Hech qanday signal yo'q — overlay holatini o'zgartirmaymiz.
         return;
       }
 
-      // O'z ilovamiz bo'lsa: foydalanuvchi Focus Guardga qaytdi,
-      // overlayni yopamiz va hisoblagichni tozalaymiz.
+      // Focus Guard'ga qaytildi — coverni yopamiz va hisobni tozalaymiz.
       if (currentApp == 'com.focusguard.app') {
-        notBlockedTicks = 0;
         currentBlockedApp = null;
+        notBlockedTicks = 0;
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (isOverlayActive) {
           await FlutterOverlayWindow.closeOverlay();
@@ -421,7 +382,8 @@ void onStart(ServiceInstance service) async {
       }
 
       if (blockedApps.contains(currentApp)) {
-        // Bloklangan ilova foreground'da — overlayni ushlab turamiz.
+        // Bloklangan ilova foreground'da. Cover ko'rsatish (kerak bo'lsa)
+        // va yangi seans bo'lsa bitta vibratsiya berish.
         notBlockedTicks = 0;
 
         bool hasOverlayPermission =
@@ -430,8 +392,6 @@ void onStart(ServiceInstance service) async {
 
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (!isOverlayActive) {
-          // Yangi blok seansida bir marta vibratsiya beramiz.
-          // Avvalgi seans bilan bir xil paket bo'lsa qayta titramaymiz.
           if (currentBlockedApp != currentApp) {
             try {
               if ((await Vibration.hasVibrator()) ?? false) {
@@ -448,8 +408,6 @@ void onStart(ServiceInstance service) async {
             flag: OverlayFlag.defaultFlag,
             visibility: NotificationVisibility.visibilitySecret,
             positionGravity: PositionGravity.auto,
-            // fullCover — status bar va navigation bar ustidan ham
-            // chiziladi, hech qanday bo'shliq qoldirmaydi.
             height: WindowSize.fullCover,
             width: WindowSize.fullCover,
           );
@@ -457,19 +415,14 @@ void onStart(ServiceInstance service) async {
           currentBlockedApp = currentApp;
         }
       } else {
-        // Foreground bloklanmagan ilova bo'lib chiqdi.
-        // BIRINCHI tickdayoq overlayni yopib qo'ymaymiz: detection
-        // ba'zi tickda vaqtinchalik launcher/system UI'ni qaytarib
-        // yuborishi mumkin va overlay tushib qolardi. 3 ketma-ket
-        // tick bloklanmagan bo'lsa — endi haqiqatan chiqib ketgan,
-        // shu paytda overlayni yopamiz.
-        notBlockedTicks++;
-        if (notBlockedTicks >= 3) {
-          currentBlockedApp = null;
-          bool isOverlayActive = await FlutterOverlayWindow.isActive();
-          if (isOverlayActive) {
-            await FlutterOverlayWindow.closeOverlay();
-          }
+        // Bloklanmagan haqiqiy ilova foreground'da — coverni darhol
+        // yopamiz. Eng ohirgi RESUMED bizga aniq signal beradi, shuning
+        // uchun ko'p tickli "tasdiqlash" kerak emas.
+        currentBlockedApp = null;
+        notBlockedTicks = 0;
+        bool isOverlayActive = await FlutterOverlayWindow.isActive();
+        if (isOverlayActive) {
+          await FlutterOverlayWindow.closeOverlay();
         }
       }
     } catch (e) {
