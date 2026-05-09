@@ -25,14 +25,18 @@ subprojects {
     val p = this
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-        if (android != null) {
-            if (android.namespace == null) {
-                android.namespace = "com.example." + p.name.replace(":", ".")
-            }
-            // Force compileSdk on all subprojects to fix legacy plugins
-            // referencing android:attr/lStar (e.g. usage_stats package)
-            android.compileSdkVersion(36)
+        if (android != null && android.namespace == null) {
+            android.namespace = "com.example." + p.name.replace(":", ".")
         }
+    }
+
+    // Force compileSdk on every subproject AFTER its own gradle has run.
+    // Legacy plugins (e.g. usage_stats) ship resources that reference
+    // android:attr/lStar — present only on compileSdk 31+. Without this
+    // override AAPT fails with "resource android:attr/lStar not found".
+    p.afterEvaluate {
+        val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
+        android?.compileSdkVersion(36)
     }
 
     project.configurations.all {
