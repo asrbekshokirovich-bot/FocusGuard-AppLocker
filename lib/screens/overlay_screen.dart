@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:android_intent_plus/android_intent.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -86,6 +87,23 @@ class _OverlayScreenState extends State<OverlayScreen> {
               const SizedBox(height: 50),
               ElevatedButton(
                 onPressed: () async {
+                  // Avval foydalanuvchini bloklangan ilovadan chiqaramiz
+                  // (home ekranga olib boramiz). Bu ilovani background'ga
+                  // tushiradi va Focus Guard'ning aniqlash sikli endi
+                  // bloklangan paketni ko'rmaydi — overlay qayta
+                  // chiqib ketmaydi.
+                  try {
+                    const intent = AndroidIntent(
+                      action: 'action_main',
+                      category: 'android.intent.category.HOME',
+                      flags: <int>[
+                        0x10000000, // FLAG_ACTIVITY_NEW_TASK
+                      ],
+                    );
+                    await intent.launch();
+                  } catch (_) {
+                    // Intent ishlamasa ham overlayni yopib qo'yamiz.
+                  }
                   await FlutterOverlayWindow.closeOverlay();
                 },
                 style: ElevatedButton.styleFrom(

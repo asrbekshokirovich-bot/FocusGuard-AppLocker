@@ -8,6 +8,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:usage_stats/usage_stats.dart';
+import 'package:vibration/vibration.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
 
@@ -26,9 +27,35 @@ Future<void> initializeBackgroundService() async {
       importance: Importance.low,
     );
     final notifications = FlutterLocalNotificationsPlugin();
-    await notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    final androidNotifications = notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidNotifications?.createNotificationChannel(channel);
+
+    // Pre-create the overlay's foreground service channel(s) with MIN
+    // importance so the "Ilova cheklangan" banner doesn't pop with a
+    // sound/vibration each time the cover appears. Once a channel
+    // exists Android keeps our settings even if the package recreates
+    // it with the same id later. We register the IDs the package is
+    // most likely to use; harmless if unused.
+    const overlayChannelIds = <String>[
+      'flutter_overlay_window',
+      'OverlayServiceChannel',
+      'OverlayChannel',
+      'overlay_window_channel',
+    ];
+    for (final id in overlayChannelIds) {
+      await androidNotifications?.createNotificationChannel(
+        AndroidNotificationChannel(
+          id,
+          'Block Overlay',
+          description: 'Blocking screen for restricted apps',
+          importance: Importance.min,
+          playSound: false,
+          enableVibration: false,
+          showBadge: false,
+        ),
+      );
+    }
 
     // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
     // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
@@ -93,6 +120,17 @@ void onStart(ServiceInstance service) async {
   int dailyGoalSeconds = 14400; // Standart 4 soat
   bool analysisSent = false;
   int lastDay = DateTime.now().day;
+
+  // Overlay holati o'zgaruvchilari.
+  //
+  // notBlockedTicks — foydalanuvchi bloklangan ilovada bo'lmagan
+  // ketma-ket soniyalar soni. Faqat shu hisob >= 3 bo'lganda
+  // overlay yopiladi. Bu detection bir-ikki tickda noto'g'ri
+  // ko'rsatsa ham overlay tushib qolmasligini ta'minlaydi.
+  // currentBlockedApp — overlay hozir qaysi paket uchun ko'rsatilmoqda;
+  // bir paketga bir marta vibratsiya berishimiz uchun.
+  int notBlockedTicks = 0;
+  String? currentBlockedApp;
 
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
@@ -364,10 +402,17 @@ void onStart(ServiceInstance service) async {
         currentApp = latestApp;
       }
 
-      if (currentApp == null) return;
+      if (currentApp == null) {
+        // Detection couldn't read anything this tick — DO NOT touch the
+        // overlay state. A noisy reading shouldn't tear the cover down.
+        return;
+      }
 
-      // O'z ilovamiz bo'lsa bloklamaymiz va overlayni yopamiz
+      // O'z ilovamiz bo'lsa: foydalanuvchi Focus Guardga qaytdi,
+      // overlayni yopamiz va hisoblagichni tozalaymiz.
       if (currentApp == 'com.focusguard.app') {
+        notBlockedTicks = 0;
+        currentBlockedApp = null;
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (isOverlayActive) {
           await FlutterOverlayWindow.closeOverlay();
@@ -376,13 +421,26 @@ void onStart(ServiceInstance service) async {
       }
 
       if (blockedApps.contains(currentApp)) {
-        // Bloklangan ilova ochilgan - overlay ko'rsatamiz
+        // Bloklangan ilova foreground'da — overlayni ushlab turamiz.
+        notBlockedTicks = 0;
+
         bool hasOverlayPermission =
             await FlutterOverlayWindow.isPermissionGranted();
         if (!hasOverlayPermission) return;
 
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (!isOverlayActive) {
+          // Yangi blok seansida bir marta vibratsiya beramiz.
+          // Avvalgi seans bilan bir xil paket bo'lsa qayta titramaymiz.
+          if (currentBlockedApp != currentApp) {
+            try {
+              if ((await Vibration.hasVibrator()) ?? false) {
+                Vibration.vibrate(duration: 250);
+              }
+            } catch (_) {}
+          }
+          currentBlockedApp = currentApp;
+
           await FlutterOverlayWindow.showOverlay(
             enableDrag: false,
             overlayTitle: "Focus Guard",
@@ -390,19 +448,28 @@ void onStart(ServiceInstance service) async {
             flag: OverlayFlag.defaultFlag,
             visibility: NotificationVisibility.visibilitySecret,
             positionGravity: PositionGravity.auto,
-            // fullCover paints over the status bar and the navigation
-            // bar; matchParent stops at the safe area and leaves the
-            // blocked app's chrome visible at the edges.
+            // fullCover — status bar va navigation bar ustidan ham
+            // chiziladi, hech qanday bo'shliq qoldirmaydi.
             height: WindowSize.fullCover,
             width: WindowSize.fullCover,
           );
+        } else {
+          currentBlockedApp = currentApp;
         }
       } else {
-        // Bloklangan ilova emas - agar overlay ochiq bo'lsa yopamiz
-        // (bu notificationni ham yo'q qiladi)
-        bool isOverlayActive = await FlutterOverlayWindow.isActive();
-        if (isOverlayActive) {
-          await FlutterOverlayWindow.closeOverlay();
+        // Foreground bloklanmagan ilova bo'lib chiqdi.
+        // BIRINCHI tickdayoq overlayni yopib qo'ymaymiz: detection
+        // ba'zi tickda vaqtinchalik launcher/system UI'ni qaytarib
+        // yuborishi mumkin va overlay tushib qolardi. 3 ketma-ket
+        // tick bloklanmagan bo'lsa — endi haqiqatan chiqib ketgan,
+        // shu paytda overlayni yopamiz.
+        notBlockedTicks++;
+        if (notBlockedTicks >= 3) {
+          currentBlockedApp = null;
+          bool isOverlayActive = await FlutterOverlayWindow.isActive();
+          if (isOverlayActive) {
+            await FlutterOverlayWindow.closeOverlay();
+          }
         }
       }
     } catch (e) {

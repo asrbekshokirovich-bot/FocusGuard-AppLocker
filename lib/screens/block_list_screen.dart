@@ -420,27 +420,37 @@ class _BlockListScreenState extends State<BlockListScreen> {
               setState(() {
                 app['blocked'] = val;
               });
-              
-              if (app['isReal'] == true) {
-                final prefs = await SharedPreferences.getInstance();
-                List<String> blockedPackages = prefs.getStringList('blocked_apps') ?? [];
-                
-                if (val) {
-                  if (!blockedPackages.contains(app['package'])) {
-                    blockedPackages.add(app['package']);
-                  }
-                  
-                  // Yangi bosqichma-bosqich ruxsat olish tizimi
-                  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-                    await _handlePermissionSequence(app);
-                  }
-                } else {
-                  blockedPackages.remove(app['package']);
-                  // Xizmatga ro'yxat yangilangani haqida xabar beramiz
+
+              if (app['isReal'] != true) return;
+
+              // 1) Yangi ro'yxatni AVVAL diskda saqlaymiz.
+              //    Aks holda quyidagi invoke 'updateBlockedApps' background
+              //    isolate'ga yetib borganda u hali eski ro'yxatni o'qiydi
+              //    va toggle off effektsiz qoladi yoki yangi ilova
+              //    bloklanmaydi.
+              final prefs = await SharedPreferences.getInstance();
+              List<String> blockedPackages =
+                  prefs.getStringList('blocked_apps') ?? [];
+
+              if (val) {
+                if (!blockedPackages.contains(app['package'])) {
+                  blockedPackages.add(app['package']);
+                }
+              } else {
+                blockedPackages.remove(app['package']);
+              }
+
+              await prefs.setStringList('blocked_apps', blockedPackages);
+
+              // 2) Endi xavfsiz: service prefs'dan yangilangan ro'yxatni oladi.
+              if (val) {
+                if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+                  await _handlePermissionSequence(app);
+                }
+              } else {
+                if (!kIsWeb) {
                   FlutterBackgroundService().invoke('updateBlockedApps');
                 }
-                
-                await prefs.setStringList('blocked_apps', blockedPackages);
               }
             },
           ),
