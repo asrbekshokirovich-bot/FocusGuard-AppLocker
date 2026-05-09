@@ -11,18 +11,17 @@ val newBuildDir: Directory =
         .get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 
+// Register all subproject hooks BEFORE the evaluationDependsOn block
+// below. evaluationDependsOn triggers eager evaluation of subprojects,
+// after which afterEvaluate can no longer be registered.
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
 
-subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-// Fixed namespace injection for remaining plugins
-subprojects {
     val p = this
+
+    // Inject a namespace for legacy plugins that don't declare one
+    // (required by AGP 8+).
     p.plugins.whenPluginAdded {
         val android = p.extensions.findByName("android") as? com.android.build.gradle.BaseExtension
         if (android != null && android.namespace == null) {
@@ -45,6 +44,12 @@ subprojects {
             force("androidx.core:core-ktx:1.13.1")
         }
     }
+}
+
+// IMPORTANT: this block triggers eager subproject evaluation, so it
+// must come AFTER the afterEvaluate registration above.
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
