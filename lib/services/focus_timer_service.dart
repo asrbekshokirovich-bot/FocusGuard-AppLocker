@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'streak_reminder_service.dart';
 
 class FocusTimerService {
   static final FocusTimerService _instance = FocusTimerService._internal();
@@ -51,6 +52,11 @@ class FocusTimerService {
       'isStrict': isStrict,
     });
     _isRunning = true;
+
+    // Smart skip — foydalanuvchi fokusni boshladi, demak 11:25 da
+    // "siz hali boshlamadingiz" eslatma keraksiz. Bekor qilamiz va
+    // ertangi kunga qayta rejalashtiramiz.
+    StreakReminderService().cancelTodayReminderIfFocused();
   }
 
   /// Taymerni to'xtatish (manuil)

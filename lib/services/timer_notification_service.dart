@@ -1,7 +1,11 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'app_translation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'focus_history_service.dart';
 
 class TimerNotificationService {
   static final TimerNotificationService _instance = TimerNotificationService._internal();
@@ -11,6 +15,7 @@ class TimerNotificationService {
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static const int _notificationId = 999;
   bool _initialized = false;
+  bool _tzInitialized = false;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -25,6 +30,19 @@ class TimerNotificationService {
     _initialized = true;
   }
 
+  // Timezone'ni faqat zonedSchedule'dan oldin bir marta init qilamiz.
+  Future<void> _ensureTimezone() async {
+    if (_tzInitialized) return;
+    tz.initializeTimeZones();
+    try {
+      final tzName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(tzName.identifier));
+    } catch (e) {
+      debugPrint('[TimerNotif] timezone init error: $e');
+    }
+    _tzInitialized = true;
+  }
+
   Future<bool> _shouldShow(String subKey) async {
     final prefs = await SharedPreferences.getInstance();
     bool main = prefs.getBool('notification_main') ?? true;
@@ -33,15 +51,18 @@ class TimerNotificationService {
     return prefs.getBool(subKey) ?? true;
   }
 
-  /// Taymer boshlanganda bildirishnomani ko'rsat
+  /// Taymer boshlanganda bildirishnomani ko'rsat (hozircha ishlatilmaydi —
+  /// foreground service notifikatsiyasi shu vazifani bajaradi).
   Future<void> showTimerNotification({
-    required String timeRemaining,  // "44:30"
-    required String modeName,       // "Chuqur Diqqat"
-    required String levelTitle,     // "Мастер Фокуса · Daraja 4"
-    required String modeIcon,       // emoji icon
+    required String timeRemaining,
+    required String modeName,
+    required String levelTitle,
+    required String modeIcon,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     await init();
+
+    final body = '$modeIcon $modeName  |  $levelTitle';
 
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'focus_timer_channel',
@@ -53,21 +74,25 @@ class TimerNotificationService {
       autoCancel: false,
       showWhen: false,
       icon: '@mipmap/launcher_icon',
-      // LargeIcon olib tashlandi (o'ng tomondagi katta logo)
-      styleInformation: const DefaultStyleInformation(false, false), 
+      // BigTextStyle — foydalanuvchi pastga torsa to'liq matn kichikroq
+      // shriftda ochiladi.
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: 'Focus Guard · $timeRemaining',
+      ),
     );
 
     final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
       id: _notificationId,
-      title: 'Focus Guard · $timeRemaining', // 1-qator: Ilova nomi va vaqt
-      body: '$modeIcon $modeName  |  $levelTitle', // 2-qator: Rejim va Daraja
+      title: 'Focus Guard · $timeRemaining',
+      body: body,
       notificationDetails: details,
     );
   }
 
-  /// Taymerni yangilash (har soniyada chaqiriladi)
+  /// Taymerni yangilash
   Future<void> updateTimer({
     required String timeRemaining,
     required String modeName,
@@ -98,21 +123,21 @@ class TimerNotificationService {
 
     final lang = AppTranslationService();
     String title = lang.translate('notifications.level_up_title') ?? 'Yangi daraja! 🎉';
-    String body = lang.translate('notifications.level_up_body') ?? 
+    String body = lang.translate('notifications.level_up_body') ??
         'Tabriklaymiz! Siz $newLevel-darajaga ko\'tarildingiz. Yangi maqomingiz: $rankTitle';
-    
-    // Placeholderlarni almashtirish
+
     body = body.replaceAll('{level}', newLevel.toString()).replaceAll('{rank}', rankTitle);
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'achievement_channel',
       'Yutuqlar',
       channelDescription: 'Yangi darajaga erishganda tabriklash',
       importance: Importance.high,
       priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
     );
 
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
       id: 777,
@@ -130,18 +155,19 @@ class TimerNotificationService {
 
     final lang = AppTranslationService();
     String title = lang.translate('notifications.goal_not_met_title') ?? 'Boy berilgan imkoniyat... 😔';
-    String body = lang.translate('notifications.goal_not_met_body') ?? 
+    String body = lang.translate('notifications.goal_not_met_body') ??
         'Bugun maqsadingizga erisha olmadingiz. Ertaga o\'zingizni isbotlashga va\'da berasizmi?';
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'daily_goals_channel',
       'Kunlik Maqsadlar',
       channelDescription: 'Maqsadga erishilmaganda eslatish',
       importance: Importance.high,
       priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
     );
 
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
       id: 888,
@@ -159,18 +185,19 @@ class TimerNotificationService {
 
     final lang = AppTranslationService();
     String title = lang.translate('notifications.goal_met_title') ?? 'Maqsad bajarildi! 🎯';
-    String body = lang.translate('notifications.goal_met_body') ?? 
+    String body = lang.translate('notifications.goal_met_body') ??
         'Bugungi maqsadingizga to\'liq erishdingiz! Irodangizga qoyil.';
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'daily_goals_channel',
       'Kunlik Maqsadlar',
       channelDescription: 'Maqsadga erishilganda tabriklash',
       importance: Importance.high,
       priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
     );
 
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    final NotificationDetails details = NotificationDetails(android: androidDetails);
 
     await _plugin.show(
       id: 889,
@@ -178,5 +205,104 @@ class TimerNotificationService {
       body: body,
       notificationDetails: details,
     );
+  }
+
+  /// 23:55 da har kuni ishlaydigan AlarmManager-based notifikatsiya.
+  ///
+  /// Tick-based check service tirik bo'lishini talab qiladi — Samsung
+  /// "Sleeping apps" yoki battery optimization service'ni o'ldirsa
+  /// notifikatsiya kelmaydi. zonedSchedule esa Android'ning o'z
+  /// AlarmManager'ini ishlatadi va service o'lik bo'lsa ham fired
+  /// bo'ladi.
+  ///
+  /// 23:55 da fired bo'lganda foydalanuvchi telefonni qo'lda olganda
+  /// (yoki ekranni yoqqanda) o'sha lahzada ilova background'da bo'lmasa,
+  /// notifikatsiya tap qilinganda main isolate ochiladi va FocusHistory
+  /// yangilanadi. Foreground service ishlasa shu yerda darrov yoziladi.
+  Future<void> scheduleDailySummary() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    await init();
+    await _ensureTimezone();
+
+    final lang = AppTranslationService();
+
+    // Goal Missed/Achieved'ni 23:55 da bitta umumiy "Kunlik yakun"
+    // notifikatsiyasi sifatida yuboramiz. Notifikatsiya matnida 2-ta
+    // imkoniyat ham yozilgan; foydalanuvchi Calendar'ga kirib aniq
+    // natijani ko'radi. Bu yondashuv — fired-time'da SharedPreferences'ni
+    // tekshirib aniq variantni yuborish (kafolatlangan emas, chunki
+    // scheduled notification fire callback'i Android'da cheklangan).
+
+    final title = lang.translate('notifications.daily_summary_title') ??
+        'Kunlik yakun ⏰';
+    final body = lang.translate('notifications.daily_summary_body') ??
+        'Bugungi natijangizni Kalendar bo\'limida ko\'rishingiz mumkin. '
+            'Kunlik maqsadga erishganmisiz?';
+
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'daily_goals_channel',
+      'Kunlik Maqsadlar',
+      channelDescription: 'Har kuni 23:55 da kunlik natija eslatmasi',
+      importance: Importance.high,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
+    );
+
+    final NotificationDetails details =
+        NotificationDetails(android: androidDetails);
+
+    // 23:55 ga rejalashtirish
+    final now = tz.TZDateTime.now(tz.local);
+    var when = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      23,
+      55,
+    );
+    if (when.isBefore(now)) {
+      when = when.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      id: 890, // unique ID for daily summary scheduled notification
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'open_calendar',
+    );
+
+    debugPrint('[TimerNotif] daily summary scheduled at $when');
+  }
+
+  /// Bugungi yakunni darrov (real-time) yuborish — fired-time'da agar
+  /// service tirik bo'lsa background_service.dart shu metodni chaqiradi.
+  /// SharedPreferences'dan today_focus_seconds o'qib aniq Missed/Achieved
+  /// qaysi biri kerakligini hal qiladi.
+  Future<void> sendTodayResultBasedOnProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final seconds = prefs.getInt('today_focus_seconds') ?? 0;
+      final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+      // history'ga yozamiz
+      await FocusHistoryService.instance.recordDay(
+        date: DateTime.now(),
+        seconds: seconds,
+        goal: goal,
+      );
+      if (seconds >= goal && goal > 0) {
+        await showGoalAchievedNotification();
+      } else {
+        await showGoalMissedNotification();
+      }
+    } catch (e) {
+      debugPrint('[TimerNotif] sendTodayResultBasedOnProgress failed: $e');
+    }
   }
 }

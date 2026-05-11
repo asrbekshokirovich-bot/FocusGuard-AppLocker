@@ -12,6 +12,7 @@ import 'package:vibration/vibration.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
 import 'crash_logger.dart';
+import 'focus_history_service.dart';
 
 bool _isServiceInitialized = false;
 
@@ -121,6 +122,14 @@ void onStart(ServiceInstance service) async {
   // Taymer holati o'zgaruvchilari
   int remainingSeconds = 0;
   bool isTimerRunning = false;
+  // Pauza holati alohida kuzatiladi: isTimerRunning=false bo'lishi
+  // "to'xtagan" yoki "umuman boshlanmagan" degani ham bo'lishi mumkin.
+  // isPaused=true bo'lganda foydalanuvchi taymerni vaqtincha to'xtatgan
+  // va `remainingSeconds` saqlanib turibdi — "Davom etish" tugmasi
+  // shu qiymatdan davom ettirishi kerak (start qilib qayta boshlamasligi
+  // kerak). UI shu bayroq orqali "Pause" yoki "Davom etish" matnini
+  // ko'rsatadi va to'g'ri method'ni chaqiradi.
+  bool isPaused = false;
   String modeName = "";
   String modeIcon = "";
   String levelTitle = "";
@@ -160,18 +169,39 @@ void onStart(ServiceInstance service) async {
     service.invoke('timerTick', {
       'seconds': remainingSeconds,
       'isRunning': isTimerRunning,
+      // isPaused ham UI'ga yuboriladi — Pause bug fix uchun. UI shu
+      // bayroq orqali Pause/Resume tugmasini to'g'ri ko'rsatadi va
+      // bosilganda startTimer o'rniga resumeTimer'ni chaqiradi.
+      'isPaused': isPaused,
       'modeName': modeName,
       'modeIcon': modeIcon,
     });
 
-    if (updateNotification && service is AndroidServiceInstance && isTimerRunning) {
+    if (updateNotification && service is AndroidServiceInstance) {
       int m = remainingSeconds ~/ 60;
       int s = remainingSeconds % 60;
       String timeStr = "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
 
+      // Notifikatsiya title — 3 ta holatga qarab:
+      //   • Taymer ishlayapti: "⏱ Focus Guard · 24:30"
+      //   • Pauza:             "⏸ Focus Guard · 24:30"
+      //   • Default monitoring: "Focus Guard"
+      String title;
+      String content;
+      if (isTimerRunning) {
+        title = "⏱ Focus Guard · $timeStr";
+        content = "$modeIcon $modeName | $levelTitle";
+      } else if (isPaused) {
+        title = "⏸ Focus Guard · $timeStr";
+        content = "Pauza · $modeIcon $modeName";
+      } else {
+        title = "Focus Guard";
+        content = "Monitoring faol";
+      }
+
       service.setForegroundNotificationInfo(
-        title: "Focus Guard · $timeStr",
-        content: "$modeIcon $modeName | $levelTitle",
+        title: title,
+        content: content,
       );
     }
   }
@@ -184,11 +214,13 @@ void onStart(ServiceInstance service) async {
     levelTitle = event['levelTitle'];
     isStrict = event['isStrict'];
     isTimerRunning = true;
-    
+    isPaused = false; // yangi sessiya — paused emas
+
     // Tugash vaqtini saqlash
     final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
     await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
     await prefs.setBool('timer_is_running', true);
+    await prefs.setBool('timer_is_paused', false);
     await prefs.setString('timer_mode_name', modeName);
     await prefs.setString('timer_mode_icon', modeIcon);
     await prefs.setString('timer_level_title', levelTitle);
@@ -198,30 +230,37 @@ void onStart(ServiceInstance service) async {
 
   service.on('stopTimer').listen((event) async {
     isTimerRunning = false;
+    isPaused = false; // to'liq to'xtatildi
     remainingSeconds = 0;
     await prefs.remove('timer_end_timestamp');
+    await prefs.remove('timer_remaining_seconds');
     await prefs.setBool('timer_is_running', false);
-    
-    if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: "Focus Guard",
-        content: "Monitoring faol",
-      );
-    }
+    await prefs.setBool('timer_is_paused', false);
+
+    // syncTimer() o'zi notifikatsiyani "Focus Guard / Monitoring faol"
+    // ga qaytaradi (chunki isTimerRunning=false va isPaused=false).
     syncTimer();
   });
 
   service.on('pauseTimer').listen((event) async {
     isTimerRunning = false;
+    isPaused = true; // PAUSE — saqlab turamiz
     await prefs.setBool('timer_is_running', false);
-    // Qolgan vaqtni saqlab qo'yamiz
+    await prefs.setBool('timer_is_paused', true);
+    // Qolgan vaqtni saqlab qo'yamiz — resume paytida shu yerdan davom
     await prefs.setInt('timer_remaining_seconds', remainingSeconds);
     syncTimer();
   });
 
   service.on('resumeTimer').listen((event) async {
+    // Qolgan vaqt allaqachon `remainingSeconds` ichida (pauseTimer
+    // listener uni reset qilmagan). Yangi tugash vaqtini hisoblaymiz.
     isTimerRunning = true;
+    isPaused = false;
+    final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
+    await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
     await prefs.setBool('timer_is_running', true);
+    await prefs.setBool('timer_is_paused', false);
     syncTimer();
   });
 
@@ -235,15 +274,25 @@ void onStart(ServiceInstance service) async {
     syncTimer();
   });
 
-  // Avvalgi holatni tiklash
-  final savedEndTime = prefs.getInt('timer_end_timestamp');
+  // Avvalgi holatni tiklash. Uchta ssenariy:
+  //   1. Taymer ishlayotgan edi (running=true, paused=false) — qolgan
+  //      vaqtni endTime'dan hisoblab davom ettiramiz.
+  //   2. Taymer pauza qilingan edi (paused=true) — saqlangan
+  //      `timer_remaining_seconds` dan davom ettiramiz, lekin
+  //      isTimerRunning=false bo'lib turadi (foydalanuvchi "Davom
+  //      etish"ni bossagina ishga tushadi).
+  //   3. Hech narsa yo'q — odatdagi yangi sessiya.
+  final savedIsPaused = prefs.getBool('timer_is_paused') ?? false;
   final savedIsRunning = prefs.getBool('timer_is_running') ?? false;
-  if (savedEndTime != null && savedIsRunning) {
+  final savedEndTime = prefs.getInt('timer_end_timestamp');
+
+  if (savedIsRunning && savedEndTime != null) {
     final end = DateTime.fromMillisecondsSinceEpoch(savedEndTime);
     final now = DateTime.now();
     if (end.isAfter(now)) {
       remainingSeconds = end.difference(now).inSeconds;
       isTimerRunning = true;
+      isPaused = false;
       modeName = prefs.getString('timer_mode_name') ?? "";
       modeIcon = prefs.getString('timer_mode_icon') ?? "";
       levelTitle = prefs.getString('timer_level_title') ?? "";
@@ -251,6 +300,14 @@ void onStart(ServiceInstance service) async {
       await prefs.remove('timer_end_timestamp');
       await prefs.setBool('timer_is_running', false);
     }
+  } else if (savedIsPaused) {
+    // Pause holatida saqlangan qolgan sekundlarni tiklaymiz.
+    remainingSeconds = prefs.getInt('timer_remaining_seconds') ?? 0;
+    isTimerRunning = false;
+    isPaused = remainingSeconds > 0;
+    modeName = prefs.getString('timer_mode_name') ?? "";
+    modeIcon = prefs.getString('timer_mode_icon') ?? "";
+    levelTitle = prefs.getString('timer_level_title') ?? "";
   }
 
   // Kunlik ma'lumotlarni yuklash
@@ -259,8 +316,18 @@ void onStart(ServiceInstance service) async {
   analysisSent = prefs.getBool('analysis_sent_${DateTime.now().day}') ?? false;
   lastDay = prefs.getInt('last_tracked_day') ?? DateTime.now().day;
 
-  // Kun almashganini tekshirish
+  // Kun almashganini tekshirish (service ishga tushishida). Avval
+  // kechagi kun ma'lumotini history'ga yozib qo'yamiz — Calendar
+  // shu yerdan ✅/❌ ko'rsatadi.
   if (lastDay != DateTime.now().day) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    // lastDay raqami bo'lgani uchun aniq sana qurib bo'lmaydi —
+    // shunday ham eng yaqin yondashuv kechagi kun.
+    await FocusHistoryService.instance.recordDay(
+      date: yesterday,
+      seconds: todayFocusSeconds,
+      goal: dailyGoalSeconds,
+    );
     todayFocusSeconds = 0;
     analysisSent = false;
     await prefs.setInt('today_focus_seconds', 0);
@@ -344,9 +411,17 @@ void onStart(ServiceInstance service) async {
 
     // 2. Kunlik tahlil logikasi
     final now = DateTime.now();
-    
-    // Kun almashganini tekshirish (yarim tunda reset)
+
+    // Kun almashganini tekshirish (yarim tunda reset). Reset oldidan
+    // kechagi kun ma'lumotini history'ga yozamiz — Calendar shu
+    // manbadan ✅/❌ ko'rsatadi.
     if (now.day != lastDay) {
+      final yesterday = now.subtract(const Duration(days: 1));
+      await FocusHistoryService.instance.recordDay(
+        date: yesterday,
+        seconds: todayFocusSeconds,
+        goal: dailyGoalSeconds,
+      );
       todayFocusSeconds = 0;
       analysisSent = false;
       lastDay = now.day;
@@ -354,11 +429,28 @@ void onStart(ServiceInstance service) async {
       await prefs.setInt('last_tracked_day', lastDay);
     }
 
-    // Soat 23:55 da tahlil bildirishnomasini yuborish
+    // Soat 23:55 da kunlik yakun (Goal Missed/Achieved). Bu hali ham
+    // tick-based ishlaydi (fallback), lekin asosiy schedule
+    // TimerNotificationService.scheduleDailySummary() orqali AlarmManager
+    // boshqaradi — hatto service o'lik bo'lsa ham notifikatsiya keladi.
+    // Bu yerda esa service ishlab turgan paytda history'ni yangilab
+    // qo'yamiz (Calendar bu kunni darrov ✅/❌ qilib ko'rsata olishi
+    // uchun, ertaga 00:01 da day-reset bo'lguncha kutmasdan).
     if (now.hour == 23 && now.minute == 55 && !analysisSent) {
       analysisSent = true;
       await prefs.setBool('analysis_sent_${now.day}', true);
-      
+
+      // History'ga BUGUNGI kunni yozamiz (kun hali tugamagan bo'lsa
+      // ham — qolgan 5 daqiqa juda kichik xatolik beradi).
+      await FocusHistoryService.instance.recordDay(
+        date: now,
+        seconds: todayFocusSeconds,
+        goal: dailyGoalSeconds,
+      );
+
+      // Tick-based notifikatsiya — fallback sifatida qoldirildi.
+      // Asosiy schedule TimerNotificationService.scheduleDailySummary
+      // ichida AlarmManager bilan qilingan.
       final notificationService = TimerNotificationService();
       if (todayFocusSeconds < dailyGoalSeconds) {
         await notificationService.showGoalMissedNotification();

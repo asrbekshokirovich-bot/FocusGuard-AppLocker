@@ -979,14 +979,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: ElevatedButton(
                       onPressed: () async {
+                        // 3 ta holat:
+                        //   1. Taymer ishlayapti  → Pauza qilamiz
+                        //   2. Pauzada turibdi    → Resume qilamiz (boshidan
+                        //      boshlamaymiz, qolgan vaqtdan davom etamiz)
+                        //   3. Hech narsa ishlamayapti → Yangi taymer
                         if (_isRunning) {
                           _pauseTimer();
+                        } else if (_isPaused) {
+                          _resumeTimer();
                         } else {
                           // Agar Deep Mode bo'lsa va bloklangan ilovalar bo'lmasa, dialog chiqaramiz
                           if (_selectedMode == 0) {
                             final prefs = await SharedPreferences.getInstance();
                             final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-                            
+
                             if (blockedApps.isEmpty) {
                               _showNoBlockedAppsDialog();
                               return;

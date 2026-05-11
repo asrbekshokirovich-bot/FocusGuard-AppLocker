@@ -9,6 +9,7 @@ import '../services/app_translation_service.dart';
 import 'premium_screen.dart';
 import 'my_plans_screen.dart';
 import 'level_screen.dart';
+import 'calendar_screen.dart';
 import 'notifications_settings_screen.dart';
 import 'interface_language_screen.dart';
 import 'themes_screen.dart';
@@ -336,6 +337,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               lang.translate('profile.menu_plans'),
                               const Color(0xFFFF9500),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MyPlansScreen())),
+                            ),
+                            // Kalendar — kunlik fokus tarixini ko'rsatadi
+                            // (✅ Fokusladim / ❌ Bo'shashdim). Ma'lumot
+                            // FocusHistoryService'dan keladi.
+                            _buildSettingsItem(
+                              context,
+                              lang,
+                              CupertinoIcons.calendar,
+                              lang.translate('profile.menu_calendar'),
+                              const Color(0xFF34C759),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CalendarScreen())),
                             ),
 
                             const SizedBox(height: 24),

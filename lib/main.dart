@@ -12,6 +12,7 @@ import 'screens/register_screen.dart';
 import 'screens/language_screen.dart';
 import 'screens/overlay_screen.dart';
 import 'services/streak_reminder_service.dart';
+import 'services/timer_notification_service.dart';
 
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
@@ -72,6 +73,10 @@ void main() async {
   
   // Streak eslatmasini faollashtirish (Har kuni 11:25 da)
   StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
+
+  // Kunlik yakun notifikatsiyasini AlarmManager orqali rejalashtirish
+  // (Har kuni 23:55 da, service o'lik bo'lsa ham kafolatlangan).
+  TimerNotificationService().scheduleDailySummary();
 
   runApp(
     DevicePreview(
