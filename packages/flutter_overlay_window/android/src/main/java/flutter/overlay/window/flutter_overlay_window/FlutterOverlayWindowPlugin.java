@@ -107,8 +107,22 @@ public class FlutterOverlayWindowPlugin implements
             intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             intent.putExtra("startX", startX);
             intent.putExtra("startY", startY);
-            context.startService(intent);
-            result.success(null);
+            // Patched for Focus Guard: wrap startService in try/catch.
+            // On Android 12+ background-launched foreground services
+            // can throw ForegroundServiceStartNotAllowedException; on
+            // some Samsung One UI versions startService itself throws
+            // SecurityException. Return a structured error so Dart can
+            // log it instead of letting the host app crash.
+            try {
+                context.startService(intent);
+                result.success(null);
+            } catch (Exception e) {
+                Log.e("OverlayPlugin", "startService failed: "
+                        + e.getClass().getSimpleName() + " — " + e.getMessage());
+                result.error("START_SERVICE_FAILED",
+                        e.getClass().getSimpleName() + ": " + e.getMessage(),
+                        null);
+            }
         } else if (call.method.equals("isOverlayActive")) {
             result.success(OverlayService.isRunning);
             return;

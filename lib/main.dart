@@ -18,13 +18,37 @@ import 'services/background_service.dart';
 import 'services/service_starter.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
+import 'services/crash_logger.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Global xato tutuvchilari — har qanday uncaught exception yoki
+  // platform xatosi diskka (SharedPreferences) yoziladi. Keyingi
+  // safar ilova ochilganda dashboard banner ko'rsatadi, foydalanuvchi
+  // screenshot olib bizga jo'natadi. Bu ayniqsa boshqa Samsung
+  // qurilmalarda (masalan A52) qanday crash bo'lganini bilish uchun
+  // muhim — logcat'ga ulanmasdan diagnostika qila olamiz.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    CrashLogger.instance.recordError(
+      details.exception,
+      details.stack,
+      source: 'FlutterError',
+    );
+  };
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    CrashLogger.instance.recordError(
+      error,
+      stack,
+      source: 'PlatformDispatcher',
+    );
+    return true;
+  };
+
   // Firebase initialization
   try {
     await Firebase.initializeApp();

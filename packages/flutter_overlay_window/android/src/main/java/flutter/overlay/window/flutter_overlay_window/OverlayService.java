@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -15,6 +16,7 @@ import android.graphics.Point;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -206,9 +208,62 @@ public class OverlayService extends Service implements View.OnTouchListener {
         }
         params.gravity = WindowSetup.gravity;
         flutterView.setOnTouchListener(this);
-        windowManager.addView(flutterView, params);
-        moveOverlay(dx, dy, null);
+
+        // Patched for Focus Guard: defensive try/catch around addView.
+        //
+        // On Samsung devices (especially after app updates or when
+        // "Auto-disable unused apps" kicks in) SYSTEM_ALERT_WINDOW can
+        // be silently revoked while Settings.canDrawOverlays() still
+        // returns true. addView() then throws BadTokenException and
+        // crashes the entire service with "Focus Guard yana ishdan
+        // chiqdi". We catch the exception, log the reason into
+        // SharedPreferences (Dart side reads it on next launch to show
+        // a banner), and stop cleanly instead of crashing.
+        try {
+            windowManager.addView(flutterView, params);
+            moveOverlay(dx, dy, null);
+        } catch (Exception e) {
+            String canDraw = "unknown";
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    canDraw = String.valueOf(
+                            Settings.canDrawOverlays(getApplicationContext()));
+                }
+            } catch (Exception ignored) {}
+            String reason = e.getClass().getSimpleName() + ": " + e.getMessage()
+                    + " (canDrawOverlays=" + canDraw + ")";
+            Log.e("OverlayService", "addView crashed — " + reason);
+            saveCrashReason("addView", reason);
+            isRunning = false;
+            try {
+                if (flutterView != null) {
+                    flutterView.detachFromFlutterEngine();
+                }
+            } catch (Exception ignored) {}
+            windowManager = null;
+            flutterView = null;
+            stopForeground(true);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         return START_STICKY;
+    }
+
+    // Writes the latest overlay-service crash reason to Flutter's
+    // SharedPreferences file. The key is prefixed with "flutter." so
+    // the standard shared_preferences plugin can read it from Dart.
+    private void saveCrashReason(String source, String reason) {
+        try {
+            SharedPreferences prefs = getApplicationContext()
+                    .getSharedPreferences("FlutterSharedPreferences",
+                            Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putString("flutter.last_overlay_crash_source", source)
+                    .putString("flutter.last_overlay_crash_reason", reason)
+                    .putLong("flutter.last_overlay_crash_time",
+                            System.currentTimeMillis())
+                    .apply();
+        } catch (Exception ignored) {}
     }
 
 
@@ -394,7 +449,23 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 .setContentIntent(pendingIntent)
                 .setVisibility(WindowSetup.notificationVisibility)
                 .build();
-        startForeground(OverlayConstants.NOTIFICATION_ID, notification);
+
+        // Patched for Focus Guard: defensive try/catch around
+        // startForeground. On Android 13+ if POST_NOTIFICATIONS is
+        // missing this throws SecurityException; on Android 12+ if
+        // background-launched it may throw ForegroundServiceStart-
+        // NotAllowedException. Without this, the overlay service
+        // crashes the moment it starts and the user sees "Focus
+        // Guard yana ishdan chiqdi" without an overlay.
+        try {
+            startForeground(OverlayConstants.NOTIFICATION_ID, notification);
+        } catch (Exception e) {
+            String reason = e.getClass().getSimpleName() + ": " + e.getMessage();
+            Log.e("OverlayService", "startForeground crashed — " + reason);
+            saveCrashReason("startForeground", reason);
+            stopSelf();
+            return;
+        }
         instance = this;
     }
 

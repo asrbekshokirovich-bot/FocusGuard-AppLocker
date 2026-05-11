@@ -11,6 +11,7 @@ import 'package:usage_stats/usage_stats.dart';
 import 'package:vibration/vibration.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
+import 'crash_logger.dart';
 
 bool _isServiceInitialized = false;
 
@@ -141,7 +142,12 @@ void onStart(ServiceInstance service) async {
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
   
-  void syncTimer() {
+  // Har soniyada UI ga timerTick yuboramiz — stream chaqirig'i arzon,
+  // dashboard sanog'i shu sababli aniq 1s qadamda yangilanadi
+  // (45 → 44 → 43 ...). Notification update'i esa qimmatroq, shuning
+  // uchun uni har 5 soniyada chaqiramiz — `updateNotification` flag
+  // bilan boshqariladi.
+  void syncTimer({bool updateNotification = true}) {
     service.invoke('timerTick', {
       'seconds': remainingSeconds,
       'isRunning': isTimerRunning,
@@ -149,11 +155,11 @@ void onStart(ServiceInstance service) async {
       'modeIcon': modeIcon,
     });
 
-    if (service is AndroidServiceInstance && isTimerRunning) {
+    if (updateNotification && service is AndroidServiceInstance && isTimerRunning) {
       int m = remainingSeconds ~/ 60;
       int s = remainingSeconds % 60;
       String timeStr = "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
-      
+
       service.setForegroundNotificationInfo(
         title: "Focus Guard · $timeStr",
         content: "$modeIcon $modeName | $levelTitle",
@@ -297,11 +303,12 @@ void onStart(ServiceInstance service) async {
     if (isTimerRunning) {
       if (remainingSeconds > 0) {
         remainingSeconds--;
-        if (remainingSeconds % 5 == 0) { // Har 5 soniyada UI ga vaqtni yuboramiz (resursni tejash uchun)
-          syncTimer();
-        } else if (remainingSeconds < 10) { // Oxirgi 10 soniyada har soniya
-          syncTimer();
-        }
+        // UI streamga har soniyada yuboramiz — dashboard sanog'i
+        // aniq 1s qadamda tikladi. Notification update'ni esa
+        // batareya uchun har 5 soniyada (yoki oxirgi 10 sda har
+        // soniya) qilamiz — `updateNotification` flag orqali.
+        final bool updateNotif = remainingSeconds % 5 == 0 || remainingSeconds < 10;
+        syncTimer(updateNotification: updateNotif);
       } else {
         isTimerRunning = false;
         await prefs.setBool('timer_is_running', false);
@@ -424,7 +431,17 @@ void onStart(ServiceInstance service) async {
 
         bool hasOverlayPermission =
             await FlutterOverlayWindow.isPermissionGranted();
-        if (!hasOverlayPermission) return;
+        if (!hasOverlayPermission) {
+          // Samsung ba'zan ruxsatni "jimgina" qaytarib oladi va
+          // foydalanuvchi buni sezmaydi. Logga yozib, banner orqali
+          // ogohlantiramiz, lekin crash qilmaymiz.
+          await CrashLogger.instance.recordError(
+            'SYSTEM_ALERT_WINDOW permission missing',
+            null,
+            source: 'overlay-permission-check',
+          );
+          return;
+        }
 
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (!isOverlayActive) {
@@ -437,16 +454,33 @@ void onStart(ServiceInstance service) async {
           }
           currentBlockedApp = currentApp;
 
-          await FlutterOverlayWindow.showOverlay(
-            enableDrag: false,
-            overlayTitle: "Focus Guard",
-            overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
-            flag: OverlayFlag.defaultFlag,
-            visibility: NotificationVisibility.visibilitySecret,
-            positionGravity: PositionGravity.auto,
-            height: WindowSize.fullCover,
-            width: WindowSize.fullCover,
-          );
+          // showOverlay() ostida startService chaqiriladi — Samsung'da
+          // BadTokenException, ForegroundServiceStartNotAllowed yoki
+          // SecurityException tashlashi mumkin. Hech bir holatda
+          // background service crash bo'lmasligi kerak, aks holda
+          // foydalanuvchi "Focus Guard yana ishdan chiqdi" ni ko'radi.
+          try {
+            await FlutterOverlayWindow.showOverlay(
+              enableDrag: false,
+              overlayTitle: "Focus Guard",
+              overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
+              flag: OverlayFlag.defaultFlag,
+              visibility: NotificationVisibility.visibilitySecret,
+              positionGravity: PositionGravity.auto,
+              height: WindowSize.fullCover,
+              width: WindowSize.fullCover,
+            );
+          } catch (e, st) {
+            debugPrint('[FocusGuard] showOverlay failed: $e');
+            await CrashLogger.instance.recordError(
+              e,
+              st,
+              source: 'showOverlay',
+            );
+            // currentBlockedApp ni reset qilamiz — keyingi tickda
+            // qayta urinish uchun
+            currentBlockedApp = null;
+          }
         } else {
           currentBlockedApp = currentApp;
         }

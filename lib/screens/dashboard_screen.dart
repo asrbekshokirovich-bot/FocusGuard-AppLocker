@@ -15,9 +15,11 @@ import 'permissions_screen.dart';
 
 import '../services/language_service.dart';
 import '../services/level_service.dart';
+import '../services/crash_logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:flutter/services.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,6 +31,10 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
   late final List<Widget> _screens;
+
+  // Eng oxirgi crash haqida ma'lumot. Banner shu o'zgaruvchi orqali
+  // ko'rsatiladi — null bo'lsa banner umuman chiqmaydi.
+  CrashRecord? _crashRecord;
 
   @override
   void initState() {
@@ -43,9 +49,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const StatsScreen(),
       const ProfileScreen(),
     ];
-    
+
     // Foydalanuvchi statistikalarini tekshirish
     LevelService().ensureUserStatsInitialized();
+
+    // Avvalgi crash mavjudligini tekshirish — agar overlay yoki
+    // background service crash bo'lgan bo'lsa, banner ko'rsatamiz.
+    _checkRecentCrash();
 
     // Bildirishnoma ruxsatini tekshirish
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -54,6 +64,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _checkNotificationPermission();
       }
     });
+  }
+
+  Future<void> _checkRecentCrash() async {
+    final crash = await CrashLogger.instance.getRecentCrash();
+    if (mounted && crash != null && crash.isRecent) {
+      setState(() => _crashRecord = crash);
+    }
+  }
+
+  Future<void> _dismissCrashBanner() async {
+    await CrashLogger.instance.clear();
+    if (mounted) {
+      setState(() => _crashRecord = null);
+    }
+  }
+
+  void _copyCrashToClipboard() {
+    final crash = _crashRecord;
+    if (crash == null) return;
+    final text =
+        '[Focus Guard crash]\n'
+        'Vaqt: ${crash.timestamp}\n'
+        'Manba: ${crash.source}\n'
+        'Sabab: ${crash.reason}'
+        '${crash.stack != null ? '\n\nStack:\n${crash.stack}' : ''}';
+    Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Crash ma\'lumoti nusxa olindi. Bizga jo\'nating!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<bool> _checkCriticalPermissions() async {
@@ -291,6 +335,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
+          // Crash banner — faqat oxirgi 24 soat ichida crash bo'lsa.
+          // Foydalanuvchi yopgandan keyin SharedPreferences'dan o'chadi.
+          if (_crashRecord != null) _buildCrashBanner(),
           Expanded(
             child: IndexedStack(
               index: _currentIndex,
@@ -373,6 +420,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
           label: lang.translate('nav.profile'),
         ),
       ],
+    );
+  }
+
+  // Crash banner — yorqin sariq fon, qisqa sabab, "Nusxa olish" va
+  // "Yopish" tugmalari. Foydalanuvchi nusxa olganidan keyin bizga
+  // (Telegram, email va h.k.) screenshot/text jo'natadi va biz crash
+  // sababini aniq bilamiz, hatto USB orqali logcat o'qiy olmasak ham.
+  Widget _buildCrashBanner() {
+    final crash = _crashRecord!;
+    // Reason juda uzun bo'lishi mumkin — birinchi 200 belgi banner uchun
+    // yetarli, qolganini Clipboard'ga to'liq qo'yamiz.
+    final shortReason = crash.reason.length > 200
+        ? '${crash.reason.substring(0, 200)}…'
+        : crash.reason;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3CD),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFC107), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                  color: Color(0xFFD97706), size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Oxirgi marta ilova xato bilan to\'xtagan',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF7C4A03),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _dismissCrashBanner,
+                icon: const Icon(CupertinoIcons.xmark,
+                    color: Color(0xFF7C4A03), size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Manba: ${crash.source}',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF7C4A03),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            shortReason,
+            style: GoogleFonts.robotoMono(
+              fontSize: 11,
+              color: const Color(0xFF7C4A03),
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _copyCrashToClipboard,
+                  icon: const Icon(CupertinoIcons.doc_on_clipboard, size: 16),
+                  label: Text(
+                    'Nusxa olish va jo\'natish',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
