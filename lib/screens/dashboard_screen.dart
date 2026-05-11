@@ -102,12 +102,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<bool> _checkCriticalPermissions() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
-    
+
     // 1 soniya kutamiz
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return false;
 
     bool hasOverlay = await Permission.systemAlertWindow.isGranted;
+    bool hasBattery = await Permission.ignoreBatteryOptimizations.isGranted;
     bool hasUsage = false;
     try {
       DateTime now = DateTime.now();
@@ -117,11 +118,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       hasUsage = false;
     }
 
-    if (!hasOverlay || !hasUsage) {
+    // Battery optimization muhim — ammo dashboard'ga kirishni butunlay
+    // bloklamasligi kerak (chunki Samsung uni "Optimizatsiya" sahifasi
+    // orqali avtomatik qaytarib qo'yishi mumkin). Faqat overlay/usage
+    // bo'lmasa redirect qilamiz; battery yo'q bo'lsa banner ko'rsatamiz
+    // (kelajakda) yoki ohirgi ehtimol — dashboard ichida xabar.
+    if (!hasOverlay || !hasUsage || !hasBattery) {
       if (mounted) {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const PermissionsScreen())
+          MaterialPageRoute(builder: (context) => const PermissionsScreen()),
         );
       }
       return true;

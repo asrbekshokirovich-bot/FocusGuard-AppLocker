@@ -65,6 +65,15 @@ Future<void> initializeBackgroundService() async {
 
     // Avval xizmat allaqachon sozlanganini tekshiramiz
     // (ba'zi qurilmalarda configure ni qayta chaqirish crash beradi)
+    //
+    // foregroundServiceNotificationId 888 dan 7777 ga ko'chirildi —
+    // chunki avvalgi qiymat StreakReminderService (_reminderId=888) va
+    // showGoalMissedNotification (id=888) bilan to'qnash kelar edi.
+    // Android foreground service notifikatsiyasini doimiy (ongoing)
+    // qilib qo'yadi, shuning uchun ID 888 ga keladigan har qanday
+    // user-facing notifikatsiya merge bo'lib, swipe bilan o'chmas edi.
+    // Endi 7777 — service uchun, 888 — streak/goal uchun bo'lib,
+    // streak/goal notifikatsiyalari normal (dismissible) bo'ladi.
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
@@ -73,7 +82,7 @@ Future<void> initializeBackgroundService() async {
         notificationChannelId: 'app_locker_channel',
         initialNotificationTitle: 'Focus Guard',
         initialNotificationContent: 'Monitoring faol',
-        foregroundServiceNotificationId: 888,
+        foregroundServiceNotificationId: 7777,
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -289,11 +298,21 @@ void onStart(ServiceInstance service) async {
   });
 
   // Foydalanuvchi overlay'dagi "Orqaga qaytish" tugmasini bosganda
-  // overlay isolate biz tomonga shu eventni yuboradi. Biz keyingi 5
-  // soniya overlay'ni qayta ko'rsatmaymiz, foydalanuvchi home'ga
-  // chiqib ulgursin.
+  // overlay isolate biz tomonga shu eventni yuboradi. Biz HOME intent
+  // ishga tushishi uchun ozgina vaqt suppress qilamiz.
+  //
+  // 5 soniya juda uzun edi — foydalanuvchi tugmani bosib, darhol
+  // qaytib bloklangan ilovaga kirsa, 5 sekund overlay yo'q va u
+  // ilovada normalda ishlay olib kelardi. 2 soniya — HOME intent
+  // uchun yetarli, foydalanuvchi tezda qaytsa darhol overlay
+  // qaytadi.
+  //
+  // Bundan tashqari pastdagi tick loop'da "agar bu vaqtda bloklanmagan
+  // ilova foreground'da bo'lsa suppress'ni darhol bekor qilamiz" — bu
+  // foydalanuvchi haqiqatan home'ga chiqsa keyingi tickda darhol
+  // qaytadigan bloklash mumkinligini ta'minlaydi.
   service.on('overlayClosedByUser').listen((event) {
-    suppressUntil = DateTime.now().add(const Duration(seconds: 5));
+    suppressUntil = DateTime.now().add(const Duration(seconds: 2));
     currentBlockedApp = null;
   });
 
@@ -490,6 +509,17 @@ void onStart(ServiceInstance service) async {
         // uchun ko'p tickli "tasdiqlash" kerak emas.
         currentBlockedApp = null;
         notBlockedTicks = 0;
+
+        // Smart suppress clear: agar foydalanuvchi bloklanmagan ilovaga
+        // (masalan launcher'ga) chiqib bo'lgan bo'lsa, suppress
+        // shartining maqsadi (HOME intent ishga tushishini kutish)
+        // bajarildi — endi keyingi safar bloklangan ilovaga kirsa
+        // overlay darhol qaytadigan bo'lishi uchun suppressUntil'ni
+        // bekor qilamiz.
+        if (suppressUntil != null) {
+          suppressUntil = null;
+        }
+
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (isOverlayActive) {
           await FlutterOverlayWindow.closeOverlay();
