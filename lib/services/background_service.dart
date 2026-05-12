@@ -9,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:usage_stats/usage_stats.dart';
 import 'package:vibration/vibration.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'timer_notification_service.dart';
 import 'app_translation_service.dart';
 import 'crash_logger.dart';
+import 'focus_history_service.dart';
 
 bool _isServiceInitialized = false;
 
@@ -59,21 +61,57 @@ Future<void> initializeBackgroundService() async {
       ),
     );
 
+    // ───────────────── TAYMER TUGADI KANALI ─────────────────
+    // Foydalanuvchi tayyorlangan vaqt tugaganda yangrash uchun
+    // alohida kanal. Importance.max + playSound + vibration —
+    // app yopiq, telefon bloklangan bo'lsa ham foydalanuvchi
+    // eshitishi va ko'rishi uchun. Kanal bir marta yaratilgach,
+    // Android tomon sozlamalarini saqlab qoladi.
+    await androidNotifications?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'timer_completed_channel',
+        'Taymer Tugadi',
+        description: 'Fokus taymer tugaganda chiqadigan asosiy bildirishnoma',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
+
     // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
     // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
     final service = FlutterBackgroundService();
 
     // Avval xizmat allaqachon sozlanganini tekshiramiz
     // (ba'zi qurilmalarda configure ni qayta chaqirish crash beradi)
+    //
+    // foregroundServiceNotificationId 888 dan 7777 ga ko'chirildi —
+    // chunki avvalgi qiymat StreakReminderService (_reminderId=888) va
+    // showGoalMissedNotification (id=888) bilan to'qnash kelar edi.
+    // Android foreground service notifikatsiyasini doimiy (ongoing)
+    // qilib qo'yadi, shuning uchun ID 888 ga keladigan har qanday
+    // user-facing notifikatsiya merge bo'lib, swipe bilan o'chmas edi.
+    // Endi 7777 — service uchun, 888 — streak/goal uchun bo'lib,
+    // streak/goal notifikatsiyalari normal (dismissible) bo'ladi.
+    // i18n — initial notifikatsiya matnini foydalanuvchi tanlagan
+    // tilda ko'rsatamiz. Main isolate'da AppTranslationService init
+    // qilingan, shuning uchun bu yerda darhol tarjima qaytaradi.
+    final lang = AppTranslationService();
+    final initialTitle =
+        lang.translate('service_notif.idle_title') ?? 'Focus Guard';
+    final initialContent =
+        lang.translate('service_notif.idle_content') ?? 'Monitoring faol';
+
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'app_locker_channel',
-        initialNotificationTitle: 'Focus Guard',
-        initialNotificationContent: 'Monitoring faol',
-        foregroundServiceNotificationId: 888,
+        initialNotificationTitle: initialTitle,
+        initialNotificationContent: initialContent,
+        foregroundServiceNotificationId: 7777,
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -89,7 +127,15 @@ Future<void> initializeBackgroundService() async {
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
-  
+
+  // Background isolate'da AppTranslationService alohida nusxa —
+  // tilni SharedPreferences'dan o'qib initialize qilamiz. Aks holda
+  // notifikatsiya matnlari va overlay sarlavhasi har doim o'zbekcha
+  // ko'rinardi (default _currentLanguage = 'uz').
+  try {
+    await AppTranslationService().init();
+  } catch (_) {}
+
   if (service is AndroidServiceInstance) {
     // Android 12+ uchun xizmatni darhol foreground qilish shart
     service.setAsForegroundService();
@@ -112,6 +158,18 @@ void onStart(ServiceInstance service) async {
   // Taymer holati o'zgaruvchilari
   int remainingSeconds = 0;
   bool isTimerRunning = false;
+  // Pauza holati alohida kuzatiladi: isTimerRunning=false bo'lishi
+  // "to'xtagan" yoki "umuman boshlanmagan" degani ham bo'lishi mumkin.
+  // isPaused=true bo'lganda foydalanuvchi taymerni vaqtincha to'xtatgan
+  // va `remainingSeconds` saqlanib turibdi — "Davom etish" tugmasi
+  // shu qiymatdan davom ettirishi kerak (start qilib qayta boshlamasligi
+  // kerak). UI shu bayroq orqali "Pause" yoki "Davom etish" matnini
+  // ko'rsatadi va to'g'ri method'ni chaqiradi.
+  bool isPaused = false;
+  // Joriy sessiya boshlangandagi to'liq sekundlar soni — partial XP
+  // hisoblashda kerak (foydalanuvchi taymer to'liq tugaguncha kutmasdan
+  // to'xtatsa, qancha vaqt o'tganini bilish uchun).
+  int sessionInitialSeconds = 0;
   String modeName = "";
   String modeIcon = "";
   String levelTitle = "";
@@ -141,7 +199,49 @@ void onStart(ServiceInstance service) async {
 
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
-  
+
+  // ─────────────────────────────────────────────────────────────
+  // PENDING QUEUE — background → main isolate o'rtasidagi ma'lumot
+  // almashinuvi. Background service Firebase Auth context'iga ega
+  // emas (alohida isolate), shuning uchun XP va streak yangilanishini
+  // bevosita Firestore'ga yoza olmaymiz. Buning o'rniga
+  // SharedPreferences'ga "pending" qiymatlarini yozamiz; foydalanuvchi
+  // app'ni ochganda PendingResultsProcessor (Faza 2) shu qiymatlarni
+  // ko'tarib, LevelService.addXP() va updateStreak() chaqiradi va
+  // pending flag'larni tozalaydi.
+  //
+  // Kalitlar:
+  //   pending_xp_minutes      (int)    — kutilayotgan XP daqiqalari
+  //   pending_streak_date     (String) — YYYY-MM-DD, bugun fokus boshlandi
+  //   pending_completion_count(int)    — to'liq tugagan sessiyalar soni
+  // ─────────────────────────────────────────────────────────────
+
+  String todayDateKey() {
+    final d = DateTime.now();
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> queuePendingXP(int minutes) async {
+    if (minutes <= 0) return;
+    final existing = prefs.getInt('pending_xp_minutes') ?? 0;
+    await prefs.setInt('pending_xp_minutes', existing + minutes);
+    debugPrint('[Pending] +$minutes XP min, total=${existing + minutes}');
+  }
+
+  Future<void> queueStreakForToday() async {
+    final today = todayDateKey();
+    final existing = prefs.getString('pending_streak_date');
+    if (existing == today) return; // bugun uchun allaqachon qo'yilgan
+    await prefs.setString('pending_streak_date', today);
+    debugPrint('[Pending] streak date set: $today');
+  }
+
+  Future<void> queueCompletion() async {
+    final n = prefs.getInt('pending_completion_count') ?? 0;
+    await prefs.setInt('pending_completion_count', n + 1);
+  }
+
   // Har soniyada UI ga timerTick yuboramiz — stream chaqirig'i arzon,
   // dashboard sanog'i shu sababli aniq 1s qadamda yangilanadi
   // (45 → 44 → 43 ...). Notification update'i esa qimmatroq, shuning
@@ -151,18 +251,54 @@ void onStart(ServiceInstance service) async {
     service.invoke('timerTick', {
       'seconds': remainingSeconds,
       'isRunning': isTimerRunning,
+      // isPaused ham UI'ga yuboriladi — Pause bug fix uchun. UI shu
+      // bayroq orqali Pause/Resume tugmasini to'g'ri ko'rsatadi va
+      // bosilganda startTimer o'rniga resumeTimer'ni chaqiradi.
+      'isPaused': isPaused,
       'modeName': modeName,
       'modeIcon': modeIcon,
     });
 
-    if (updateNotification && service is AndroidServiceInstance && isTimerRunning) {
+    if (updateNotification && service is AndroidServiceInstance) {
       int m = remainingSeconds ~/ 60;
       int s = remainingSeconds % 60;
       String timeStr = "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
 
+      // i18n — foydalanuvchi tanlagan tilga moslab matnlarni olamiz.
+      // AppTranslationService onStart ichida init qilingan, shu sababli
+      // bu yerda translate() to'g'ri til qaytaradi.
+      final lang = AppTranslationService();
+      final idleTitle =
+          lang.translate('service_notif.idle_title') ?? 'Focus Guard';
+      final idleContent =
+          lang.translate('service_notif.idle_content') ?? 'Monitoring faol';
+      final runningPrefix =
+          lang.translate('service_notif.running_prefix') ?? '⏱ Focus Guard';
+      final pausedPrefix =
+          lang.translate('service_notif.paused_prefix') ?? '⏸ Focus Guard';
+      final pausedLabel =
+          lang.translate('service_notif.paused_label') ?? 'Pauza';
+
+      // Notifikatsiya title — 3 ta holatga qarab:
+      //   • Taymer ishlayapti: "⏱ Focus Guard · 24:30"
+      //   • Pauza:             "⏸ Focus Guard · 24:30"
+      //   • Default monitoring: "Focus Guard"
+      String title;
+      String content;
+      if (isTimerRunning) {
+        title = "$runningPrefix · $timeStr";
+        content = "$modeIcon $modeName | $levelTitle";
+      } else if (isPaused) {
+        title = "$pausedPrefix · $timeStr";
+        content = "$pausedLabel · $modeIcon $modeName";
+      } else {
+        title = idleTitle;
+        content = idleContent;
+      }
+
       service.setForegroundNotificationInfo(
-        title: "Focus Guard · $timeStr",
-        content: "$modeIcon $modeName | $levelTitle",
+        title: title,
+        content: content,
       );
     }
   }
@@ -170,49 +306,87 @@ void onStart(ServiceInstance service) async {
   service.on('startTimer').listen((event) async {
     if (event == null) return;
     remainingSeconds = (event['minutes'] as int) * 60;
+    sessionInitialSeconds = remainingSeconds; // partial XP uchun saqlash
     modeName = event['modeName'];
     modeIcon = event['modeIcon'];
     levelTitle = event['levelTitle'];
     isStrict = event['isStrict'];
     isTimerRunning = true;
-    
+    isPaused = false; // yangi sessiya — paused emas
+
     // Tugash vaqtini saqlash
     final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
     await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
+    await prefs.setInt('session_initial_seconds', sessionInitialSeconds);
     await prefs.setBool('timer_is_running', true);
+    await prefs.setBool('timer_is_paused', false);
     await prefs.setString('timer_mode_name', modeName);
     await prefs.setString('timer_mode_icon', modeIcon);
     await prefs.setString('timer_level_title', levelTitle);
+
+    // Bugun birinchi marta fokus boshlandi — streak update'ni
+    // pending queue'ga qo'yamiz. Foydalanuvchi app'ni keyin ochganda
+    // PendingResultsProcessor LevelService.updateStreak() chaqiradi.
+    await queueStreakForToday();
 
     syncTimer();
   });
 
   service.on('stopTimer').listen((event) async {
-    isTimerRunning = false;
-    remainingSeconds = 0;
-    await prefs.remove('timer_end_timestamp');
-    await prefs.setBool('timer_is_running', false);
-    
-    if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: "Focus Guard",
-        content: "Monitoring faol",
+    // Partial XP: foydalanuvchi taymerni to'liq tugatishini kutmadi.
+    // Qancha vaqt ishlatganini hisoblab, shu XP'ni pending queue'ga
+    // qo'yamiz. Aks holda 30 daqiqalik mehnat bekorga ketardi.
+    if (sessionInitialSeconds > 0 && remainingSeconds < sessionInitialSeconds) {
+      final elapsed = sessionInitialSeconds - remainingSeconds;
+      final elapsedMinutes = elapsed ~/ 60;
+      if (elapsedMinutes >= 1) {
+        await queuePendingXP(elapsedMinutes);
+        debugPrint(
+            '[BackgroundTimer] partial stop: ${elapsedMinutes}m queued for XP');
+      }
+      // Calendar uchun ham bugungi kun history'ga darrov yozib qo'yamiz
+      // (todayFocusSeconds tick loop'da yangilangan).
+      await FocusHistoryService.instance.recordDay(
+        date: DateTime.now(),
+        seconds: todayFocusSeconds,
+        goal: dailyGoalSeconds,
       );
     }
+
+    isTimerRunning = false;
+    isPaused = false; // to'liq to'xtatildi
+    remainingSeconds = 0;
+    sessionInitialSeconds = 0;
+    await prefs.remove('timer_end_timestamp');
+    await prefs.remove('timer_remaining_seconds');
+    await prefs.remove('session_initial_seconds');
+    await prefs.setBool('timer_is_running', false);
+    await prefs.setBool('timer_is_paused', false);
+
+    // syncTimer() o'zi notifikatsiyani "Focus Guard / Monitoring faol"
+    // ga qaytaradi (chunki isTimerRunning=false va isPaused=false).
     syncTimer();
   });
 
   service.on('pauseTimer').listen((event) async {
     isTimerRunning = false;
+    isPaused = true; // PAUSE — saqlab turamiz
     await prefs.setBool('timer_is_running', false);
-    // Qolgan vaqtni saqlab qo'yamiz
+    await prefs.setBool('timer_is_paused', true);
+    // Qolgan vaqtni saqlab qo'yamiz — resume paytida shu yerdan davom
     await prefs.setInt('timer_remaining_seconds', remainingSeconds);
     syncTimer();
   });
 
   service.on('resumeTimer').listen((event) async {
+    // Qolgan vaqt allaqachon `remainingSeconds` ichida (pauseTimer
+    // listener uni reset qilmagan). Yangi tugash vaqtini hisoblaymiz.
     isTimerRunning = true;
+    isPaused = false;
+    final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
+    await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
     await prefs.setBool('timer_is_running', true);
+    await prefs.setBool('timer_is_paused', false);
     syncTimer();
   });
 
@@ -226,22 +400,59 @@ void onStart(ServiceInstance service) async {
     syncTimer();
   });
 
-  // Avvalgi holatni tiklash
-  final savedEndTime = prefs.getInt('timer_end_timestamp');
+  // Avvalgi holatni tiklash. Uchta ssenariy:
+  //   1. Taymer ishlayotgan edi (running=true, paused=false) — qolgan
+  //      vaqtni endTime'dan hisoblab davom ettiramiz.
+  //   2. Taymer pauza qilingan edi (paused=true) — saqlangan
+  //      `timer_remaining_seconds` dan davom ettiramiz, lekin
+  //      isTimerRunning=false bo'lib turadi (foydalanuvchi "Davom
+  //      etish"ni bossagina ishga tushadi).
+  //   3. Hech narsa yo'q — odatdagi yangi sessiya.
+  final savedIsPaused = prefs.getBool('timer_is_paused') ?? false;
   final savedIsRunning = prefs.getBool('timer_is_running') ?? false;
-  if (savedEndTime != null && savedIsRunning) {
+  final savedEndTime = prefs.getInt('timer_end_timestamp');
+
+  if (savedIsRunning && savedEndTime != null) {
     final end = DateTime.fromMillisecondsSinceEpoch(savedEndTime);
     final now = DateTime.now();
     if (end.isAfter(now)) {
       remainingSeconds = end.difference(now).inSeconds;
       isTimerRunning = true;
+      isPaused = false;
+      sessionInitialSeconds = prefs.getInt('session_initial_seconds') ?? 0;
       modeName = prefs.getString('timer_mode_name') ?? "";
       modeIcon = prefs.getString('timer_mode_icon') ?? "";
       levelTitle = prefs.getString('timer_level_title') ?? "";
     } else {
+      // Taymer service uxlab turganida tabiiy ravishda tugagan.
+      // Saqlangan session uchun pending XP yozamiz va history'ga
+      // yangilanish qo'shamiz — foydalanuvchi mehnati yo'qotilmasin.
+      final savedInitial = prefs.getInt('session_initial_seconds') ?? 0;
+      if (savedInitial > 0) {
+        final sessionMinutes = savedInitial ~/ 60;
+        await queuePendingXP(sessionMinutes);
+        await queueCompletion();
+        debugPrint(
+            '[BackgroundTimer] late-detected completion: ${sessionMinutes}m queued');
+        await FocusHistoryService.instance.recordDay(
+          date: DateTime.now(),
+          seconds: todayFocusSeconds,
+          goal: dailyGoalSeconds,
+        );
+      }
       await prefs.remove('timer_end_timestamp');
+      await prefs.remove('session_initial_seconds');
       await prefs.setBool('timer_is_running', false);
     }
+  } else if (savedIsPaused) {
+    // Pause holatida saqlangan qolgan sekundlarni tiklaymiz.
+    remainingSeconds = prefs.getInt('timer_remaining_seconds') ?? 0;
+    sessionInitialSeconds = prefs.getInt('session_initial_seconds') ?? 0;
+    isTimerRunning = false;
+    isPaused = remainingSeconds > 0;
+    modeName = prefs.getString('timer_mode_name') ?? "";
+    modeIcon = prefs.getString('timer_mode_icon') ?? "";
+    levelTitle = prefs.getString('timer_level_title') ?? "";
   }
 
   // Kunlik ma'lumotlarni yuklash
@@ -250,8 +461,18 @@ void onStart(ServiceInstance service) async {
   analysisSent = prefs.getBool('analysis_sent_${DateTime.now().day}') ?? false;
   lastDay = prefs.getInt('last_tracked_day') ?? DateTime.now().day;
 
-  // Kun almashganini tekshirish
+  // Kun almashganini tekshirish (service ishga tushishida). Avval
+  // kechagi kun ma'lumotini history'ga yozib qo'yamiz — Calendar
+  // shu yerdan ✅/❌ ko'rsatadi.
   if (lastDay != DateTime.now().day) {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    // lastDay raqami bo'lgani uchun aniq sana qurib bo'lmaydi —
+    // shunday ham eng yaqin yondashuv kechagi kun.
+    await FocusHistoryService.instance.recordDay(
+      date: yesterday,
+      seconds: todayFocusSeconds,
+      goal: dailyGoalSeconds,
+    );
     todayFocusSeconds = 0;
     analysisSent = false;
     await prefs.setInt('today_focus_seconds', 0);
@@ -289,11 +510,21 @@ void onStart(ServiceInstance service) async {
   });
 
   // Foydalanuvchi overlay'dagi "Orqaga qaytish" tugmasini bosganda
-  // overlay isolate biz tomonga shu eventni yuboradi. Biz keyingi 5
-  // soniya overlay'ni qayta ko'rsatmaymiz, foydalanuvchi home'ga
-  // chiqib ulgursin.
+  // overlay isolate biz tomonga shu eventni yuboradi. Biz HOME intent
+  // ishga tushishi uchun ozgina vaqt suppress qilamiz.
+  //
+  // 5 soniya juda uzun edi — foydalanuvchi tugmani bosib, darhol
+  // qaytib bloklangan ilovaga kirsa, 5 sekund overlay yo'q va u
+  // ilovada normalda ishlay olib kelardi. 2 soniya — HOME intent
+  // uchun yetarli, foydalanuvchi tezda qaytsa darhol overlay
+  // qaytadi.
+  //
+  // Bundan tashqari pastdagi tick loop'da "agar bu vaqtda bloklanmagan
+  // ilova foreground'da bo'lsa suppress'ni darhol bekor qilamiz" — bu
+  // foydalanuvchi haqiqatan home'ga chiqsa keyingi tickda darhol
+  // qaytadigan bloklash mumkinligini ta'minlaydi.
   service.on('overlayClosedByUser').listen((event) {
-    suppressUntil = DateTime.now().add(const Duration(seconds: 5));
+    suppressUntil = DateTime.now().add(const Duration(seconds: 2));
     currentBlockedApp = null;
   });
 
@@ -310,12 +541,75 @@ void onStart(ServiceInstance service) async {
         final bool updateNotif = remainingSeconds % 5 == 0 || remainingSeconds < 10;
         syncTimer(updateNotification: updateNotif);
       } else {
+        // ────────────── TAYMER TABIIY TUGADI ──────────────
+        // Foydalanuvchi taymerni to'liq oxirigacha bajardi.
+        // 1. To'liq sessiya XP'sini pending queue'ga qo'shamiz
+        // 2. Calendar history'ni darrov yangilaymiz
+        // 3. Completion countni oshiramiz
+        // 4. Rington-bilan notifikatsiya yuboramiz (app yopiq bo'lsa ham)
         isTimerRunning = false;
         await prefs.setBool('timer_is_running', false);
+
+        if (sessionInitialSeconds > 0) {
+          final sessionMinutes = sessionInitialSeconds ~/ 60;
+          await queuePendingXP(sessionMinutes);
+          await queueCompletion();
+          debugPrint(
+              '[BackgroundTimer] timer completed: ${sessionMinutes}m queued for XP');
+
+          // Calendar uchun darrov bugungi history yangilash —
+          // foydalanuvchi Calendar'ga kirsa, bugun ✅ ko'rishi uchun
+          // ertaga 00:00 kun reset bo'lguncha kutmasdan.
+          await FocusHistoryService.instance.recordDay(
+            date: DateTime.now(),
+            seconds: todayFocusSeconds,
+            goal: dailyGoalSeconds,
+          );
+
+          // Rington + notifikatsiya — app yopiq bo'lsa ham foydalanuvchi
+          // eshitishi va ko'rishi uchun. Ikki yo'l birga ishlatamiz:
+          //   1. fullScreenIntent + sound bo'lgan notifikatsiya (tizim
+          //      darajasida, kanal sozlamalari orqali alarm tovushi)
+          //   2. FlutterRingtonePlayer alohida alarm tovushi — agar
+          //      notifikatsiya sound'i biron sababdan ishlamasa
+          //      (ba'zi OEM'larda DnD bilan), bu backup.
+          try {
+            await TimerNotificationService()
+                .showTimerCompletedNotification(
+              minutes: sessionMinutes,
+            );
+          } catch (e) {
+            debugPrint('[BackgroundTimer] completion notif failed: $e');
+          }
+          try {
+            // playAlarm — tizimning alarm tovushini chaladi
+            // (looping=false: bir marta). Background isolate'da plugin
+            // registratsiya qilingan (DartPluginRegistrant), shuning
+            // uchun ishlashi kerak. Agar OEM rad qilsa, exception
+            // tutiladi va silent fail bo'ladi.
+            FlutterRingtonePlayer().playAlarm(
+              looping: false,
+              volume: 1.0,
+              asAlarm: true,
+            );
+          } catch (e) {
+            debugPrint('[BackgroundTimer] ringtone failed: $e');
+          }
+          // Vibratsiya — alarm + ringtone bilan birga aniqroq diqqat
+          // tortish uchun (3 marta uzun pulse).
+          try {
+            if ((await Vibration.hasVibrator()) ?? false) {
+              Vibration.vibrate(pattern: [0, 500, 250, 500, 250, 500]);
+            }
+          } catch (_) {}
+        }
+
+        sessionInitialSeconds = 0;
+        await prefs.remove('session_initial_seconds');
         service.invoke('timerFinished');
         syncTimer();
       }
-      
+
       // Har soniyada progressni oshiramiz
       todayFocusSeconds++;
       if (todayFocusSeconds % 10 == 0) { // Har 10 soniyada saqlaymiz
@@ -325,9 +619,17 @@ void onStart(ServiceInstance service) async {
 
     // 2. Kunlik tahlil logikasi
     final now = DateTime.now();
-    
-    // Kun almashganini tekshirish (yarim tunda reset)
+
+    // Kun almashganini tekshirish (yarim tunda reset). Reset oldidan
+    // kechagi kun ma'lumotini history'ga yozamiz — Calendar shu
+    // manbadan ✅/❌ ko'rsatadi.
     if (now.day != lastDay) {
+      final yesterday = now.subtract(const Duration(days: 1));
+      await FocusHistoryService.instance.recordDay(
+        date: yesterday,
+        seconds: todayFocusSeconds,
+        goal: dailyGoalSeconds,
+      );
       todayFocusSeconds = 0;
       analysisSent = false;
       lastDay = now.day;
@@ -335,11 +637,28 @@ void onStart(ServiceInstance service) async {
       await prefs.setInt('last_tracked_day', lastDay);
     }
 
-    // Soat 23:55 da tahlil bildirishnomasini yuborish
+    // Soat 23:55 da kunlik yakun (Goal Missed/Achieved). Bu hali ham
+    // tick-based ishlaydi (fallback), lekin asosiy schedule
+    // TimerNotificationService.scheduleDailySummary() orqali AlarmManager
+    // boshqaradi — hatto service o'lik bo'lsa ham notifikatsiya keladi.
+    // Bu yerda esa service ishlab turgan paytda history'ni yangilab
+    // qo'yamiz (Calendar bu kunni darrov ✅/❌ qilib ko'rsata olishi
+    // uchun, ertaga 00:01 da day-reset bo'lguncha kutmasdan).
     if (now.hour == 23 && now.minute == 55 && !analysisSent) {
       analysisSent = true;
       await prefs.setBool('analysis_sent_${now.day}', true);
-      
+
+      // History'ga BUGUNGI kunni yozamiz (kun hali tugamagan bo'lsa
+      // ham — qolgan 5 daqiqa juda kichik xatolik beradi).
+      await FocusHistoryService.instance.recordDay(
+        date: now,
+        seconds: todayFocusSeconds,
+        goal: dailyGoalSeconds,
+      );
+
+      // Tick-based notifikatsiya — fallback sifatida qoldirildi.
+      // Asosiy schedule TimerNotificationService.scheduleDailySummary
+      // ichida AlarmManager bilan qilingan.
       final notificationService = TimerNotificationService();
       if (todayFocusSeconds < dailyGoalSeconds) {
         await notificationService.showGoalMissedNotification();
@@ -460,10 +779,18 @@ void onStart(ServiceInstance service) async {
           // background service crash bo'lmasligi kerak, aks holda
           // foydalanuvchi "Focus Guard yana ishdan chiqdi" ni ko'radi.
           try {
+            // i18n — overlay'ning ichki notifikatsiyasi ham
+            // foydalanuvchi tanlagan tilda chiqsin.
+            final lang = AppTranslationService();
+            final overlayNotifTitle =
+                lang.translate('overlay.notif_title') ?? 'Focus Guard';
+            final overlayNotifContent =
+                lang.translate('overlay.notif_content') ??
+                    'Ilova cheklangan. Diqqatni jamlang!';
             await FlutterOverlayWindow.showOverlay(
               enableDrag: false,
-              overlayTitle: "Focus Guard",
-              overlayContent: "Ilova cheklangan. Diqqatni jamlang!",
+              overlayTitle: overlayNotifTitle,
+              overlayContent: overlayNotifContent,
               flag: OverlayFlag.defaultFlag,
               visibility: NotificationVisibility.visibilitySecret,
               positionGravity: PositionGravity.auto,
@@ -490,6 +817,17 @@ void onStart(ServiceInstance service) async {
         // uchun ko'p tickli "tasdiqlash" kerak emas.
         currentBlockedApp = null;
         notBlockedTicks = 0;
+
+        // Smart suppress clear: agar foydalanuvchi bloklanmagan ilovaga
+        // (masalan launcher'ga) chiqib bo'lgan bo'lsa, suppress
+        // shartining maqsadi (HOME intent ishga tushishini kutish)
+        // bajarildi — endi keyingi safar bloklangan ilovaga kirsa
+        // overlay darhol qaytadigan bo'lishi uchun suppressUntil'ni
+        // bekor qilamiz.
+        if (suppressUntil != null) {
+          suppressUntil = null;
+        }
+
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (isOverlayActive) {
           await FlutterOverlayWindow.closeOverlay();

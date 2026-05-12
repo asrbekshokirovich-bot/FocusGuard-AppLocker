@@ -12,6 +12,14 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Ignore battery optimization — Samsung va boshqa OEM'lar background
+         service'ni 2-3 soatdan keyin "uxlatib qo'yishni" to'xtatishi uchun.
+         Permissions screen orqali foydalanuvchidan so'raymiz. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Taymer tugaganda telefon bloklangan bo'lsa ham to'liq ekran
+         notifikatsiya (incoming call kabi) ko'rsatish uchun. Android 14+
+         da bu maxsus permission. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:label="Focus Guard"

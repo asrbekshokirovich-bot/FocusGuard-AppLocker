@@ -24,8 +24,10 @@ class FocusTimerScreen extends StatefulWidget {
 }
 
 class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerProviderStateMixin {
-  int _selectedMinutes = 45;
-  int _remainingSeconds = 45 * 60;
+  // Standart Pomodoro qiymati — 25 daqiqa. Foydalanuvchi oziga moslab
+  // o'zgartirishi mumkin (25 / 45 / 60 / 120 va custom picker).
+  int _selectedMinutes = 25;
+  int _remainingSeconds = 25 * 60;
   bool _isRunning = false;
   bool _isPaused = false;
   final _timerService = FocusTimerService();
@@ -979,14 +981,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: ElevatedButton(
                       onPressed: () async {
+                        // 3 ta holat:
+                        //   1. Taymer ishlayapti  → Pauza qilamiz
+                        //   2. Pauzada turibdi    → Resume qilamiz (boshidan
+                        //      boshlamaymiz, qolgan vaqtdan davom etamiz)
+                        //   3. Hech narsa ishlamayapti → Yangi taymer
                         if (_isRunning) {
                           _pauseTimer();
+                        } else if (_isPaused) {
+                          _resumeTimer();
                         } else {
                           // Agar Deep Mode bo'lsa va bloklangan ilovalar bo'lmasa, dialog chiqaramiz
                           if (_selectedMode == 0) {
                             final prefs = await SharedPreferences.getInstance();
                             final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-                            
+
                             if (blockedApps.isEmpty) {
                               _showNoBlockedAppsDialog();
                               return;
@@ -1041,8 +1050,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                       children: [
                         _buildSummaryCard(
                           lang.translate('focus_timer.daily_goal'),
-                          '$_currentProgressHours / ${_dailyGoalHours.toStringAsFixed(1)} ${lang.translate('focus_timer.hours')}', 
-                          _currentProgressHours / _dailyGoalHours,
+                          // Soat-daqiqa formatida ko'rsatamiz: "2s 30d / 5s 45d"
+                          // (avval "2.5 / 5.8 soat" edi — uzun maqsadlarda
+                          // (5h 45m) o'qish noqulay edi).
+                          '${_formatHoursToHm(_currentProgressHours)} / ${_formatHoursToHm(_dailyGoalHours)}',
+                          (_dailyGoalHours > 0 ? _currentProgressHours / _dailyGoalHours : 0.0).clamp(0.0, 1.0),
                           CupertinoIcons.flag_fill,
                           _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759),
                           showEdit: true,
@@ -1356,6 +1368,20 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     );
   }
 
+  // Float soat (5.75) ni "5s 45d" formatiga aylantiruvchi helper.
+  // Foydalanuvchining tushunarli formatda ko'rishi uchun — qisqa
+  // belgilar bilan (s = soat, d = daqiqa) kartochkaga sig'ishi
+  // kafolatlangan.
+  String _formatHoursToHm(double hours) {
+    if (hours <= 0) return '0d';
+    final totalMinutes = (hours * 60).round();
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    if (h == 0) return '${m}d';
+    if (m == 0) return '${h}s';
+    return '${h}s ${m}d';
+  }
+
   Widget _buildSummaryCard(String title, String value, double progress, IconData icon, Color color, {bool showEdit = false, VoidCallback? onTap, Widget? motivationWidget}) {
     return GestureDetector(
       onTap: onTap,
@@ -1396,7 +1422,23 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                  // FittedBox bilan o'rab — agar matn juda uzun bo'lsa
+                  // (masalan "5s 45d / 12s 30d") shrift avtomatik kichik
+                  // bo'ladi va matn 1 qatorda to'liq ko'rinadi. Aks
+                  // holda matn kesilib ".." bo'lardi.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
                   if (motivationWidget != null) ...[
                     const SizedBox(height: 4),
                     motivationWidget,

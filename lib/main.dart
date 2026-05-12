@@ -12,6 +12,7 @@ import 'screens/register_screen.dart';
 import 'screens/language_screen.dart';
 import 'screens/overlay_screen.dart';
 import 'services/streak_reminder_service.dart';
+import 'services/timer_notification_service.dart';
 
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
@@ -72,6 +73,10 @@ void main() async {
   
   // Streak eslatmasini faollashtirish (Har kuni 11:25 da)
   StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
+
+  // Kunlik yakun notifikatsiyasini AlarmManager orqali rejalashtirish
+  // (Har kuni 23:55 da, service o'lik bo'lsa ham kafolatlangan).
+  TimerNotificationService().scheduleDailySummary();
 
   runApp(
     DevicePreview(
@@ -207,9 +212,16 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
 // (home intent uchun) va flutter_background_service (asosiy isolate
 // bilan aloqa uchun) overlay ichida MissingPluginException beradi.
 @pragma("vm:entry-point")
-void overlayMain() {
+void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  // Overlay alohida Dart isolate'da ishlaydi — AppTranslationService
+  // singleton'i bu yerda alohida nusxa. Foydalanuvchi tanlagan tilni
+  // SharedPreferences'dan o'qib chiqamiz, aks holda til 'uz' default
+  // bo'lib qoladi va overlay matni har doim o'zbekcha bo'lardi.
+  try {
+    await AppTranslationService().init();
+  } catch (_) {}
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: OverlayScreen(),

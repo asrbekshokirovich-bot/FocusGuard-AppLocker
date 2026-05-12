@@ -21,6 +21,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   bool _isOverlayGranted = false;
   bool _isUsageGranted = false;
   bool _isNotificationsGranted = false;
+  // Cheksiz batareya — Samsung va boshqa OEM'lar background service'ni
+  // 2-3 soatdan keyin "uxlatib qo'yadi". Bu ruxsat shu xatti-harakatni
+  // to'xtatadi.
+  bool _isBatteryIgnored = false;
   bool _isLoading = true;
 
   @override
@@ -53,24 +57,26 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       setState(() => _isLoading = false);
       return;
     }
-    
+
     bool overlay = await Permission.systemAlertWindow.isGranted;
     bool notifications = await Permission.notification.isGranted;
-    
+    bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
+
     // Usage ruxsatini faqat passiv tekshiramiz (trigger qilmaslik uchun)
     bool usage = false;
     if (isPassive) {
       // SharedPreferences dan oldingi holatni olishimiz mumkin yoki shunchaki false qaytaramiz
-      usage = _isUsageGranted; 
+      usage = _isUsageGranted;
     } else {
       usage = await _checkUsagePermission();
     }
-    
+
     if (mounted) {
       setState(() {
         _isOverlayGranted = overlay;
         _isUsageGranted = usage;
         _isNotificationsGranted = notifications;
+        _isBatteryIgnored = battery;
         _isLoading = false;
       });
     }
@@ -108,6 +114,43 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     await _checkPermissions();
   }
 
+  // Cheksiz batareya — Android'ning standart dialog'ini chiqaradi.
+  // Foydalanuvchi "Allow" bossa, OEM agressiv battery saver service'ni
+  // o'ldirmaydi. Samsung uchun bu eng muhim qadam — usiz 2-3 soatdan
+  // keyin service uxlab qoladi va bloklash to'xtaydi.
+  Future<void> _requestBatteryOptimization() async {
+    await Permission.ignoreBatteryOptimizations.request();
+    await _checkPermissions();
+  }
+
+  // Samsung qurilmalari uchun "Never sleeping apps" sahifasiga
+  // to'g'ridan-to'g'ri olib boruvchi tugma. Standart ignoreBattery-
+  // Optimizations Samsung'ning ichki "Sleeping apps" ro'yxatini hech
+  // tegmaydi — alohida sozlash kerak.
+  Future<void> _openSamsungSleepingApps() async {
+    try {
+      // Samsung Device Care → Battery → Background usage limits sahifasi.
+      await launchUrl(
+        Uri.parse('intent:#Intent;'
+            'action=com.samsung.android.sm.ACTION_BATTERY_USAGE;'
+            'end'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      // Agar Samsung intent ishlamasa — odatdagi Battery sahifasi.
+      try {
+        await launchUrl(
+          Uri.parse('intent:#Intent;'
+              'action=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS;'
+              'end'),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {
+        await AppSettings.openAppSettings(type: AppSettingsType.settings);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = AppTranslationService();
@@ -134,14 +177,27 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               ),
             ),
           ),
-          body: _isLoading 
+          body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  // Column endi 2 ta qismdan iborat:
+                  //   1. Expanded(SingleChildScrollView(...)) — kartalar
+                  //      ko'p bo'lganda foydalanuvchi pastga scroll qila
+                  //      oladi. Kichik ekranlarda ham hamma narsa
+                  //      ko'rinadi (Spacer bilan to'lib qolmaydi).
+                  //   2. "Tayyor" tugmasi — pastda doim ko'rinib turadi,
+                  //      scroll'dan tashqarida.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                       const SizedBox(height: 10),
                       Text(
                         lang.translate('permissions.subtitle'),
@@ -152,7 +208,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.overlay.title'),
                         description: lang.translate('permissions.overlay.desc'),
@@ -162,9 +218,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         onTap: _requestOverlay,
                         lang: lang,
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.usage.title'),
                         description: lang.translate('permissions.usage.desc'),
@@ -174,9 +230,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         onTap: _requestUsage,
                         lang: lang,
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.notifications.title'),
                         description: lang.translate('permissions.notifications.desc'),
@@ -186,8 +242,55 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         onTap: _requestNotifications,
                         lang: lang,
                       ),
-                      
-                      const Spacer(),
+
+                      const SizedBox(height: 16),
+
+                      // Cheksiz batareya — 2-3 soatlik "uxlash" muammosini
+                      // hal qiluvchi asosiy ruxsat. Samsung, Xiaomi, Huawei
+                      // va boshqa OEM'lar background service'ni shu ruxsatsiz
+                      // ishlatishni cheklaydi. Tugma 2 amal qiladi:
+                      //   1) Standart Android "Allow battery optimization off"
+                      //      dialog'ini chiqaradi.
+                      //   2) Yana Samsung-specific deep link tugmachasi —
+                      //      "Sleeping apps" ro'yxatiga qo'shilishi uchun.
+                      _buildPermissionCard(
+                        title: 'Cheksiz batareya',
+                        description: 'Telefon ilovamizni 2-3 soatdan keyin '
+                            'uxlatib qo\'ymasligi uchun. Samsung uchun zarur.',
+                        icon: Icons.battery_charging_full_rounded,
+                        color: const Color(0xFF34C759),
+                        isGranted: _isBatteryIgnored,
+                        onTap: _requestBatteryOptimization,
+                        lang: lang,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Samsung-specific "Sleeping apps" sahifasiga olib
+                      // boruvchi qo'shimcha link. Faqat agar cheksiz
+                      // batareya berilgan bo'lsa ko'rsatiladi — chunki
+                      // siz avval standart ruxsatni olishingiz kerak,
+                      // keyin Samsung'ning maxsus sozlamasi.
+                      if (_isBatteryIgnored)
+                        TextButton.icon(
+                          onPressed: _openSamsungSleepingApps,
+                          icon: const Icon(CupertinoIcons.moon_zzz,
+                              size: 18, color: Color(0xFF8E8E93)),
+                          label: Text(
+                            'Samsung: "Sleeping apps" ro\'yxatidan olib tashlash',
+                            style: lang.getFont(
+                              fontSize: 12,
+                              color: const Color(0xFF8E8E93),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 16),
+                            ],
+                          ),
+                        ),
+                      ),
                       
                       Container(
                         width: double.infinity,
@@ -196,28 +299,40 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
-                            if (_isOverlayGranted && _isUsageGranted)
+                            if (_isOverlayGranted &&
+                                _isUsageGranted &&
+                                _isNotificationsGranted &&
+                                _isBatteryIgnored)
                               BoxShadow(
-                                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.3),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: (_isOverlayGranted && _isUsageGranted && _isNotificationsGranted) ? () async {
-                            // Ruxsatlar berildi — agar bloklangan ilovalar bo'lsa, xizmatni boshlaymiz
-                            await startBackgroundServiceIfReady();
-                            if (!mounted) return;
-                            if (widget.isFromOnboarding) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const DashboardScreen())
-                              );
-                            } else {
-                              Navigator.pop(context);
-                            }
-                          } : null,
+                          onPressed: (_isOverlayGranted &&
+                                  _isUsageGranted &&
+                                  _isNotificationsGranted &&
+                                  _isBatteryIgnored)
+                              ? () async {
+                                  // Ruxsatlar berildi — agar bloklangan ilovalar bo'lsa, xizmatni boshlaymiz
+                                  await startBackgroundServiceIfReady();
+                                  if (!mounted) return;
+                                  if (widget.isFromOnboarding) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const DashboardScreen()),
+                                    );
+                                  } else {
+                                    Navigator.pop(context);
+                                  }
+                                }
+                              : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).primaryColor,
                             foregroundColor: Colors.white,
