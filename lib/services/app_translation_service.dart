@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'streak_reminder_service.dart';
+import 'timer_notification_service.dart';
 
 class AppTranslationService {
   static final AppTranslationService _instance =
@@ -25,6 +27,20 @@ class AppTranslationService {
     await prefs.setString(_langKey, code);
     _currentLanguage = code;
     languageNotifier.value = code;
+
+    // Rejalashtirilgan notifikatsiyalarni qayta tuzish — chunki
+    // ularning matni schedule paytidagi tilda Android tomonida
+    // saqlanadi. Til o'zgargandan keyin eski tarjima bilan chiqib
+    // qoladigan bug oldini olamiz:
+    //   • 11:25 — StreakReminderService.scheduleDailyReminder()
+    //   • 23:55 — TimerNotificationService.scheduleDailySummary()
+    // Eski schedule avtomatik almashtiriladi (xuddi shu ID).
+    try {
+      await StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
+      await TimerNotificationService().scheduleDailySummary();
+    } catch (_) {
+      // Aksincha tilni o'zgartirishni bloklamaymiz
+    }
   }
 
   TextStyle getFont({
@@ -315,9 +331,26 @@ class AppTranslationService {
         'goal_met_body': 'Bugungi maqsadingizga to\'liq erishdingiz! Irodangiz va intizomingizga qoyil. Shunday davom eting!',
         'daily_summary_title': 'Kunlik yakun ⏰',
         'daily_summary_body': 'Bugungi natijangizni Kalendar bo\'limida ko\'rishingiz mumkin. Kunlik maqsadga erishganmisiz?',
+        'timer_done_title': 'Diqqat vaqti tugadi! 🎯',
+        'timer_done_body': 'Ajoyib! {minutes} daqiqa fokus qildingiz. +{xp} XP olasiz. Endi qisqa dam oling.',
+      },
+      'overlay': {
+        'blocked_title': 'Ilova Bloklangan',
+        'blocked_message': 'Siz bu ilovani Focus Guard ilovasi orqali vaqtinchalik bloklagansiz. Diqqatingizni maqsadlaringizga qarating!',
+        'back_button': 'Orqaga qaytish',
+        'notif_title': 'Focus Guard',
+        'notif_content': 'Ilova cheklangan. Diqqatni jamlang!',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': 'Monitoring faol',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': 'Pauza',
       },
       'calendar': {
         'title': 'Mening Kalendarim',
+        'today_goal': 'Bugungi maqsad',
         'legend_focused': 'Fokusladim',
         'legend_missed': 'Bo\'shashdim',
         'legend_today': 'Bugun',
@@ -752,9 +785,26 @@ class AppTranslationService {
         'goal_met_body': 'You fully achieved today\'s goal! Impressive willpower and discipline. Keep it up!',
         'daily_summary_title': 'Daily Summary ⏰',
         'daily_summary_body': 'See today\'s result in the Calendar section. Did you reach your daily goal?',
+        'timer_done_title': 'Focus time is over! 🎯',
+        'timer_done_body': 'Excellent! You focused for {minutes} minutes. +{xp} XP earned. Take a short break now.',
+      },
+      'overlay': {
+        'blocked_title': 'App Blocked',
+        'blocked_message': 'You\'ve temporarily blocked this app via Focus Guard. Stay focused on your goals!',
+        'back_button': 'Go Back',
+        'notif_title': 'Focus Guard',
+        'notif_content': 'App restricted. Stay focused!',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': 'Monitoring active',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': 'Paused',
       },
       'calendar': {
         'title': 'My Calendar',
+        'today_goal': 'Today\'s Goal',
         'legend_focused': 'Focused',
         'legend_missed': 'Missed',
         'legend_today': 'Today',
@@ -1182,9 +1232,26 @@ class AppTranslationService {
         'goal_met_body': 'Вы полностью достигли сегодняшней цели! Восхитительная сила воли и дисциплина. Так держать!',
         'daily_summary_title': 'Итог дня ⏰',
         'daily_summary_body': 'Сегодняшний результат можно посмотреть в разделе «Календарь». Достигли ли вы дневной цели?',
+        'timer_done_title': 'Время концентрации истекло! 🎯',
+        'timer_done_body': 'Отлично! Вы сосредоточились на {minutes} минут. Получено +{xp} XP. Сделайте короткий перерыв.',
+      },
+      'overlay': {
+        'blocked_title': 'Приложение заблокировано',
+        'blocked_message': 'Вы временно заблокировали это приложение через Focus Guard. Сосредоточьтесь на своих целях!',
+        'back_button': 'Вернуться',
+        'notif_title': 'Focus Guard',
+        'notif_content': 'Приложение ограничено. Не теряйте концентрацию!',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': 'Мониторинг активен',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': 'Пауза',
       },
       'calendar': {
         'title': 'Мой Календарь',
+        'today_goal': 'Цель на сегодня',
         'legend_focused': 'Сфокусирован',
         'legend_missed': 'Пропущено',
         'legend_today': 'Сегодня',
@@ -1581,9 +1648,26 @@ class AppTranslationService {
         'goal_met_body': '오늘의 목표를 완전히 달성했습니다! 놀라운 의지력과 규율입니다. 계속 정진하세요!',
         'daily_summary_title': '하루 요약 ⏰',
         'daily_summary_body': '오늘의 결과는 캘린더 섹션에서 확인할 수 있습니다. 일일 목표를 달성하셨나요?',
+        'timer_done_title': '집중 시간이 끝났습니다! 🎯',
+        'timer_done_body': '훌륭합니다! {minutes}분 동안 집중했습니다. +{xp} XP를 획득했습니다. 잠시 휴식을 취하세요.',
+      },
+      'overlay': {
+        'blocked_title': '앱이 차단되었습니다',
+        'blocked_message': 'Focus Guard를 통해 이 앱을 일시적으로 차단했습니다. 목표에 집중하세요!',
+        'back_button': '돌아가기',
+        'notif_title': 'Focus Guard',
+        'notif_content': '앱이 제한됨. 집중하세요!',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': '모니터링 활성',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': '일시정지',
       },
       'calendar': {
         'title': '내 캘린더',
+        'today_goal': '오늘의 목표',
         'legend_focused': '집중함',
         'legend_missed': '놓침',
         'legend_today': '오늘',
@@ -2042,9 +2126,26 @@ class AppTranslationService {
         'goal_met_body': 'Du hast das heutige Ziel voll erreicht! Beeindruckende Willenskraft und Disziplin. Mach weiter so!',
         'daily_summary_title': 'Tagesübersicht ⏰',
         'daily_summary_body': 'Dein heutiges Ergebnis findest du im Kalender-Bereich. Hast du dein Tagesziel erreicht?',
+        'timer_done_title': 'Fokuszeit ist vorbei! 🎯',
+        'timer_done_body': 'Ausgezeichnet! Du hast dich {minutes} Minuten lang konzentriert. +{xp} XP verdient. Mach jetzt eine kurze Pause.',
+      },
+      'overlay': {
+        'blocked_title': 'App gesperrt',
+        'blocked_message': 'Du hast diese App vorübergehend über Focus Guard gesperrt. Bleib auf deine Ziele konzentriert!',
+        'back_button': 'Zurück',
+        'notif_title': 'Focus Guard',
+        'notif_content': 'App eingeschränkt. Bleib fokussiert!',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': 'Überwachung aktiv',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': 'Pause',
       },
       'calendar': {
         'title': 'Mein Kalender',
+        'today_goal': 'Heutiges Ziel',
         'legend_focused': 'Fokussiert',
         'legend_missed': 'Verpasst',
         'legend_today': 'Heute',
@@ -2463,9 +2564,26 @@ class AppTranslationService {
         'goal_met_body': 'Vous avez pleinement atteint l\'objectif d\'aujourd\'hui ! Une volonté et une discipline impressionnantes. Continuez ainsi !',
         'daily_summary_title': 'Bilan du jour ⏰',
         'daily_summary_body': 'Consultez votre résultat du jour dans la section Calendrier. Avez-vous atteint votre objectif quotidien ?',
+        'timer_done_title': 'Temps de concentration terminé ! 🎯',
+        'timer_done_body': 'Excellent ! Vous vous êtes concentré pendant {minutes} minutes. +{xp} XP gagnés. Faites une courte pause.',
+      },
+      'overlay': {
+        'blocked_title': 'Application bloquée',
+        'blocked_message': 'Vous avez temporairement bloqué cette application via Focus Guard. Restez concentré sur vos objectifs !',
+        'back_button': 'Retour',
+        'notif_title': 'Focus Guard',
+        'notif_content': 'Application restreinte. Restez concentré !',
+      },
+      'service_notif': {
+        'idle_title': 'Focus Guard',
+        'idle_content': 'Surveillance active',
+        'running_prefix': '⏱ Focus Guard',
+        'paused_prefix': '⏸ Focus Guard',
+        'paused_label': 'Pause',
       },
       'calendar': {
         'title': 'Mon Calendrier',
+        'today_goal': 'Objectif du jour',
         'legend_focused': 'Concentré',
         'legend_missed': 'Manqué',
         'legend_today': 'Aujourd\'hui',

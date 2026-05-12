@@ -52,10 +52,34 @@ class FocusHistoryService {
   }
 
   /// Bir kunning yozuvini olish. Mavjud bo'lmasa `null` qaytaradi.
+  ///
+  /// MUHIM: agar so'ralgan sana BUGUNGI kun bo'lsa, biz history'ga
+  /// hali yozilmagan bo'lsa ham SharedPreferences'dan jonli (live)
+  /// ma'lumotni o'qib qaytaramiz. Bu Calendar bugungi maqsadning
+  /// real-time progress'ini ko'rsata olishi uchun zarur — aks holda
+  /// foydalanuvchi taymerni ishlatib qo'ygan bo'lsa ham Calendar
+  /// uchun bugungi kun "ma'lumot yo'q" ko'rinardi (chunki history
+  /// yozuvi faqat ertaga 00:00 da kun reset bo'lganda saqlanadi).
   Future<DayRecord?> getDay(DateTime date) async {
     try {
+      final now = DateTime.now();
+      final isToday = date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day;
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload(); // boshqa isolate yozgan bo'lsa freshni o'qiymiz
+
+      if (isToday) {
+        final seconds = prefs.getInt('today_focus_seconds') ?? 0;
+        final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+        return DayRecord(
+          seconds: seconds,
+          goal: goal,
+          met: seconds >= goal && goal > 0,
+        );
+      }
+
       final raw = prefs.getString(_dateKey(date));
       if (raw == null) return null;
       return DayRecord.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -67,6 +91,10 @@ class FocusHistoryService {
 
   /// Bir oyning hamma yozuvlarini olish — Calendar ekrani uchun. Map'da
   /// kalit — kun raqami (1..31), qiymat — DayRecord.
+  ///
+  /// Bugungi kun uchun ham yozuv qo'shamiz — `today_focus_seconds` va
+  /// `daily_goal_seconds` dan live ravishda qurib. Bu Calendar bugungi
+  /// progressni ko'rsata olishi uchun.
   Future<Map<int, DayRecord>> getMonthRecords(int year, int month) async {
     final Map<int, DayRecord> result = {};
     try {
@@ -74,8 +102,22 @@ class FocusHistoryService {
       await prefs.reload();
       // Oyning oxirgi kuni: keyingi oyning 0-kuni
       final daysInMonth = DateTime(year, month + 1, 0).day;
+      final now = DateTime.now();
       for (int d = 1; d <= daysInMonth; d++) {
         final date = DateTime(year, month, d);
+        final isToday = date.year == now.year &&
+            date.month == now.month &&
+            date.day == now.day;
+        if (isToday) {
+          final seconds = prefs.getInt('today_focus_seconds') ?? 0;
+          final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+          result[d] = DayRecord(
+            seconds: seconds,
+            goal: goal,
+            met: seconds >= goal && goal > 0,
+          );
+          continue;
+        }
         final raw = prefs.getString(_dateKey(date));
         if (raw == null) continue;
         try {

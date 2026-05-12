@@ -280,6 +280,69 @@ class TimerNotificationService {
     debugPrint('[TimerNotif] daily summary scheduled at $when');
   }
 
+  /// Taymer to'liq tugaganda chaqiriladigan notifikatsiya. App yopiq,
+  /// telefon bloklangan bo'lsa ham foydalanuvchi eshitishi va ko'rishi
+  /// uchun:
+  ///   • Importance.max — heads-up va lock screen'da ko'rinadi
+  ///   • playSound: true — tizim alarm tovushi (kanal sozlamasi)
+  ///   • enableVibration: true — qattiq vibratsiya
+  ///   • fullScreenIntent: true — telefon bloklangan bo'lsa to'liq
+  ///     ekran kelishini majbur qiladi (incoming call kabi)
+  ///   • category: alarm — Android tizimga "bu alarm" deydi, alarm
+  ///     ringtone'i bilan chaladi
+  ///   • BigTextStyle — matn to'liq ko'rinadi (kichik shriftda)
+  ///
+  /// Tugma matnida XP miqdori ham ko'rsatilib, motivatsiya beradi.
+  Future<void> showTimerCompletedNotification({required int minutes}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    await init();
+
+    final lang = AppTranslationService();
+    final title = lang.translate('notifications.timer_done_title') ??
+        'Diqqat vaqti tugadi! 🎯';
+    String body = lang.translate('notifications.timer_done_body') ??
+        'Ajoyib! {minutes} daqiqa fokus qildingiz. +{xp} XP olasiz.';
+    body = body
+        .replaceAll('{minutes}', minutes.toString())
+        .replaceAll('{xp}', (minutes * 10).toString());
+
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'timer_completed_channel',
+      'Taymer Tugadi',
+      channelDescription:
+          'Fokus taymer tugaganda chiqadigan asosiy bildirishnoma',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      // fullScreenIntent: telefon bloklangan bo'lsa to'liq ekran chiqaradi.
+      // Bu — incoming call tipidagi UX. USE_FULL_SCREEN_INTENT permission
+      // talab qiladi (manifest'da deklaratsiya), aks holda bu silently
+      // heads-up notification'ga tushadi.
+      fullScreenIntent: true,
+      // Alarm kategoriyasi — Android tizimga "bu alarm" deydi, DnD
+      // (Do Not Disturb) rejimida ham chiqishi mumkin (foydalanuvchi
+      // ruxsat bersa).
+      category: AndroidNotificationCategory.alarm,
+      // Foydalanuvchi notifikatsiyani avtomatik o'chmasligi uchun
+      // (autoCancel: false), foydalanuvchi qo'l bilan o'chirsin.
+      autoCancel: true,
+      styleInformation:
+          BigTextStyleInformation(body, contentTitle: title),
+    );
+
+    final NotificationDetails details =
+        NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      id: 555,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
   /// Bugungi yakunni darrov (real-time) yuborish — fired-time'da agar
   /// service tirik bo'lsa background_service.dart shu metodni chaqiradi.
   /// SharedPreferences'dan today_focus_seconds o'qib aniq Missed/Achieved

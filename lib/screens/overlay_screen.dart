@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import '../services/app_translation_service.dart';
 
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key});
@@ -45,6 +46,17 @@ class _OverlayScreenState extends State<OverlayScreen> {
         mq.viewPadding.top +
         mq.viewPadding.bottom;
 
+    // i18n — foydalanuvchi tanlagan tilga moslash. AppTranslationService
+    // singletoni overlayMain ichida init qilingan (lib/main.dart), shu
+    // sababli bu yerda translate() darhol to'g'ri tilni qaytaradi.
+    final lang = AppTranslationService();
+    final blockedTitle =
+        lang.translate('overlay.blocked_title') ?? 'Ilova Bloklangan';
+    final blockedMessage = lang.translate('overlay.blocked_message') ??
+        'Siz bu ilovani Focus Guard ilovasi orqali vaqtinchalik bloklagansiz. Diqqatingizni maqsadlaringizga qarating!';
+    final backLabel =
+        lang.translate('overlay.back_button') ?? 'Orqaga qaytish';
+
     // Solid black Material covers the entire surface — no transparency,
     // no blur layer, no Scaffold/SafeArea so nothing eats screen edges.
     return Material(
@@ -62,7 +74,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
                   color: Color(0xFF007AFF), size: 100),
               const SizedBox(height: 30),
               Text(
-                "Ilova Bloklangan",
+                blockedTitle,
                 style: GoogleFonts.inter(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
@@ -74,7 +86,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  "Siz bu ilovani Focus Guard ilovasi orqali vaqtinchalik bloklagansiz. Diqqatingizni maqsadlaringizga qarating!",
+                  blockedMessage,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 16,
@@ -120,7 +132,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
                       borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
-                  "Orqaga qaytish",
+                  backLabel,
                   style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

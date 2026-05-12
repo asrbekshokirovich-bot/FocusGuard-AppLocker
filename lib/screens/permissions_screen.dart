@@ -177,14 +177,27 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
               ),
             ),
           ),
-          body: _isLoading 
+          body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  // Column endi 2 ta qismdan iborat:
+                  //   1. Expanded(SingleChildScrollView(...)) — kartalar
+                  //      ko'p bo'lganda foydalanuvchi pastga scroll qila
+                  //      oladi. Kichik ekranlarda ham hamma narsa
+                  //      ko'rinadi (Spacer bilan to'lib qolmaydi).
+                  //   2. "Tayyor" tugmasi — pastda doim ko'rinib turadi,
+                  //      scroll'dan tashqarida.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                       const SizedBox(height: 10),
                       Text(
                         lang.translate('permissions.subtitle'),
@@ -195,7 +208,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.overlay.title'),
                         description: lang.translate('permissions.overlay.desc'),
@@ -205,9 +218,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         onTap: _requestOverlay,
                         lang: lang,
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.usage.title'),
                         description: lang.translate('permissions.usage.desc'),
@@ -217,9 +230,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         onTap: _requestUsage,
                         lang: lang,
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.notifications.title'),
                         description: lang.translate('permissions.notifications.desc'),
@@ -273,7 +286,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           ),
                         ),
 
-                      const Spacer(),
+                      const SizedBox(height: 16),
+                            ],
+                          ),
+                        ),
+                      ),
                       
                       Container(
                         width: double.infinity,

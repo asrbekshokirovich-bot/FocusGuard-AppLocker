@@ -23,6 +23,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   MonthSummary _summary = const MonthSummary(focused: 0, missed: 0);
   int _streak = 0;
   bool _loading = true;
+  // Bugungi maqsad va progress — tepa qismida alohida ko'rsatiladi
+  DayRecord? _todayRecord;
 
   @override
   void initState() {
@@ -43,11 +45,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _displayedMonth.month,
     );
     final streak = await FocusHistoryService.instance.getStreak();
+    final today = await FocusHistoryService.instance.getDay(DateTime.now());
     if (!mounted) return;
     setState(() {
       _records = records;
       _summary = summary;
       _streak = streak;
+      _todayRecord = today;
       _loading = false;
     });
   }
@@ -131,6 +135,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Bugungi maqsad va progress — tepada alohida karta.
+                      // Foydalanuvchi Calendar'ga kirishi bilan bugungi
+                      // maqsadi nima va qancha bajarganini darrov ko'radi.
+                      _buildTodayCard(lang),
+                      const SizedBox(height: 12),
                       _buildMonthHeader(lang),
                       const SizedBox(height: 12),
                       _buildWeekdayHeader(lang),
@@ -145,6 +154,139 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
         );
       },
+    );
+  }
+
+  /// Sekundlarni "5s 45d" yoki "45d" yoki "5s" formatiga aylantirish.
+  /// Calendar bugungi karta va boshqa joylarda foydalanuvchi tushunarli
+  /// formatda ko'rsatish uchun.
+  String _formatSecondsToHm(int seconds) {
+    if (seconds <= 0) return '0d';
+    final totalMinutes = seconds ~/ 60;
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    if (h == 0) return '${m}d';
+    if (m == 0) return '${h}s';
+    return '${h}s ${m}d';
+  }
+
+  /// Bugungi maqsad va progress kartasi. Calendar tepasida turadi,
+  /// foydalanuvchi maqsadi nima va qancha bajarganini darrov ko'radi.
+  Widget _buildTodayCard(AppTranslationService lang) {
+    final rec = _todayRecord;
+    // Agar today_focus_seconds yoki daily_goal_seconds saqlanmagan
+    // bo'lsa (ilova hali ishlatilmagan), default qiymatlar bilan
+    // ko'rsatamiz.
+    final seconds = rec?.seconds ?? 0;
+    final goal = (rec?.goal ?? 14400);
+    final met = rec?.met ?? false;
+    final percent = goal > 0
+        ? ((seconds / goal) * 100).clamp(0.0, 100.0)
+        : 0.0;
+    final progressRatio = goal > 0
+        ? (seconds / goal).clamp(0.0, 1.0)
+        : 0.0;
+
+    final Color accent = met
+        ? const Color(0xFF34C759)
+        : const Color(0xFF007AFF);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: met
+              ? [
+                  const Color(0xFF34C759).withOpacity(0.18),
+                  const Color(0xFF34C759).withOpacity(0.06),
+                ]
+              : [
+                  const Color(0xFF007AFF).withOpacity(0.15),
+                  const Color(0xFF007AFF).withOpacity(0.05),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withOpacity(0.25), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  met ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.flag_fill,
+                  color: accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lang.translate('calendar.today_goal') ?? 'Bugungi maqsad',
+                      style: lang.getFont(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${_formatSecondsToHm(seconds)} / ${_formatSecondsToHm(goal)}',
+                        maxLines: 1,
+                        style: lang.getFont(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${percent.toInt()}%',
+                  style: lang.getFont(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progressRatio,
+              backgroundColor: accent.withOpacity(0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+              minHeight: 8,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -241,10 +383,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Color background;
     Widget? indicator;
 
+    // Bugungi kun uchun PROGRESS indikator: agar foydalanuvchi maqsadni
+    // hali to'liq bajarmagan, lekin biroz fokus qilgan bo'lsa — foiz
+    // (masalan "32%") ko'rsatamiz. To'liq bajargan bo'lsa ✅. Hech
+    // narsa qilmagan bo'lsa just ko'k chiziq (today border).
     if (isFuture) {
       // Kelajak — yengil kulrang
       background = Theme.of(context).colorScheme.onSurface.withOpacity(0.04);
       indicator = null;
+    } else if (isToday) {
+      // Bugun — alohida logika: progress'ga qarab indikator
+      if (record == null || record.seconds == 0) {
+        // Hali boshlanmagan — ko'k border bilan, ichida hech narsa yo'q
+        background = const Color(0xFF007AFF).withOpacity(0.06);
+        indicator = null;
+      } else if (record.met) {
+        // Bugun maqsad bajarildi
+        background = const Color(0xFF34C759).withOpacity(0.18);
+        indicator = const Icon(
+          CupertinoIcons.checkmark_alt,
+          color: Color(0xFF34C759),
+          size: 16,
+        );
+      } else {
+        // Bugun qisman bajarilgan — foiz ko'rsatamiz
+        final percent =
+            ((record.seconds / record.goal) * 100).clamp(0, 99).toInt();
+        background = const Color(0xFF007AFF).withOpacity(0.12);
+        indicator = Text(
+          '$percent%',
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF007AFF),
+          ),
+        );
+      }
     } else if (record == null) {
       // O'tgan kun, lekin ma'lumot yo'q — qoraroq kulrang
       background = Theme.of(context).colorScheme.onSurface.withOpacity(0.06);

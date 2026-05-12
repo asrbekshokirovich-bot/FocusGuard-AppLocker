@@ -212,9 +212,16 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
 // (home intent uchun) va flutter_background_service (asosiy isolate
 // bilan aloqa uchun) overlay ichida MissingPluginException beradi.
 @pragma("vm:entry-point")
-void overlayMain() {
+void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  // Overlay alohida Dart isolate'da ishlaydi — AppTranslationService
+  // singleton'i bu yerda alohida nusxa. Foydalanuvchi tanlagan tilni
+  // SharedPreferences'dan o'qib chiqamiz, aks holda til 'uz' default
+  // bo'lib qoladi va overlay matni har doim o'zbekcha bo'lardi.
+  try {
+    await AppTranslationService().init();
+  } catch (_) {}
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: OverlayScreen(),

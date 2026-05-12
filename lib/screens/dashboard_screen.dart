@@ -16,6 +16,7 @@ import 'permissions_screen.dart';
 import '../services/language_service.dart';
 import '../services/level_service.dart';
 import '../services/crash_logger.dart';
+import '../services/pending_results_processor.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
@@ -28,7 +29,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
 
@@ -39,6 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _screens = [
       FocusTimerScreen(onNavigateToBlockList: () {
         setState(() {
@@ -53,6 +56,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Foydalanuvchi statistikalarini tekshirish
     LevelService().ensureUserStatsInitialized();
 
+    // PendingResultsProcessor — background service tomonidan yozilgan
+    // XP va streak qiymatlarini qayta ishlash. App birinchi ochilganda
+    // va keyin har resume bo'lganda chaqiriladi.
+    PendingResultsProcessor.instance.processOnAppOpen();
+
     // Avvalgi crash mavjudligini tekshirish — agar overlay yoki
     // background service crash bo'lgan bo'lsa, banner ko'rsatamiz.
     _checkRecentCrash();
@@ -64,6 +72,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _checkNotificationPermission();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // App background'dan qaytganida ham pending'larni qayta ishlash —
+    // foydalanuvchi telefonni o'chirib qo'yib, taymer fonida tugagan
+    // bo'lsa, qaytganida XP/streak avtomatik yangilanadi.
+    if (state == AppLifecycleState.resumed) {
+      PendingResultsProcessor.instance.processOnAppOpen();
+    }
   }
 
   Future<void> _checkRecentCrash() async {
