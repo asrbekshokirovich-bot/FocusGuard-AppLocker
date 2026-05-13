@@ -353,11 +353,29 @@ class TimerNotificationService {
       await prefs.reload();
       final seconds = prefs.getInt('today_focus_seconds') ?? 0;
       final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+      final sessions = prefs.getInt('today_completed_sessions') ?? 0;
+      final xp = prefs.getInt('today_xp_earned') ?? 0;
+      // Bugungi activity progress'ni o'qiymiz
+      final now = DateTime.now();
+      final todayKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      final progressJson = prefs.getString('activity_progress_$todayKey');
+      Map<String, int> activities = const {};
+      if (progressJson != null) {
+        try {
+          final decoded = Uri.splitQueryString(progressJson);
+          activities = decoded.map((k, v) => MapEntry(k, int.tryParse(v) ?? 0));
+        } catch (_) {}
+      }
       // history'ga yozamiz
       await FocusHistoryService.instance.recordDay(
-        date: DateTime.now(),
+        date: now,
         seconds: seconds,
         goal: goal,
+        sessions: sessions,
+        xp: xp,
+        activities: activities,
       );
       if (seconds >= goal && goal > 0) {
         await showGoalAchievedNotification();

@@ -222,6 +222,20 @@ void onStart(ServiceInstance service) async {
         '${d.day.toString().padLeft(2, '0')}';
   }
 
+  /// Bir kun uchun activity progress map'ini SharedPreferences'dan o'qiydi.
+  /// `activity_progress_YYYY-MM-DD` kalitidan URL-encoded query string'ni
+  /// parslab Map<String, int> ko'rinishida qaytaradi.
+  Map<String, int> activitiesForDay(String dateKey) {
+    try {
+      final progressJson = prefs.getString('activity_progress_$dateKey');
+      if (progressJson == null) return const {};
+      final decoded = Uri.splitQueryString(progressJson);
+      return decoded.map((k, v) => MapEntry(k, int.tryParse(v) ?? 0));
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<void> queuePendingXP(int minutes) async {
     if (minutes <= 0) return;
     final existing = prefs.getInt('pending_xp_minutes') ?? 0;
@@ -240,6 +254,22 @@ void onStart(ServiceInstance service) async {
   Future<void> queueCompletion() async {
     final n = prefs.getInt('pending_completion_count') ?? 0;
     await prefs.setInt('pending_completion_count', n + 1);
+  }
+
+  /// Bugungi seans hisoblagichini bittaga oshirish (Calendar detail
+  /// panel ko'rsatadi: "bugun 3 marta to'liq seans"). Kun reset bo'lganda
+  /// 0 ga tushadi va history'ga yoziladi.
+  Future<void> incrementTodaySessions() async {
+    final n = prefs.getInt('today_completed_sessions') ?? 0;
+    await prefs.setInt('today_completed_sessions', n + 1);
+  }
+
+  /// Bugungi XP hisoblagichini oshirish (har soniya yoki seans tugashida).
+  /// XP = daqiqalar (level_service.dart shu mantiqdan foydalanadi).
+  Future<void> addTodayXp(int amount) async {
+    if (amount <= 0) return;
+    final n = prefs.getInt('today_xp_earned') ?? 0;
+    await prefs.setInt('today_xp_earned', n + amount);
   }
 
   // Har soniyada UI ga timerTick yuboramiz — stream chaqirig'i arzon,
@@ -341,6 +371,7 @@ void onStart(ServiceInstance service) async {
       final elapsedMinutes = elapsed ~/ 60;
       if (elapsedMinutes >= 1) {
         await queuePendingXP(elapsedMinutes);
+        await addTodayXp(elapsedMinutes);
         debugPrint(
             '[BackgroundTimer] partial stop: ${elapsedMinutes}m queued for XP');
       }
@@ -350,6 +381,9 @@ void onStart(ServiceInstance service) async {
         date: DateTime.now(),
         seconds: todayFocusSeconds,
         goal: dailyGoalSeconds,
+        sessions: prefs.getInt('today_completed_sessions') ?? 0,
+        xp: prefs.getInt('today_xp_earned') ?? 0,
+        activities: activitiesForDay(todayDateKey()),
       );
     }
 
@@ -432,12 +466,17 @@ void onStart(ServiceInstance service) async {
         final sessionMinutes = savedInitial ~/ 60;
         await queuePendingXP(sessionMinutes);
         await queueCompletion();
+        await incrementTodaySessions();
+        await addTodayXp(sessionMinutes);
         debugPrint(
             '[BackgroundTimer] late-detected completion: ${sessionMinutes}m queued');
         await FocusHistoryService.instance.recordDay(
           date: DateTime.now(),
           seconds: todayFocusSeconds,
           goal: dailyGoalSeconds,
+          sessions: prefs.getInt('today_completed_sessions') ?? 0,
+          xp: prefs.getInt('today_xp_earned') ?? 0,
+          activities: activitiesForDay(todayDateKey()),
         );
       }
       await prefs.remove('timer_end_timestamp');
@@ -528,6 +567,18 @@ void onStart(ServiceInstance service) async {
     currentBlockedApp = null;
   });
 
+  // Alarm dismiss — overlay yoki UI dan signal kelganda ringtoni
+  // o'chiramiz va flagni tozalaymiz. Ringtone shu isolate'da
+  // boshlangani uchun stop() ham shu yerda chaqirilishi kerak.
+  service.on('stopAlarm').listen((event) async {
+    try {
+      FlutterRingtonePlayer().stop();
+    } catch (_) {}
+    await prefs.setBool('timer_alarm_active', false);
+    await prefs.remove('timer_alarm_minutes');
+    debugPrint('[BackgroundTimer] alarm stopped by user');
+  });
+
   // Loop har 1 soniya da
   Timer.periodic(const Duration(seconds: 1), (timer) async {
     // 1. Taymer logikasi
@@ -554,6 +605,8 @@ void onStart(ServiceInstance service) async {
           final sessionMinutes = sessionInitialSeconds ~/ 60;
           await queuePendingXP(sessionMinutes);
           await queueCompletion();
+          await incrementTodaySessions();
+          await addTodayXp(sessionMinutes);
           debugPrint(
               '[BackgroundTimer] timer completed: ${sessionMinutes}m queued for XP');
 
@@ -564,15 +617,17 @@ void onStart(ServiceInstance service) async {
             date: DateTime.now(),
             seconds: todayFocusSeconds,
             goal: dailyGoalSeconds,
+            sessions: prefs.getInt('today_completed_sessions') ?? 0,
+            xp: prefs.getInt('today_xp_earned') ?? 0,
+            activities: activitiesForDay(todayDateKey()),
           );
 
           // Rington + notifikatsiya — app yopiq bo'lsa ham foydalanuvchi
           // eshitishi va ko'rishi uchun. Ikki yo'l birga ishlatamiz:
           //   1. fullScreenIntent + sound bo'lgan notifikatsiya (tizim
           //      darajasida, kanal sozlamalari orqali alarm tovushi)
-          //   2. FlutterRingtonePlayer alohida alarm tovushi — agar
-          //      notifikatsiya sound'i biron sababdan ishlamasa
-          //      (ba'zi OEM'larda DnD bilan), bu backup.
+          //   2. FlutterRingtonePlayer looping=true — foydalanuvchi
+          //      tugmani bosguncha chaladi (dismiss UI bilan birga).
           try {
             await TimerNotificationService()
                 .showTimerCompletedNotification(
@@ -582,13 +637,11 @@ void onStart(ServiceInstance service) async {
             debugPrint('[BackgroundTimer] completion notif failed: $e');
           }
           try {
-            // playAlarm — tizimning alarm tovushini chaladi
-            // (looping=false: bir marta). Background isolate'da plugin
-            // registratsiya qilingan (DartPluginRegistrant), shuning
-            // uchun ishlashi kerak. Agar OEM rad qilsa, exception
-            // tutiladi va silent fail bo'ladi.
+            // looping=true: foydalanuvchi dismiss qilguncha chaladi.
+            // stopAlarm event kelganda FlutterRingtonePlayer().stop()
+            // chaqiriladi va rington o'chadi.
             FlutterRingtonePlayer().playAlarm(
-              looping: false,
+              looping: true,
               volume: 1.0,
               asAlarm: true,
             );
@@ -602,11 +655,50 @@ void onStart(ServiceInstance service) async {
               Vibration.vibrate(pattern: [0, 500, 250, 500, 250, 500]);
             }
           } catch (_) {}
+
+          // Alarm flagini SharedPreferences ga yozamiz.
+          // overlay_screen.dart va focus_timer_screen.dart shu flagni
+          // o'qib dismiss UI ko'rsatadi.
+          await prefs.setBool('timer_alarm_active', true);
+          await prefs.setInt('timer_alarm_minutes', sessionMinutes);
+
+          // App fonda bo'lsa (foydalanuvchi boshqa ilova yoki uy ekranida)
+          // to'liq ekran alarm overlay ko'rsatamiz. App foreground bo'lsa
+          // main isolate timerFinished eventini tutib dialog ko'rsatadi.
+          final appInForeground = prefs.getBool('app_in_foreground') ?? false;
+          if (!appInForeground) {
+            try {
+              final lang = AppTranslationService();
+              final overlayNotifTitle =
+                  lang.translate('overlay.notif_title') ?? 'Focus Guard';
+              final overlayNotifContent =
+                  lang.translate('alarm.overlay_title') ??
+                      'Fokus vaqti tugadi!';
+              await FlutterOverlayWindow.showOverlay(
+                enableDrag: false,
+                overlayTitle: overlayNotifTitle,
+                overlayContent: overlayNotifContent,
+                flag: OverlayFlag.defaultFlag,
+                visibility: NotificationVisibility.visibilitySecret,
+                positionGravity: PositionGravity.auto,
+                height: WindowSize.fullCover,
+                width: WindowSize.fullCover,
+              );
+            } catch (e, st) {
+              debugPrint('[BackgroundTimer] alarm overlay failed: $e');
+              await CrashLogger.instance.recordError(e, st,
+                  source: 'alarm-overlay');
+            }
+          }
         }
 
         sessionInitialSeconds = 0;
         await prefs.remove('session_initial_seconds');
-        service.invoke('timerFinished');
+        // timer_alarm_minutes prefs'ga yuqorida yozilgan — shu qiymatni
+        // timerFinished eventiga ham qo'shamiz.
+        service.invoke('timerFinished', {
+          'minutes': prefs.getInt('timer_alarm_minutes') ?? 0,
+        });
         syncTimer();
       }
 
@@ -625,16 +717,26 @@ void onStart(ServiceInstance service) async {
     // manbadan ✅/❌ ko'rsatadi.
     if (now.day != lastDay) {
       final yesterday = now.subtract(const Duration(days: 1));
+      final yesterdayKey =
+          '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-'
+          '${yesterday.day.toString().padLeft(2, '0')}';
+      // Kechagi kun ma'lumotini history'ga yozamiz (sessions/xp/activities bilan)
       await FocusHistoryService.instance.recordDay(
         date: yesterday,
         seconds: todayFocusSeconds,
         goal: dailyGoalSeconds,
+        sessions: prefs.getInt('today_completed_sessions') ?? 0,
+        xp: prefs.getInt('today_xp_earned') ?? 0,
+        activities: activitiesForDay(yesterdayKey),
       );
       todayFocusSeconds = 0;
       analysisSent = false;
       lastDay = now.day;
       await prefs.setInt('today_focus_seconds', 0);
       await prefs.setInt('last_tracked_day', lastDay);
+      // Bugungi seans/XP hisoblagichlarini ham nolga tushuramiz
+      await prefs.setInt('today_completed_sessions', 0);
+      await prefs.setInt('today_xp_earned', 0);
     }
 
     // Soat 23:55 da kunlik yakun (Goal Missed/Achieved). Bu hali ham
@@ -654,6 +756,9 @@ void onStart(ServiceInstance service) async {
         date: now,
         seconds: todayFocusSeconds,
         goal: dailyGoalSeconds,
+        sessions: prefs.getInt('today_completed_sessions') ?? 0,
+        xp: prefs.getInt('today_xp_earned') ?? 0,
+        activities: activitiesForDay(todayDateKey()),
       );
 
       // Tick-based notifikatsiya — fallback sifatida qoldirildi.
@@ -727,12 +832,17 @@ void onStart(ServiceInstance service) async {
       }
 
       // Focus Guard'ga qaytildi — coverni yopamiz va hisobni tozalaymiz.
+      // Istisno: timer_alarm_active=true bo'lsa alarm overlay ko'rsatilayapti,
+      // uni yopmaymiz — foydalanuvchi dismiss tugmasini bossin.
       if (currentApp == 'com.focusguard.app') {
         currentBlockedApp = null;
         notBlockedTicks = 0;
-        bool isOverlayActive = await FlutterOverlayWindow.isActive();
-        if (isOverlayActive) {
-          await FlutterOverlayWindow.closeOverlay();
+        final alarmActive = prefs.getBool('timer_alarm_active') ?? false;
+        if (!alarmActive) {
+          bool isOverlayActive = await FlutterOverlayWindow.isActive();
+          if (isOverlayActive) {
+            await FlutterOverlayWindow.closeOverlay();
+          }
         }
         return;
       }

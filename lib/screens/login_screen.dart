@@ -244,12 +244,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             // Ismni olish
                             final userData = await FirebaseService().getUserData(result.user!.uid);
                             final String userName = userData?['name'] ?? result.user!.displayName ?? 'User';
-                            
+
                             if (!mounted) return;
-                            
+
                             // Tizimga kirganligini eslab qolish
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setBool('is_logged_in', true);
+
+                            // Ro'yxatdan o'tgan sanani saqlash
+                            final registrationDate = await FirebaseService().getRegistrationDate(result.user!.uid);
+                            if (registrationDate != null) {
+                              await prefs.setString('registration_date', registrationDate.toIso8601String());
+                            }
                             
                             // Xush kelibsiz xabari
                             ScaffoldMessenger.of(context).showSnackBar(

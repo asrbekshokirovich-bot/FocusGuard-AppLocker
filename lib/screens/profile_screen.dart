@@ -16,6 +16,7 @@ import 'themes_screen.dart';
 import 'splash_screen.dart';
 import 'help_support_screen.dart';
 import 'permissions_screen.dart';
+import 'cloud_backup_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -348,6 +349,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               lang.translate('profile.menu_calendar'),
                               const Color(0xFF34C759),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CalendarScreen())),
+                            ),
+                            // Mening ma'lumotlarim — Cloud Backup ekrani.
+                            // Free/Premium taqqoslash, sync rejimi va manual
+                            // backup tugmasi.
+                            _buildSettingsItem(
+                              context,
+                              lang,
+                              CupertinoIcons.cloud_fill,
+                              lang.translate('profile.menu_cloud_backup'),
+                              const Color(0xFF007AFF),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CloudBackupScreen())),
                             ),
 
                             const SizedBox(height: 24),

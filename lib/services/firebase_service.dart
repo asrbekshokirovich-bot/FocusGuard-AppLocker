@@ -90,6 +90,24 @@ class FirebaseService {
     }
   }
 
+  // Ro'yxatdan o'tgan sanani olish
+  Future<DateTime?> getRegistrationDate(String uid) async {
+    try {
+      DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null && data['createdAt'] != null) {
+          final timestamp = data['createdAt'] as Timestamp;
+          return timestamp.toDate();
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Get Registration Date Error: $e');
+      return null;
+    }
+  }
+
   // Tizimdan chiqish
   Future<void> signOut() async {
     await _auth.signOut();

@@ -135,6 +135,7 @@ class _PremiumScreenState extends State<PremiumScreen> with TickerProviderStateM
                         _buildPremiumFeature(FontAwesomeIcons.wandMagicSparkles, lang.translate('premium.feature_ai_title'), lang.translate('premium.feature_ai_desc')),
                         _buildPremiumFeature(FontAwesomeIcons.lock, lang.translate('premium.feature_limit_title'), lang.translate('premium.feature_limit_desc')),
                         _buildPremiumFeature(FontAwesomeIcons.key, lang.translate('premium.feature_emergency_title'), lang.translate('premium.feature_emergency_desc')),
+                        _buildPremiumFeature(FontAwesomeIcons.cloudArrowUp, lang.translate('premium.feature_cloud_title'), lang.translate('premium.feature_cloud_desc')),
                         const SizedBox(height: 20),
                       ],
                     ),

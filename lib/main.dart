@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -20,6 +21,7 @@ import 'services/service_starter.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
 import 'services/crash_logger.dart';
+import 'services/cloud_sync_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -78,6 +80,11 @@ void main() async {
   // (Har kuni 23:55 da, service o'lik bo'lsa ham kafolatlangan).
   TimerNotificationService().scheduleDailySummary();
 
+  // Cloud Sync xizmatini ishga tushirish — internet o'zgarishini
+  // kuzatadi va auto rejimda fon'da silent sync qiladi. Foydalanuvchi
+  // hech narsa sezmaydi.
+  await CloudSyncService.instance.init();
+
   runApp(
     DevicePreview(
       enabled: false,
@@ -86,8 +93,42 @@ void main() async {
   );
 }
 
-class FocusGuardApp extends StatelessWidget {
+class FocusGuardApp extends StatefulWidget {
   const FocusGuardApp({super.key});
+
+  @override
+  State<FocusGuardApp> createState() => _FocusGuardAppState();
+}
+
+class _FocusGuardAppState extends State<FocusGuardApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Ilova ochilganda foreground flag'ini yoqamiz.
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool('app_in_foreground', true));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    SharedPreferences.getInstance().then((p) {
+      if (state == AppLifecycleState.resumed) {
+        p.setBool('app_in_foreground', true);
+      } else if (state == AppLifecycleState.paused ||
+          state == AppLifecycleState.inactive ||
+          state == AppLifecycleState.detached) {
+        p.setBool('app_in_foreground', false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

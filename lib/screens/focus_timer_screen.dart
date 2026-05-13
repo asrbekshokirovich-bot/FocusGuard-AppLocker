@@ -39,13 +39,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
   String _selectedSound = 'none';
   int _selectedMode = 0; // 0: Deep Work, 1: Light Focus
   
-  // Dynamic Activities
-  List<Map<String, dynamic>> _customActivities = [
-    {'key': 'activities.coding', 'minutes': 45},
-    {'key': 'activities.reading', 'minutes': 25},
-    {'key': 'activities.work', 'minutes': 60},
-    {'key': 'activities.meditation', 'minutes': 15},
-  ];
+  // Dynamic Activities — yangi user'da bo'sh.
+  // Mock'lar olib tashlandi: foydalanuvchi "+" tugmasi orqali
+  // o'zining haqiqiy faoliyatlarini qo'shadi.
+  List<Map<String, dynamic>> _customActivities = [];
   int _selectedActivityIndex = 0;
   
   double _dailyGoalHours = 4.0;
@@ -72,15 +69,19 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     
     _timerSubscription = _timerService.timerStream.listen((event) {
       if (mounted) {
+        // timerFinished — background service taymer tabiiy tugaganda
+        // yuboradi. Bu holda dialog ko'rsatamiz va ringtoni o'chiramiz.
+        if (event['timerFinished'] == true) {
+          final minutes = (event['minutes'] as int?) ?? _selectedMinutes;
+          _onTimerComplete(minutes);
+          return;
+        }
+
         setState(() {
           _remainingSeconds = event['seconds'] ?? _remainingSeconds;
           _isRunning = event['isRunning'] ?? _isRunning;
           _isPaused = event['isPaused'] ?? _isPaused;
         });
-        
-        if (_remainingSeconds == 0 && _isRunning == false && event['wasRunning'] == true) {
-          _onTimerComplete(event['duration'] ?? (_selectedMinutes * 60));
-        }
       }
     });
 
@@ -265,27 +266,67 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     );
   }
 
-  void _onTimerComplete(int durationSeconds) async {
-    _updateProgress(durationSeconds);
-    
+  void _onTimerComplete(int minutes) async {
+    _updateProgress(minutes * 60);
     HapticFeedback.vibrate();
-    FlutterRingtonePlayer().playAlarm(looping: false);
+
+    // Rington background service tomonidan allaqachon o'ynalmoqda
+    // (looping=true). Bu yerda qayta o'ynatmaymiz.
+    // stopAlarm() orqali background service'ga signal yuboramiz — u
+    // FlutterRingtonePlayer().stop() chaqiradi.
 
     final lang = AppTranslationService();
-    showCupertinoDialog(
+    if (!mounted) return;
+
+    showDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(lang.translate('focus_timer.completed_title') ?? 'Diqqat vaqti tugadi!'),
-        content: Text(lang.translate('focus_timer.completed_desc') ?? 'Ajoyib natija, belgilangan vaqtni muvaffaqiyatli yakunladingiz!'),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(lang.translate('focus_timer.ok') ?? 'OK'),
-            onPressed: () {
-              FlutterRingtonePlayer().stop();
-              Navigator.pop(context);
-            },
+      barrierDismissible: false, // Foydalanuvchi tugmani bosishi shart
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🎯', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 12),
+              Text(
+                lang.translate('alarm.in_app_title'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                lang.translate('alarm.in_app_body'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    _timerService.stopAlarm();
+                    Navigator.of(ctx).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    lang.translate('alarm.dismiss_btn'),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1095,7 +1136,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.all(6),
+                          width: 26,
+                          height: 26,
                           decoration: BoxDecoration(
                             color: (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)).withOpacity(0.1),
                             shape: BoxShape.circle,
@@ -1103,7 +1145,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: Icon(CupertinoIcons.plus, size: 14, color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)),
+                            icon: Icon(CupertinoIcons.plus, size: 11, color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)),
                             onPressed: _showActivityEditor,
                           ),
                         ),
@@ -1113,81 +1155,85 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
                   const SizedBox(height: 12),
                   Column(
                     children: [
-                      SizedBox(
-                        height: 65,
-                        child: ScrollConfiguration(
-                          behavior: const MaterialScrollBehavior().copyWith(
-                            dragDevices: {
-                              PointerDeviceKind.mouse,
-                              PointerDeviceKind.touch,
-                              PointerDeviceKind.stylus,
-                              PointerDeviceKind.unknown,
-                            },
-                          ),
-                          child: PageView.builder(
-                            controller: _activityPageController,
-                            physics: const BouncingScrollPhysics(),
-                            onPageChanged: (int page) {
-                              setState(() {
-                                _currentActivityPage = page;
-                              });
-                            },
-                            itemCount: (_customActivities.length / 3).ceil(),
-                            itemBuilder: (context, pageIndex) {
-                              int startIndex = pageIndex * 3;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                child: Row(
-                                  children: [
-                                    for (int i = 0; i < 3; i++)
-                                      if (startIndex + i < _customActivities.length)
-                                        Expanded(
-                                          child: _buildActivityCard(
-                                            startIndex + i,
-                                            _customActivities[startIndex + i].containsKey('key') 
-                                              ? lang.translate('focus_timer.' + _customActivities[startIndex + i]['key'])
-                                              : _customActivities[startIndex + i]['name'],
-                                            _customActivities[startIndex + i]['minutes'],
-                                            lang,
-                                          ),
-                                        )
-                                      else
-                                        const Expanded(child: SizedBox()),
-                                  ],
-                                  ),
-                                );
+                      if (_customActivities.isEmpty)
+                        _buildEmptyActivities(lang)
+                      else ...[
+                        SizedBox(
+                          height: 65,
+                          child: ScrollConfiguration(
+                            behavior: const MaterialScrollBehavior().copyWith(
+                              dragDevices: {
+                                PointerDeviceKind.mouse,
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.stylus,
+                                PointerDeviceKind.unknown,
                               },
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            (_customActivities.length / 3).ceil(),
-                            (index) => GestureDetector(
-                              onTap: () {
-                                _activityPageController.animateToPage(
-                                  index,
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeOut,
-                                );
+                            child: PageView.builder(
+                              controller: _activityPageController,
+                              physics: const BouncingScrollPhysics(),
+                              onPageChanged: (int page) {
+                                setState(() {
+                                  _currentActivityPage = page;
+                                });
                               },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                                height: 6,
-                                width: _currentActivityPage == index ? 16 : 6,
-                                decoration: BoxDecoration(
-                                  color: _currentActivityPage == index 
-                                      ? (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)) 
-                                      : const Color(0xFFE5E5EA),
-                                  borderRadius: BorderRadius.circular(3),
+                              itemCount: (_customActivities.length / 3).ceil(),
+                              itemBuilder: (context, pageIndex) {
+                                int startIndex = pageIndex * 3;
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  child: Row(
+                                    children: [
+                                      for (int i = 0; i < 3; i++)
+                                        if (startIndex + i < _customActivities.length)
+                                          Expanded(
+                                            child: _buildActivityCard(
+                                              startIndex + i,
+                                              _customActivities[startIndex + i].containsKey('key')
+                                                ? lang.translate('focus_timer.' + _customActivities[startIndex + i]['key'])
+                                                : _customActivities[startIndex + i]['name'],
+                                              _customActivities[startIndex + i]['minutes'],
+                                              lang,
+                                            ),
+                                          )
+                                        else
+                                          const Expanded(child: SizedBox()),
+                                    ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              (_customActivities.length / 3).ceil(),
+                              (index) => GestureDetector(
+                                onTap: () {
+                                  _activityPageController.animateToPage(
+                                    index,
+                                    duration: const Duration(milliseconds: 500),
+                                    curve: Curves.easeOut,
+                                  );
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                  height: 6,
+                                  width: _currentActivityPage == index ? 16 : 6,
+                                  decoration: BoxDecoration(
+                                    color: _currentActivityPage == index
+                                        ? (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759))
+                                        : const Color(0xFFE5E5EA),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                         const SizedBox(height: 24),
                         _buildPremiumBanner(lang),
                         const SizedBox(height: 40), // Reduced bottom spacing
@@ -1458,6 +1504,65 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Faoliyatlar bo'sh bo'lganda chiroyli placeholder ko'rsatadi.
+  /// Yangi foydalanuvchi mock'lar o'rniga shu matnni ko'radi va
+  /// yuqoridagi "+" tugmasi orqali o'z faoliyatlarini qo'shadi.
+  Widget _buildEmptyActivities(AppTranslationService lang) {
+    final accentColor = _selectedMode == 0
+        ? Theme.of(context).primaryColor
+        : const Color(0xFF34C759);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accentColor.withOpacity(0.15),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              CupertinoIcons.add_circled,
+              color: accentColor,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            lang.translate('focus_timer.no_activities_title') ??
+                'Sevimli faoliyatingizni qo\'shing',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            lang.translate('focus_timer.no_activities_hint') ??
+                '"+" tugmasini bosing va boshlang',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+            ),
+          ),
+        ],
       ),
     );
   }

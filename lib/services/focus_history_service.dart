@@ -31,10 +31,17 @@ class FocusHistoryService {
 
   /// Bir kunni yozish. Agar `seconds >= goal` bo'lsa `met=true` ko'rsatiladi.
   /// Bir xil kunga qayta chaqirilsa eski yozuvni ustidan yozadi (idempotent).
+  ///
+  /// `sessions` — bugun necha marta timer to'liq tugadi (Calendar detail
+  /// panel ko'rsatadi). `xp` — bugun olingan XP miqdori.
+  /// `activities` — kunlik faoliyat breakdown (key → daqiqalar).
   Future<void> recordDay({
     required DateTime date,
     required int seconds,
     required int goal,
+    int sessions = 0,
+    int xp = 0,
+    Map<String, int> activities = const {},
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -42,10 +49,26 @@ class FocusHistoryService {
         seconds: seconds,
         goal: goal,
         met: seconds >= goal && goal > 0,
+        sessions: sessions,
+        xp: xp,
+        activities: activities,
       );
       await prefs.setString(_dateKey(date), jsonEncode(record.toJson()));
+      // Cloud Sync uchun pending queue'ga qo'shamiz — main isolate
+      // ishlay boshlaganida CloudSyncService bu kunni Firestore'ga
+      // jo'natadi. Background isolate Firebase'ga to'g'ridan-to'g'ri
+      // kira olmaydi, shuning uchun SharedPreferences orqali.
+      final dateKeyShort =
+          _dateKey(date).replaceFirst(_keyPrefix, '');
+      final pending = prefs.getStringList('cloud_pending_dates') ?? <String>[];
+      if (!pending.contains(dateKeyShort)) {
+        pending.add(dateKeyShort);
+        await prefs.setStringList('cloud_pending_dates', pending);
+      }
       debugPrint('[FocusHistory] saved ${_dateKey(date)}: '
-          '${record.seconds}s / ${record.goal}s (met=${record.met})');
+          '${record.seconds}s / ${record.goal}s (met=${record.met}, '
+          'sessions=${record.sessions}, xp=${record.xp}, '
+          'activities=${record.activities.length})');
     } catch (e) {
       debugPrint('[FocusHistory] recordDay failed: $e');
     }
@@ -73,10 +96,26 @@ class FocusHistoryService {
       if (isToday) {
         final seconds = prefs.getInt('today_focus_seconds') ?? 0;
         final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+        final sessions = prefs.getInt('today_completed_sessions') ?? 0;
+        final xp = prefs.getInt('today_xp_earned') ?? 0;
+        // Bugungi activity progress'ni `activity_progress_$today` dan
+        // jonli o'qiymiz — har Calendar ochilganda eng so'nggi qiymat.
+        final todayKey = _dateKey(date).replaceFirst(_keyPrefix, '');
+        final progressJson = prefs.getString('activity_progress_$todayKey');
+        Map<String, int> activities = const {};
+        if (progressJson != null) {
+          try {
+            final Map<String, dynamic> decoded = Uri.splitQueryString(progressJson);
+            activities = decoded.map((k, v) => MapEntry(k, int.parse(v)));
+          } catch (_) {}
+        }
         return DayRecord(
           seconds: seconds,
           goal: goal,
           met: seconds >= goal && goal > 0,
+          sessions: sessions,
+          xp: xp,
+          activities: activities,
         );
       }
 
@@ -111,10 +150,24 @@ class FocusHistoryService {
         if (isToday) {
           final seconds = prefs.getInt('today_focus_seconds') ?? 0;
           final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+          final sessions = prefs.getInt('today_completed_sessions') ?? 0;
+          final xp = prefs.getInt('today_xp_earned') ?? 0;
+          final todayKey = _dateKey(date).replaceFirst(_keyPrefix, '');
+          final progressJson = prefs.getString('activity_progress_$todayKey');
+          Map<String, int> activities = const {};
+          if (progressJson != null) {
+            try {
+              final Map<String, dynamic> decoded = Uri.splitQueryString(progressJson);
+              activities = decoded.map((k, v) => MapEntry(k, int.parse(v)));
+            } catch (_) {}
+          }
           result[d] = DayRecord(
             seconds: seconds,
             goal: goal,
             met: seconds >= goal && goal > 0,
+            sessions: sessions,
+            xp: xp,
+            activities: activities,
           );
           continue;
         }
@@ -182,28 +235,52 @@ class FocusHistoryService {
 }
 
 /// Bir kunning yozuvi — `focus_history_YYYY-MM-DD` kalit ostida saqlanadi.
+///
+/// `sessions`, `xp` va `activities` keyinroq qo'shildi — eski yozuvlarda
+/// yo'q, shuning uchun `fromJson`'da default qiymat olinadi.
 class DayRecord {
   final int seconds;
   final int goal;
   final bool met;
+  final int sessions;
+  final int xp;
+  final Map<String, int> activities;
 
   const DayRecord({
     required this.seconds,
     required this.goal,
     required this.met,
+    this.sessions = 0,
+    this.xp = 0,
+    this.activities = const {},
   });
 
   Map<String, dynamic> toJson() => {
         'seconds': seconds,
         'goal': goal,
         'met': met,
+        'sessions': sessions,
+        'xp': xp,
+        'activities': activities,
       };
 
-  factory DayRecord.fromJson(Map<String, dynamic> json) => DayRecord(
-        seconds: (json['seconds'] as num?)?.toInt() ?? 0,
-        goal: (json['goal'] as num?)?.toInt() ?? 0,
-        met: json['met'] as bool? ?? false,
+  factory DayRecord.fromJson(Map<String, dynamic> json) {
+    final activitiesRaw = json['activities'];
+    Map<String, int> activities = const {};
+    if (activitiesRaw is Map) {
+      activities = activitiesRaw.map(
+        (k, v) => MapEntry(k.toString(), (v as num).toInt()),
       );
+    }
+    return DayRecord(
+      seconds: (json['seconds'] as num?)?.toInt() ?? 0,
+      goal: (json['goal'] as num?)?.toInt() ?? 0,
+      met: json['met'] as bool? ?? false,
+      sessions: (json['sessions'] as num?)?.toInt() ?? 0,
+      xp: (json['xp'] as num?)?.toInt() ?? 0,
+      activities: activities,
+    );
+  }
 }
 
 /// Oy bo'yicha qisqa hisobot — Calendar ekranida ko'rsatiladi.

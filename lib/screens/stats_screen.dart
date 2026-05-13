@@ -44,7 +44,9 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now().toString().split(' ')[0];
     
-    // Faoliyatlarni yuklash
+    // Faoliyatlarni yuklash — yangi user'da bo'sh.
+    // Mock'lar olib tashlandi: foydalanuvchi Dashboard'da o'zining
+    // faoliyatlarini qo'shsa, shu yerda statistikada ko'rinadi.
     final activitiesJson = prefs.getStringList('custom_activities');
     List<Map<String, dynamic>> loadedActivities = [];
     if (activitiesJson != null) {
@@ -52,12 +54,6 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
       for (var a in loadedActivities) {
         a['minutes'] = int.tryParse(a['minutes'].toString()) ?? 25;
       }
-    } else {
-      // Default activities
-      loadedActivities = [
-        {'name': AppTranslationService().translate('focus_timer.activities.coding'), 'minutes': 45},
-        {'name': AppTranslationService().translate('focus_timer.activities.reading'), 'minutes': 25},
-      ];
     }
 
     // Progressni yuklash
@@ -200,13 +196,23 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
                         )
                       else
                         ..._activityProgress.entries.map((entry) {
-                          final activity = _customActivities.firstWhere((a) => (a['key'] ?? a['name']) == entry.key, orElse: () => {'name': entry.key});
-                          return _buildSessionItem(
-                            context, 
-                            activity['name'], 
-                            '${entry.value}${lang.translate('stats.unit_m')}', 
-                            lang.translate('stats.today'), 
-                            Theme.of(context).primaryColor
+                          final activity = _customActivities.firstWhere(
+                              (a) => (a['key'] ?? a['name']) == entry.key,
+                              orElse: () => {'name': entry.key});
+                          final activityKey = entry.key;
+                          final displayName = activity.containsKey('key')
+                              ? (lang.translate('focus_timer.${activity['key']}') ?? activity['name'] ?? activityKey)
+                              : (activity['name'] ?? activityKey);
+                          return GestureDetector(
+                            onTap: () => _showActivityWeeklyDetails(
+                                activityKey, displayName, lang),
+                            child: _buildSessionItem(
+                              context,
+                              displayName,
+                              '${entry.value}${lang.translate('stats.unit_m')}',
+                              lang.translate('stats.today'),
+                              Theme.of(context).primaryColor,
+                            ),
                           );
                         }),
                       
@@ -824,6 +830,209 @@ class _StatsScreenState extends State<StatsScreen> with SingleTickerProviderStat
         ),
       ),
     );
+  }
+
+  /// Faoliyat bosilganda haftalik tarixni bottom sheet'da ko'rsatadi.
+  /// So'nggi 7 kun davomida `activity_progress_YYYY-MM-DD` kalitlaridan
+  /// shu activity uchun nechta daqiqa sarflanganini o'qiydi.
+  Future<void> _showActivityWeeklyDetails(
+      String activityKey, String displayName, AppTranslationService lang) async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final List<MapEntry<DateTime, int>> weeklyData = [];
+    int totalMinutes = 0;
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final dateKey =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+      final progressJson = prefs.getString('activity_progress_$dateKey');
+      int minutes = 0;
+      if (progressJson != null) {
+        try {
+          final decoded = Uri.splitQueryString(progressJson);
+          minutes = int.tryParse(decoded[activityKey] ?? '0') ?? 0;
+        } catch (_) {}
+      }
+      totalMinutes += minutes;
+      weeklyData.add(MapEntry(date, minutes));
+    }
+    if (!mounted) return;
+    final maxMinutes =
+        weeklyData.map((e) => e.value).fold<int>(0, (a, b) => a > b ? a : b);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              displayName,
+              style: lang.getFont(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              lang.translate('stats.activity_weekly_title') ??
+                  'Haftalik faoliyat',
+              style: lang.getFont(
+                fontSize: 13,
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (totalMinutes == 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    lang.translate('stats.activity_no_data') ??
+                        'Bu hafta hali ma\'lumot yo\'q',
+                    style: lang.getFont(
+                      fontSize: 14,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              )
+            else
+              ...weeklyData.map((entry) {
+                final dayLabel = _weekdayShort(entry.key.weekday, lang);
+                final mins = entry.value;
+                final ratio = maxMinutes > 0 ? mins / maxMinutes : 0.0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 36,
+                        child: Text(
+                          dayLabel,
+                          style: lang.getFont(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: ratio.clamp(0.0, 1.0),
+                            minHeight: 10,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.06),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 56,
+                        child: Text(
+                          '$mins ${lang.translate('stats.unit_m') ?? 'daq'}',
+                          textAlign: TextAlign.right,
+                          style: lang.getFont(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            const SizedBox(height: 16),
+            Divider(
+              color:
+                  Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  lang.translate('stats.activity_weekly_total') ?? 'Jami',
+                  style: lang.getFont(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  _formatMinutesToHm(totalMinutes, lang),
+                  style: lang.getFont(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Haftaning qisqa nomi (DateTime.weekday: 1..7 → Mon..Sun).
+  String _weekdayShort(int weekday, AppTranslationService lang) {
+    const keys = [
+      'calendar.wd_mon',
+      'calendar.wd_tue',
+      'calendar.wd_wed',
+      'calendar.wd_thu',
+      'calendar.wd_fri',
+      'calendar.wd_sat',
+      'calendar.wd_sun',
+    ];
+    return lang.translate(keys[weekday - 1]) ?? '';
+  }
+
+  /// "65" → "1s 5d", "30" → "30d"
+  String _formatMinutesToHm(int minutes, AppTranslationService lang) {
+    if (minutes <= 0) return '0 ${lang.translate('stats.unit_m') ?? 'daq'}';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m ${lang.translate('stats.unit_m') ?? 'daq'}';
+    if (m == 0) return '$h ${lang.translate('stats.unit_h') ?? 's'}';
+    return '$h ${lang.translate('stats.unit_h') ?? 's'} $m ${lang.translate('stats.unit_m') ?? 'daq'}';
   }
 }
 

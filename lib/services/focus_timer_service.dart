@@ -26,6 +26,24 @@ class FocusTimerService {
         _isRunning = event['isRunning'] ?? false;
       }
     });
+
+    // Timer tabiiy tugaganda background service shu eventni yuboradi.
+    // UI bu signalni tutib alarm dismiss dialog ko'rsatadi.
+    _service.on('timerFinished').listen((event) {
+      _isRunning = false;
+      _timerController.add({
+        'timerFinished': true,
+        'minutes': event?['minutes'] ?? 0,
+        'isRunning': false,
+        'isPaused': false,
+        'seconds': 0,
+      });
+    });
+  }
+
+  /// Alarm ringtoni va flagini o'chirish — background service orqali.
+  Future<void> stopAlarm() async {
+    _service.invoke('stopAlarm');
   }
 
   /// Taymerni boshlash

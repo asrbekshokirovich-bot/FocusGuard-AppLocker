@@ -62,14 +62,17 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     bool notifications = await Permission.notification.isGranted;
     bool battery = await Permission.ignoreBatteryOptimizations.isGranted;
 
-    // Usage ruxsatini faqat passiv tekshiramiz (trigger qilmaslik uchun)
-    bool usage = false;
-    if (isPassive) {
-      // SharedPreferences dan oldingi holatni olishimiz mumkin yoki shunchaki false qaytaramiz
-      usage = _isUsageGranted;
-    } else {
-      usage = await _checkUsagePermission();
-    }
+    // Usage Access ruxsatini har doim haqiqiy API orqali tekshiramiz.
+    // _checkUsagePermission() o'zi passive — hech qanday dialog yoki
+    // settings ekranni triggerlamaydi, faqat AppUsage().getAppUsage()
+    // chaqirib exception bormi yo'qmi tekshiradi. Shu sababli passive/
+    // non-passive farqi keraksiz. Avval shunchaki cached `_isUsageGranted`
+    // qaytarilardi, lekin bu screen yangidan ochilganda har doim default
+    // `false` bo'lib qolardi va "Davom etish" tugmasi yana yonardi —
+    // foydalanuvchi ruxsat bergan bo'lsa ham. SharedPreferences'ga ham
+    // saqlaymiz — agar API bir oz sekin javob bersa, eski qiymat
+    // ko'rinadi (flicker oldini olish uchun).
+    bool usage = await _checkUsagePermission();
 
     if (mounted) {
       setState(() {
@@ -84,7 +87,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
   Future<bool> _checkUsagePermission() async {
     try {
-      // Shunchaki tekshirish uchun qisqa vaqt oralig'ini olamiz
+      // Shunchaki tekshirish uchun qisqa vaqt oralig'ini olamiz.
+      // Agar PACKAGE_USAGE_STATS berilmagan bo'lsa SecurityException
+      // beradi va catch bloki false qaytaradi. Hech qanday UI/dialog
+      // ochilmaydi — to'liq passive operatsiya.
       DateTime now = DateTime.now();
       await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
       return true;

@@ -227,6 +227,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 final prefs = await SharedPreferences.getInstance();
                                 await prefs.setBool('is_logged_in', true);
 
+                                // Ro'yxatdan o'tgan sanani saqlash
+                                await prefs.setString('registration_date', DateTime.now().toIso8601String());
+
                                 // Dashboard oynasiga o'tish
                                 if (mounted) {
                                   Navigator.pushAndRemoveUntil(
