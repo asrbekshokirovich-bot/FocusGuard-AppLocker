@@ -93,7 +93,22 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _checkRecentCrash() async {
     final crash = await CrashLogger.instance.getRecentCrash();
-    if (mounted && crash != null && crash.isRecent) {
+    if (crash == null) return;
+    // Firestore permission va network xatolari — bu crash emas, balki
+    // kutiladigan holatlar (rules sozlanmagan, internet yo'q, h.k.).
+    // Eski yozuvlar disk'da qolgan bo'lishi mumkin — tozalaymiz.
+    final reason = crash.reason.toLowerCase();
+    final isExpected = reason.contains('permission-denied') ||
+        reason.contains('permission_denied') ||
+        reason.contains('cloud_firestore/permission') ||
+        reason.contains('network-request-failed') ||
+        reason.contains('socketexception') ||
+        reason.contains('unable to resolve host');
+    if (isExpected) {
+      await CrashLogger.instance.clear();
+      return;
+    }
+    if (mounted && crash.isRecent) {
       setState(() => _crashRecord = crash);
     }
   }

@@ -388,7 +388,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         crossAxisCount: 7,
         mainAxisSpacing: 6,
         crossAxisSpacing: 6,
-        childAspectRatio: 0.95,
+        childAspectRatio: 1.0,
       ),
       itemCount: rows * 7,
       itemBuilder: (context, index) {
@@ -485,7 +485,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Container(
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: isToday
                   ? Border.all(color: const Color(0xFF007AFF), width: 2)
                   : null,

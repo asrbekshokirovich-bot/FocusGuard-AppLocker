@@ -25,6 +25,27 @@ class CrashLogger {
   static const String _kOverlaySource = 'last_overlay_crash_source';
   static const String _kOverlayTime = 'last_overlay_crash_time';
 
+  /// Bu xato banner sifatida ko'rsatilmasligi kerakmi? "Crash" emas, balki
+  /// "kutiladigan" xatolar (network, permission denied, h.k.) — ular
+  /// ilova ishlashiga to'siq qilmaydi va foydalanuvchini bezovta qilmaslik
+  /// kerak. Ular debugPrint'ga yoziladi, lekin diskka SAQLANMAYDI.
+  bool _shouldIgnore(Object error) {
+    final s = error.toString().toLowerCase();
+    // Firestore permission errors — rules sozlanmagan bo'lsa kutiladi
+    if (s.contains('permission-denied') ||
+        s.contains('permission_denied') ||
+        s.contains('cloud_firestore/permission')) {
+      return true;
+    }
+    // Network errors — internetsiz holatda kutiladi
+    if (s.contains('network') && s.contains('unavailable')) return true;
+    if (s.contains('socketexception')) return true;
+    if (s.contains('unable to resolve host')) return true;
+    // Firebase Auth network errors
+    if (s.contains('network-request-failed')) return true;
+    return false;
+  }
+
   /// Crash sababini yozish. `source` — qaysi joydan kelganini ko'rsatadi
   /// (masalan "showOverlay", "FlutterError", "PlatformDispatcher").
   Future<void> recordError(
@@ -32,6 +53,11 @@ class CrashLogger {
     StackTrace? stack, {
     required String source,
   }) async {
+    // Kutiladigan xatolarni o'tkazib yuboramiz — bu crash emas
+    if (_shouldIgnore(error)) {
+      debugPrint('[CrashLogger] ignored expected error: $source — $error');
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final reason = '${error.runtimeType}: $error';

@@ -588,6 +588,69 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
         ),
       );
     }
+    // Avtomatik rejimda — tugma o'rniga "Avtomatik yoqilgan" matn ko'rsatamiz.
+    // Foydalanuvchi tushunadi: hech narsa bosish kerakmas, fonida ishlaydi.
+    if (_syncMode == 'auto') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF34C759).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF34C759).withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFF34C759).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.checkmark_circle_fill,
+                color: Color(0xFF34C759),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lang.translate('cloud_backup.auto_active_title') ??
+                        'Avtomatik yoqilgan',
+                    style: lang.getFont(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF1B7A3E),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    lang.translate('cloud_backup.auto_active_desc') ??
+                        'Internet yoqilgan zahoti ma\'lumotlar bulutga avtomatik saqlanadi',
+                    style: lang.getFont(
+                      fontSize: 12,
+                      color:
+                          Theme.of(context).colorScheme.onSurface.withOpacity(0.65),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Qo'lda rejimda — bosib saqlash tugmasi
     return SizedBox(
       width: double.infinity,
       height: 56,

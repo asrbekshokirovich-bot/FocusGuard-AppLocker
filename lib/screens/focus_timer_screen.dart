@@ -23,7 +23,8 @@ class FocusTimerScreen extends StatefulWidget {
   State<FocusTimerScreen> createState() => _FocusTimerScreenState();
 }
 
-class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerProviderStateMixin {
+class _FocusTimerScreenState extends State<FocusTimerScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // Standart Pomodoro qiymati — 25 daqiqa. Foydalanuvchi oziga moslab
   // o'zgartirishi mumkin (25 / 45 / 60 / 120 va custom picker).
   int _selectedMinutes = 25;
@@ -82,38 +83,58 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
           _isRunning = event['isRunning'] ?? _isRunning;
           _isPaused = event['isPaused'] ?? _isPaused;
         });
+        // Har stream tick — bugungi progress'ni jonli yangilab turamiz
+        // (today_focus_seconds background'da o'sib boryapti).
+        _refreshTodayProgress();
       }
     });
 
+    WidgetsBinding.instance.addObserver(this);
     _loadDailyProgress();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App qayta foreground'ga kelganda bugungi progress'ni qayta o'qiymiz.
+    // Bu kun o'tgan bo'lsa (today_focus_seconds = 0 ga tushgan) UI darrov
+    // yangilanadi va eski 4d/4d ko'rinmaydi.
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refreshTodayProgress();
+      _loadDailyProgress();
+    }
   }
 
   Future<void> _loadDailyProgress() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastReset = prefs.getString('last_progress_reset') ?? '';
+    await prefs.reload();
     final today = DateTime.now().toString().split(' ')[0];
 
-    if (lastReset != today) {
-      // Kechagi maqsad tekshiruvi
-      final lastGoal = prefs.getDouble('daily_goal_hours') ?? 4.0;
-      final lastProgress = prefs.getDouble('daily_progress_hours') ?? 0.0;
-      
-      if (lastProgress < lastGoal && lastReset != '') {
-        // Maqsadga erishilmagan - bildirishnoma yuborish
-        TimerNotificationService().showGoalMissedNotification();
-      }
+    // Bugungi progress'ni `today_focus_seconds` dan o'qiymiz — bu yagona
+    // haqiqiy manba. Background service har yangi kunda 00:00 da uni
+    // nolga tushiradi. Avval ishlatilgan `daily_progress_hours` kaliti
+    // background service bilan sinxronlashmasdi va kun o'tishi bilan
+    // yangi kunda eski qiymat saqlanib qolardi.
+    final todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
 
-      // Yangi kun - progressni nolga tushiramiz
-      await prefs.setDouble('daily_progress_hours', 0.0);
+    // "Yo'qotilgan maqsad" notifikatsiyasi — bir kuniga 1 marta yuboramiz.
+    // Eski `last_progress_reset` kaliti shu maqsad uchun saqlanadi.
+    final lastReset = prefs.getString('last_progress_reset') ?? '';
+    if (lastReset != today && lastReset.isNotEmpty) {
+      // Yangi kun: kechagi natijani tekshiramiz (background service
+      // allaqachon today_focus_seconds ni reset qilgan, kechagi qiymat
+      // history'da). Notifikatsiya logikasi background_service'da bor —
+      // bu yerda qaytarib chaqirmaymiz.
+      await prefs.setString('last_progress_reset', today);
+    } else if (lastReset.isEmpty) {
       await prefs.setString('last_progress_reset', today);
     }
 
     setState(() {
-      _dailyGoalHours = prefs.getDouble('daily_goal_hours') ?? 4.0;
-      _currentProgressHours = prefs.getDouble('daily_progress_hours') ?? 0.0;
+      _dailyGoalHours = (prefs.getInt('daily_goal_seconds') ?? 14400) / 3600;
+      _currentProgressHours = todayFocusSeconds / 3600;
       _motivationPhrase = prefs.getString('motivation_phrase') ?? AppTranslationService().translate('focus_timer.motivation_default');
       _motivationController.text = _motivationPhrase;
-      
+
       // Faoliyatlarni yuklash
       final activitiesJson = prefs.getStringList('custom_activities');
       if (activitiesJson != null) {
@@ -123,7 +144,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
           a['minutes'] = int.tryParse(a['minutes'].toString()) ?? 25;
         }
       }
-      
+
       // Faoliyat progressini yuklash
       final progressJson = prefs.getString('activity_progress_$today');
       if (progressJson != null) {
@@ -133,9 +154,36 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
         _activityProgress = {};
       }
     });
-    
+
     // Background servicega maqsadni yuborish
     _timerService.updateDailyGoal((_dailyGoalHours * 3600).toInt());
+  }
+
+  /// Bugungi maqsad progressini SharedPreferences'dan jonli o'qib UI'ni
+  /// yangilaydi. Taymer ishlayotganda har stream tick'da chaqiriladi,
+  /// shuningdek ilova qayta foreground'ga kelganda ham. Bu funksiya
+  /// `today_focus_seconds` (background service yangilab turadi) ga
+  /// asoslangan — yagona haqiqiy manba.
+  Future<void> _refreshTodayProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
+      final today = DateTime.now().toString().split(' ')[0];
+      final progressJson = prefs.getString('activity_progress_$today');
+      Map<String, int> updatedProgress = {};
+      if (progressJson != null) {
+        final decoded = Uri.splitQueryString(progressJson);
+        updatedProgress =
+            decoded.map((k, v) => MapEntry(k, int.tryParse(v) ?? 0));
+      }
+      if (mounted) {
+        setState(() {
+          _currentProgressHours = todayFocusSeconds / 3600;
+          _activityProgress = updatedProgress;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveGoal(double goal) async {
@@ -146,12 +194,14 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
 
   Future<void> _updateProgress(int secondsAdded) async {
     final prefs = await SharedPreferences.getInstance();
-    double hoursAdded = secondsAdded / 3600;
-    double newProgress = _currentProgressHours + hoursAdded;
-    
-    await prefs.setDouble('daily_progress_hours', newProgress);
-    setState(() => _currentProgressHours = newProgress);
-    
+
+    // `daily_progress_hours` ga yozmaymiz — `today_focus_seconds` yagona
+    // manba (background service yangilab turadi). Faqat UI'ni qayta
+    // o'qib darrov yangilaymiz.
+    await prefs.reload();
+    final todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
+    setState(() => _currentProgressHours = todayFocusSeconds / 3600);
+
     // XP va Level Service bilan integratsiya
     await LevelService().addXP((secondsAdded / 60).toInt());
 
@@ -161,11 +211,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
       final activityKey = activity['key'] ?? activity['name'];
       final currentActivityMinutes = _activityProgress[activityKey] ?? 0;
       final minutesToAdd = (secondsAdded / 60).round();
-      
+
       setState(() {
         _activityProgress[activityKey] = currentActivityMinutes + minutesToAdd;
       });
-      
+
       // Saqlash
       final today = DateTime.now().toString().split(' ')[0];
       final progressString = Uri(queryParameters: _activityProgress.map((key, value) => MapEntry(key, value.toString()))).query;
@@ -175,6 +225,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timerSubscription?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
@@ -278,55 +329,43 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> with SingleTickerPr
     final lang = AppTranslationService();
     if (!mounted) return;
 
-    showDialog(
+    // iPhone uslubidagi CupertinoAlertDialog — ilova ichida timer
+    // tugaganda chiqadi. App tashqarisida bo'lsa overlay (overlay_screen.dart)
+    // chiqadi — bu joyda emas.
+    showCupertinoDialog(
       context: context,
-      barrierDismissible: false, // Foydalanuvchi tugmani bosishi shart
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('🎯', style: TextStyle(fontSize: 48)),
-              const SizedBox(height: 12),
-              Text(
-                lang.translate('alarm.in_app_title'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                lang.translate('alarm.in_app_body'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    _timerService.stopAlarm();
-                    Navigator.of(ctx).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(
-                    lang.translate('alarm.dismiss_btn'),
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
+      barrierDismissible: false,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🎯', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 8),
+            Text(
+              lang.translate('alarm.in_app_title'),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            lang.translate('alarm.in_app_body'),
+            textAlign: TextAlign.center,
           ),
         ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              _timerService.stopAlarm();
+              Navigator.of(ctx).pop();
+            },
+            child: Text(
+              lang.translate('alarm.dismiss_btn'),
+            ),
+          ),
+        ],
       ),
     );
   }

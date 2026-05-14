@@ -28,6 +28,12 @@ class CloudSyncService {
   final _auth = FirebaseAuth.instance;
   StreamSubscription<bool>? _connectivitySub;
   bool _isSyncing = false;
+  // Circuit breaker — ketma-ket permission/network xatolari sonini sanaydi.
+  // 3 marta bo'lsa, sessiya davomida qayta urinmaymiz (foydalanuvchi
+  // Firebase rules'ni sozlamagan yoki internet uzilgan bo'lishi mumkin).
+  // Ilova qayta ochilganda counter resetlanadi.
+  int _consecutiveErrors = 0;
+  static const _maxConsecutiveErrors = 3;
 
   // SharedPreferences kalitlari:
   static const _kSyncMode = 'cloud_sync_mode'; // 'auto' yoki 'manual'
@@ -119,10 +125,29 @@ class CloudSyncService {
     }
   }
 
+  /// Xatolik permission/network sababli yuz berganmi tekshirish.
+  /// Bunday xatolar haqiqiy crash emas — Firebase rules sozlanmagan yoki
+  /// internet uzilgan. Circuit breaker shularda tetiklanadi.
+  bool _isExpectedError(Object e) {
+    final s = e.toString().toLowerCase();
+    return s.contains('permission-denied') ||
+        s.contains('permission_denied') ||
+        s.contains('network') ||
+        s.contains('unavailable') ||
+        s.contains('socketexception');
+  }
+
   /// Pending queue'dagi kunlarni Firestore'ga yuborish.
   /// `silent=true` bo'lsa progress stream'ga yozmaydi.
   Future<void> _syncPending({required bool silent}) async {
     if (_isSyncing) return;
+    // Circuit breaker — sessiya davomida juda ko'p permission xato bo'lsa,
+    // qayta urinmaymiz. Foydalanuvchi keyin Firebase rules sozlasa, ilova
+    // qayta ochilganda sync ishlay boshlaydi.
+    if (_consecutiveErrors >= _maxConsecutiveErrors) {
+      debugPrint('[CloudSync] circuit breaker open, skipping');
+      return;
+    }
     _isSyncing = true;
     try {
       final user = _auth.currentUser;
@@ -140,6 +165,11 @@ class CloudSyncService {
 
       for (int i = 0; i < pending.length; i++) {
         final dateKey = pending[i];
+        // Circuit breaker — qatorda ko'p xato bo'lsa to'xtatamiz
+        if (_consecutiveErrors >= _maxConsecutiveErrors) {
+          debugPrint('[CloudSync] too many errors, stopping batch');
+          break;
+        }
         try {
           final date = DateTime.parse(dateKey);
           final daysAgo = now.difference(date).inDays;
@@ -162,6 +192,7 @@ class CloudSyncService {
               .doc(dateKey)
               .set(data, SetOptions(merge: true));
           successful.add(dateKey);
+          _consecutiveErrors = 0; // muvaffaqiyat — counter resetlanadi
 
           if (!silent) {
             _progressController.add(BackupProgress(
@@ -171,7 +202,13 @@ class CloudSyncService {
             ));
           }
         } catch (e) {
-          debugPrint('[CloudSync] failed to sync $dateKey: $e');
+          if (_isExpectedError(e)) {
+            _consecutiveErrors++;
+            debugPrint(
+                '[CloudSync] expected error ($_consecutiveErrors/$_maxConsecutiveErrors): $e');
+          } else {
+            debugPrint('[CloudSync] unexpected error syncing $dateKey: $e');
+          }
           // Bu kun queue'da qoladi, keyingi marta urinib ko'ramiz
         }
       }
@@ -182,6 +219,10 @@ class CloudSyncService {
       await prefs.setStringList(_kPendingDates, remaining);
       await prefs.setString(
           _kLastSyncTime, DateTime.now().toIso8601String());
+    } catch (e) {
+      // Eng tashqi catch — kutilmagan xato sodir bo'lsa ham sukunatda.
+      // CrashLogger banner ko'rsatmaydi (filter `_shouldIgnore` ishlaydi).
+      debugPrint('[CloudSync] _syncPending top-level error: $e');
     } finally {
       _isSyncing = false;
     }
@@ -238,10 +279,14 @@ class CloudSyncService {
   /// **MANUAL backup** — foydalanuvchi Cloud Backup ekranida tugmani
   /// bosganida chaqiriladi. Hamma history'ni qaytadan yuboradi (queue
   /// emas) — bu "to'liq backup" operatsiyasi.
+  ///
+  /// Manual operatsiyaga circuit breaker ta'sir qilmaydi — foydalanuvchi
+  /// aniq bosgan, qayta urinishga arziydi. Boshida counter resetlanadi.
   Future<bool> uploadAllManual() async {
     if (_isSyncing) return false;
     final user = _auth.currentUser;
     if (user == null) return false;
+    _consecutiveErrors = 0; // manual urinishda circuit breaker resetlanadi
     _isSyncing = true;
     try {
       final isPremium = await _isPremiumUser(user.uid);

@@ -22,6 +22,8 @@ import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
 import 'services/crash_logger.dart';
 import 'services/cloud_sync_service.dart';
+import 'services/level_service.dart';
+import 'services/daily_reset_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -67,7 +69,12 @@ void main() async {
   await AppTranslationService().init();
   await LanguageService().init();
   await ThemeService().init();
-  
+
+  // Kunlik reset — agar bugun yangi kun bo'lsa, kechagi ma'lumotni
+  // history'ga yozamiz va bugungi counter'larni 0 ga tushiramiz. Background
+  // service uxlab qolgan bo'lsa ham bu yerda darrov bajariladi.
+  await DailyResetService.instance.checkAndResetIfNewDay();
+
   // Fon xizmatini ishga tushirish
   await initializeBackgroundService();
   // Agar barcha ruxsatlar va bloklangan ilovalar bo'lsa, xizmatni darhol boshlaymiz
@@ -84,6 +91,11 @@ void main() async {
   // kuzatadi va auto rejimda fon'da silent sync qiladi. Foydalanuvchi
   // hech narsa sezmaydi.
   await CloudSyncService.instance.init();
+
+  // Eski daraja formulasidan yangi threshold tizimiga bir martalik
+  // migratsiya. Login bo'lmagan bo'lsa metod o'zi ichida hech narsa
+  // qilmaydi. Foydalanuvchini bloklamaslik uchun fonida ishlatamiz.
+  LevelService().migrateLevelIfNeeded();
 
   runApp(
     DevicePreview(
@@ -119,6 +131,12 @@ class _FocusGuardAppState extends State<FocusGuardApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App qayta foreground'ga kelganda kun resetini darrov tekshiramiz.
+      // Foydalanuvchi telefon ekranini yarim tunda yopib qo'yib, ertaga
+      // ochsa — kechagi 4 daq ko'rinmasdan, 0d / 4d ko'rinishi uchun.
+      DailyResetService.instance.checkAndResetIfNewDay();
+    }
     SharedPreferences.getInstance().then((p) {
       if (state == AppLifecycleState.resumed) {
         p.setBool('app_in_foreground', true);

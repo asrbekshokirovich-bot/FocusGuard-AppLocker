@@ -13,6 +13,68 @@ class LevelService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// 16 ta darajaning XP chegaralari. Index N — Level (N+1) ga kirish uchun
+  /// kerakli minimum XP. 1 daqiqa fokus = 10 XP. Soatlar `level_screen.dart`
+  /// ro'yxatidagi qiymatlarga mos:
+  ///   L1 0-1s, L2 1-3s, L3 3-7s, L4 7-15s, L5 15-30s, ...
+  static const List<int> levelXpThresholds = [
+    0,        // L1 boshlanishi (0 soat)
+    600,      // L2 (1 soat)
+    1800,     // L3 (3 soat)
+    4200,     // L4 (7 soat)
+    9000,     // L5 (15 soat)
+    18000,    // L6 (30 soat)
+    30000,    // L7 (50 soat)
+    48000,    // L8 (80 soat)
+    72000,    // L9 (120 soat)
+    108000,   // L10 (180 soat)
+    150000,   // L11 (250 soat)
+    240000,   // L12 (400 soat)
+    360000,   // L13 (600 soat)
+    540000,   // L14 (900 soat)
+    780000,   // L15 (1300 soat)
+    1080000,  // L16 (1800 soat — maksimal)
+  ];
+
+  static const int maxLevel = 16;
+
+  /// XP qiymatidan darajani hisoblash. Eski `(xp/1000).floor()+1` formulasi
+  /// yuqori darajalarda noto'g'ri qiymat berardi (cheksiz daraja oshib
+  /// ketardi) — endi 16 ta belgilangan chegara bilan ishlaydi.
+  static int levelFromXp(int xp) {
+    for (int i = levelXpThresholds.length - 1; i >= 0; i--) {
+      if (xp >= levelXpThresholds[i]) return i + 1;
+    }
+    return 1;
+  }
+
+  /// Joriy daraja ichidagi progress va keyingi darajagacha qolgan XP.
+  /// UI shu helper'dan foydalanadi — formula bir joyda turishi uchun.
+  static LevelInfo levelInfoFromXp(int xp) {
+    final level = levelFromXp(xp);
+    final levelStartXp = levelXpThresholds[level - 1];
+    // Maksimal darajada keyingi chegara yo'q — progress 100% deb qaytaramiz.
+    if (level >= maxLevel) {
+      return LevelInfo(
+        level: level,
+        progress: 1.0,
+        currentLevelXp: xp - levelStartXp,
+        remainingXp: 0,
+        isMaxLevel: true,
+      );
+    }
+    final nextLevelStartXp = levelXpThresholds[level];
+    final xpIntoLevel = xp - levelStartXp;
+    final xpRange = nextLevelStartXp - levelStartXp;
+    return LevelInfo(
+      level: level,
+      progress: xpRange > 0 ? (xpIntoLevel / xpRange).clamp(0.0, 1.0) : 0.0,
+      currentLevelXp: xpIntoLevel,
+      remainingXp: nextLevelStartXp - xp,
+      isMaxLevel: false,
+    );
+  }
+
   // Foydalanuvchi ma'lumotlarini oqim (stream) shaklida olish
   Stream<DocumentSnapshot> getUserStatsStream() {
     final user = _auth.currentUser;
@@ -26,7 +88,7 @@ class LevelService {
     if (user == null) return;
 
     final docRef = _firestore.collection('users').doc(user.uid);
-    
+
     try {
       bool levelUp = false;
       int newLevelResult = 1;
@@ -37,13 +99,13 @@ class LevelService {
 
         int currentXP = snapshot.data()?['xp'] ?? 0;
         int currentLevel = snapshot.data()?['level'] ?? 1;
-        
+
         // Har bir minut uchun 10 XP
         int gainedXP = minutes * 10;
         int newXP = currentXP + gainedXP;
-        
-        // Darajani hisoblash
-        int newLevel = (newXP / 1000).floor() + 1;
+
+        // Darajani hisoblash — yangi threshold jadvali asosida
+        int newLevel = levelFromXp(newXP);
         newLevelResult = newLevel;
 
         if (newLevel > currentLevel) {
@@ -122,24 +184,38 @@ class LevelService {
     }
   }
 
-  // Darajaga qarab unvonni aniqlash (AppTranslationService kalitlari bilan)
+  // Darajaga qarab unvonni aniqlash. 16 ta daraja 1:1 mos keladi:
+  //   Level 1 → rank_1 (Yangi Foydalanuvchi)
+  //   Level 2 → rank_2 (Birinchi Qadam)
+  //   ...
+  //   Level 16 → rank_16 (Afsonaviy Fokuschi)
   String getRankTitle(int level, dynamic lang) {
-    if (level <= 1) return lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
-    if (level <= 3) return lang.translate('levels.rank_2') ?? 'Birinchi Qadam';
-    if (level <= 5) return lang.translate('levels.rank_3') ?? 'Ambitsioz';
-    if (level <= 8) return lang.translate('levels.rank_4') ?? 'Entuziast';
-    if (level <= 12) return lang.translate('levels.rank_5') ?? 'Diqqatli';
-    if (level <= 16) return lang.translate('levels.rank_6') ?? 'G\'ayratli';
-    if (level <= 20) return lang.translate('levels.rank_7') ?? 'Mutaxassis';
-    if (level <= 25) return lang.translate('levels.rank_8') ?? 'Professional';
-    if (level <= 30) return lang.translate('levels.rank_9') ?? 'Chempion';
-    if (level <= 35) return lang.translate('levels.rank_10') ?? 'Super Fokus';
-    if (level <= 40) return lang.translate('levels.rank_11') ?? 'Elite';
-    if (level <= 50) return lang.translate('levels.rank_12') ?? 'Legend';
-    if (level <= 65) return lang.translate('levels.rank_13') ?? 'Master';
-    if (level <= 80) return lang.translate('levels.rank_14') ?? 'Grandmaster';
-    if (level <= 100) return lang.translate('levels.rank_15') ?? 'Fokus Qiroli';
-    return lang.translate('levels.rank_16') ?? 'Fokus Xudosi';
+    final clamped = level.clamp(1, maxLevel);
+    return lang.translate('levels.rank_$clamped') ??
+        'Yangi Foydalanuvchi';
+  }
+
+  /// Bir martalik migration: eski (flat 1000 XP) formuladan yangi threshold
+  /// tizimiga o'tish. Foydalanuvchi level qiymati yangi formula bilan qayta
+  /// hisoblanadi. Ilova ochilganda asynchronously chaqirilishi mumkin.
+  Future<void> migrateLevelIfNeeded() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      final docRef = _firestore.collection('users').doc(user.uid);
+      final snapshot = await docRef.get();
+      if (!snapshot.exists) return;
+      final data = snapshot.data() ?? {};
+      final int xp = (data['xp'] as num?)?.toInt() ?? 0;
+      final int oldLevel = (data['level'] as num?)?.toInt() ?? 1;
+      final int correctLevel = levelFromXp(xp);
+      if (oldLevel != correctLevel) {
+        await docRef.update({'level': correctLevel});
+        debugPrint('[LevelService] migrated level $oldLevel → $correctLevel (xp=$xp)');
+      }
+    } catch (e) {
+      debugPrint('migrateLevelIfNeeded error: $e');
+    }
   }
 
   // Boshlang'ich ma'lumotlarni tekshirish va yaratish
@@ -164,4 +240,23 @@ class LevelService {
       }, SetOptions(merge: true));
     }
   }
+}
+
+/// Daraja haqidagi to'liq ma'lumot — UI shu modeldan foydalanadi.
+/// Formula bir joyda (LevelService.levelInfoFromXp) hisoblanadi va
+/// barcha ekranlarda yagona qiymat qaytariladi.
+class LevelInfo {
+  final int level;            // 1..16
+  final double progress;      // 0.0..1.0
+  final int currentLevelXp;   // Joriy daraja ichidagi XP
+  final int remainingXp;      // Keyingi darajagacha qolgan XP
+  final bool isMaxLevel;      // Level 16 ga yetganmi
+
+  const LevelInfo({
+    required this.level,
+    required this.progress,
+    required this.currentLevelXp,
+    required this.remainingXp,
+    required this.isMaxLevel,
+  });
 }

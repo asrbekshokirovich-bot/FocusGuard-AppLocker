@@ -43,18 +43,17 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
         return StreamBuilder<DocumentSnapshot>(
           stream: LevelService().getUserStatsStream(),
           builder: (context, snapshot) {
-            int level = 1;
             int xp = 0;
-            double progress = 0.0;
-            int totalMinutes = 0;
 
             if (snapshot.hasData && snapshot.data!.exists) {
               final data = snapshot.data!.data() as Map<String, dynamic>;
-              level = data['level'] ?? 1;
-              xp = data['xp'] ?? 0;
-              totalMinutes = data['totalMinutes'] ?? 0;
-              progress = (xp % 1000) / 1000.0;
+              xp = (data['xp'] as num?)?.toInt() ?? 0;
             }
+
+            // Yagona helper'dan barcha daraja ma'lumotlarini olamiz.
+            final info = LevelService.levelInfoFromXp(xp);
+            final int level = info.level;
+            final double progress = info.progress;
 
             return Scaffold(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -148,9 +147,17 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildCurrentStatusCard(AppTranslationService lang, int currentLevel, double currentProgress, int xp) {
+  Widget _buildCurrentStatusCard(AppTranslationService lang, int currentLevel,
+      double currentProgress, int xp) {
     String rankTitle = LevelService().getRankTitle(currentLevel, lang);
-    double remainingHours = (1000 - (xp % 1000)) / 10 / 60;
+    // Yagona helper'dan ma'lumot olamiz — formula bir joyda (LevelService).
+    // 1 daqiqa fokus = 10 XP. Daraja chegaralari level_service.dart'da.
+    final info = LevelService.levelInfoFromXp(xp);
+    final currentLevelXp = info.currentLevelXp;
+    final currentLevelMinutes = currentLevelXp ~/ 10;
+    final remainingMinutes = info.remainingXp ~/ 10;
+    final minLabel = lang.translate('focus_timer.min') ?? 'daq';
+    final hourLabel = lang.translate('levels.hour_suffix') ?? 's';
 
     return Container(
       width: double.infinity,
@@ -166,81 +173,179 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: FaIcon(
-              FontAwesomeIcons.medal,
-              color: Theme.of(context).primaryColor,
-              size: 40,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            rankTitle,
-            style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          Text(
-            lang.translate('levels.level') + ' $currentLevel',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).primaryColor,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
             children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: FaIcon(
+                  FontAwesomeIcons.medal,
+                  color: Theme.of(context).primaryColor,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                lang.translate('levels.progress'),
+                rankTitle,
                 style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               Text(
-                '${(currentProgress * 100).toInt()}%',
+                lang.translate('levels.level') + ' $currentLevel',
                 style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: Theme.of(context).primaryColor,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    lang.translate('levels.progress'),
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
+                    ),
+                  ),
+                  Text(
+                    '${(currentProgress * 100).toInt()}%',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: currentProgress,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor),
+                  minHeight: 10,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                info.isMaxLevel
+                    ? (lang.translate('levels.max_reached') ??
+                        'Eng yuqori darajaga yetdingiz! 🏆')
+                    : _formatRemainingTime(
+                        remainingMinutes, hourLabel, minLabel, lang),
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: currentProgress,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-              minHeight: 10,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            lang.translate('levels.remaining_hours').replaceAll('{hours}', remainingHours.toStringAsFixed(1)),
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              fontStyle: FontStyle.italic,
+          // Top-right XP badge — joriy XP va uning daqiqalar ekvivalenti.
+          // 1 daqiqa = 10 XP formulasiga asoslangan, foydalanuvchiga
+          // qancha daqiqa fokus qilganini ko'rsatadi.
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Theme.of(context).primaryColor.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).primaryColor.withOpacity(0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        CupertinoIcons.star_fill,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$currentLevelXp XP',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$currentLevelMinutes $minLabel',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Qolgan vaqtni "1 s 25 daq" yoki "45 daq" yoki "2 s" ko'rinishida
+  /// formatlash. Avval "1.4 soat" deb ko'rinardi — bu noqulay edi.
+  String _formatRemainingTime(int remainingMinutes, String hourLabel,
+      String minLabel, AppTranslationService lang) {
+    final h = remainingMinutes ~/ 60;
+    final m = remainingMinutes % 60;
+    String timeStr;
+    if (h == 0) {
+      timeStr = '$m $minLabel';
+    } else if (m == 0) {
+      timeStr = '$h $hourLabel';
+    } else {
+      timeStr = '$h $hourLabel $m $minLabel';
+    }
+    // `levels.remaining_time` — yangi key, formatlangan vaqtni qabul qiladi.
+    // Eski `remaining_hours` o'rniga ishlatamiz.
+    final template = lang.translate('levels.remaining_time');
+    if (template != null && template.contains('{time}')) {
+      return template.replaceAll('{time}', timeStr);
+    }
+    return 'Keyingi darajagacha $timeStr qoldi';
   }
 
   Widget _buildLevelsList(AppTranslationService lang, int currentLevel) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
@@ -264,12 +265,50 @@ void onStart(ServiceInstance service) async {
     await prefs.setInt('today_completed_sessions', n + 1);
   }
 
-  /// Bugungi XP hisoblagichini oshirish (har soniya yoki seans tugashida).
-  /// XP = daqiqalar (level_service.dart shu mantiqdan foydalanadi).
-  Future<void> addTodayXp(int amount) async {
-    if (amount <= 0) return;
+  /// Bugungi XP hisoblagichini oshirish. Parametr — DAQIQALAR. Ichkarida
+  /// `level_service.dart` formulasiga ko'ra 1 daqiqa = 10 XP qilib
+  /// hisoblanadi va `today_xp_earned` (haqiqiy XP qiymati) ga qo'shiladi.
+  /// Calendar detail panel `record.xp` ni shu kalitdan jonli o'qiydi.
+  Future<void> addTodayXpFromMinutes(int minutes) async {
+    if (minutes <= 0) return;
     final n = prefs.getInt('today_xp_earned') ?? 0;
-    await prefs.setInt('today_xp_earned', n + amount);
+    await prefs.setInt('today_xp_earned', n + minutes * 10);
+  }
+
+  /// Eng uzun yakunlangan seans daqiqalarini yangilash. Statistika ekrani
+  /// shu qiymatdan foydalanadi ("Eng uzun seans" karta). Faqat o'sganda
+  /// yoziladi — bir marta 60 daqiqalik seansdan keyin foydalanuvchi 20
+  /// daqiqalik seans qilsa, qiymat 60'da qoladi.
+  Future<void> updateLongestSession(int minutes) async {
+    if (minutes <= 0) return;
+    final current = prefs.getInt('longest_session_minutes') ?? 0;
+    if (minutes > current) {
+      await prefs.setInt('longest_session_minutes', minutes);
+    }
+  }
+
+  /// Bloklangan ilovaga kirishga urinish — statistikaga +1. Har kun uchun
+  /// alohida `block_attempts_YYYY-MM-DD` kalitida JSON map saqlanadi:
+  ///   {"com.instagram.android": 5, "com.tiktok": 3}
+  /// Statistika ekrani so'nggi 30 kunni o'qib top eng ko'p urinilgan
+  /// ilovalarni ko'rsatadi.
+  Future<void> incrementBlockAttempt(String packageName) async {
+    if (packageName.isEmpty) return;
+    try {
+      final key = 'block_attempts_${todayDateKey()}';
+      final raw = prefs.getString(key);
+      Map<String, dynamic> data = {};
+      if (raw != null) {
+        try {
+          data = jsonDecode(raw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      final current = (data[packageName] as num?)?.toInt() ?? 0;
+      data[packageName] = current + 1;
+      await prefs.setString(key, jsonEncode(data));
+    } catch (e) {
+      debugPrint('[BlockAttempt] increment failed: $e');
+    }
   }
 
   // Har soniyada UI ga timerTick yuboramiz — stream chaqirig'i arzon,
@@ -350,6 +389,9 @@ void onStart(ServiceInstance service) async {
     await prefs.setInt('session_initial_seconds', sessionInitialSeconds);
     await prefs.setBool('timer_is_running', true);
     await prefs.setBool('timer_is_paused', false);
+    // Temir Intizom — block_list_screen shu flagni o'qib toggle'larni
+    // qulflaydi (foydalanuvchi seans davomida bloklangan ilovani o'chira olmaydi).
+    await prefs.setBool('timer_is_strict', isStrict);
     await prefs.setString('timer_mode_name', modeName);
     await prefs.setString('timer_mode_icon', modeIcon);
     await prefs.setString('timer_level_title', levelTitle);
@@ -371,7 +413,7 @@ void onStart(ServiceInstance service) async {
       final elapsedMinutes = elapsed ~/ 60;
       if (elapsedMinutes >= 1) {
         await queuePendingXP(elapsedMinutes);
-        await addTodayXp(elapsedMinutes);
+        await addTodayXpFromMinutes(elapsedMinutes);
         debugPrint(
             '[BackgroundTimer] partial stop: ${elapsedMinutes}m queued for XP');
       }
@@ -391,11 +433,13 @@ void onStart(ServiceInstance service) async {
     isPaused = false; // to'liq to'xtatildi
     remainingSeconds = 0;
     sessionInitialSeconds = 0;
+    isStrict = false;
     await prefs.remove('timer_end_timestamp');
     await prefs.remove('timer_remaining_seconds');
     await prefs.remove('session_initial_seconds');
     await prefs.setBool('timer_is_running', false);
     await prefs.setBool('timer_is_paused', false);
+    await prefs.setBool('timer_is_strict', false);
 
     // syncTimer() o'zi notifikatsiyani "Focus Guard / Monitoring faol"
     // ga qaytaradi (chunki isTimerRunning=false va isPaused=false).
@@ -467,7 +511,8 @@ void onStart(ServiceInstance service) async {
         await queuePendingXP(sessionMinutes);
         await queueCompletion();
         await incrementTodaySessions();
-        await addTodayXp(sessionMinutes);
+        await addTodayXpFromMinutes(sessionMinutes);
+        await updateLongestSession(sessionMinutes);
         debugPrint(
             '[BackgroundTimer] late-detected completion: ${sessionMinutes}m queued');
         await FocusHistoryService.instance.recordDay(
@@ -482,6 +527,7 @@ void onStart(ServiceInstance service) async {
       await prefs.remove('timer_end_timestamp');
       await prefs.remove('session_initial_seconds');
       await prefs.setBool('timer_is_running', false);
+      await prefs.setBool('timer_is_strict', false);
     }
   } else if (savedIsPaused) {
     // Pause holatida saqlangan qolgan sekundlarni tiklaymiz.
@@ -599,14 +645,17 @@ void onStart(ServiceInstance service) async {
         // 3. Completion countni oshiramiz
         // 4. Rington-bilan notifikatsiya yuboramiz (app yopiq bo'lsa ham)
         isTimerRunning = false;
+        isStrict = false;
         await prefs.setBool('timer_is_running', false);
+        await prefs.setBool('timer_is_strict', false);
 
         if (sessionInitialSeconds > 0) {
           final sessionMinutes = sessionInitialSeconds ~/ 60;
           await queuePendingXP(sessionMinutes);
           await queueCompletion();
           await incrementTodaySessions();
-          await addTodayXp(sessionMinutes);
+          await addTodayXpFromMinutes(sessionMinutes);
+          await updateLongestSession(sessionMinutes);
           debugPrint(
               '[BackgroundTimer] timer completed: ${sessionMinutes}m queued for XP');
 
@@ -665,25 +714,56 @@ void onStart(ServiceInstance service) async {
           // App fonda bo'lsa (foydalanuvchi boshqa ilova yoki uy ekranida)
           // to'liq ekran alarm overlay ko'rsatamiz. App foreground bo'lsa
           // main isolate timerFinished eventini tutib dialog ko'rsatadi.
+          //
+          // MUHIM: prefs.reload() — background isolate'ning SharedPreferences
+          // o'z keshiga ega. Main isolate `app_in_foreground` ni o'zgartirsa
+          // bu yerda eski qiymat ko'rinardi va overlay chiqmasdi. Reload
+          // qilib eng so'nggi qiymatni o'qiymiz.
+          await prefs.reload();
           final appInForeground = prefs.getBool('app_in_foreground') ?? false;
+          debugPrint(
+              '[BackgroundTimer] alarm: appInForeground=$appInForeground');
           if (!appInForeground) {
             try {
-              final lang = AppTranslationService();
-              final overlayNotifTitle =
-                  lang.translate('overlay.notif_title') ?? 'Focus Guard';
-              final overlayNotifContent =
-                  lang.translate('alarm.overlay_title') ??
-                      'Fokus vaqti tugadi!';
-              await FlutterOverlayWindow.showOverlay(
-                enableDrag: false,
-                overlayTitle: overlayNotifTitle,
-                overlayContent: overlayNotifContent,
-                flag: OverlayFlag.defaultFlag,
-                visibility: NotificationVisibility.visibilitySecret,
-                positionGravity: PositionGravity.auto,
-                height: WindowSize.fullCover,
-                width: WindowSize.fullCover,
-              );
+              // Overlay ruxsati borligini tekshiramiz. Samsung'da ba'zan
+              // jimgina bekor qilinadi — bunday holatda fallback uchun
+              // ringtone va notifikatsiya allaqachon ishlamoqda.
+              final hasOverlayPermission =
+                  await FlutterOverlayWindow.isPermissionGranted();
+              if (!hasOverlayPermission) {
+                debugPrint(
+                    '[BackgroundTimer] alarm: no overlay permission, only notif');
+                await CrashLogger.instance.recordError(
+                  'Alarm overlay skipped: permission missing',
+                  null,
+                  source: 'alarm-overlay-permission',
+                );
+              } else {
+                // Avval mavjud overlay'ni yopamiz (bloklash overlay'i
+                // bo'lishi mumkin), keyin alarm overlay'ini ochamiz —
+                // shunda alarm UI alohida chiqadi.
+                if (await FlutterOverlayWindow.isActive()) {
+                  await FlutterOverlayWindow.closeOverlay();
+                  await Future.delayed(const Duration(milliseconds: 100));
+                }
+                final lang = AppTranslationService();
+                final overlayNotifTitle =
+                    lang.translate('overlay.notif_title') ?? 'Focus Guard';
+                final overlayNotifContent =
+                    lang.translate('alarm.overlay_title') ??
+                        'Fokus vaqti tugadi!';
+                await FlutterOverlayWindow.showOverlay(
+                  enableDrag: false,
+                  overlayTitle: overlayNotifTitle,
+                  overlayContent: overlayNotifContent,
+                  flag: OverlayFlag.defaultFlag,
+                  visibility: NotificationVisibility.visibilitySecret,
+                  positionGravity: PositionGravity.auto,
+                  height: WindowSize.fullCover,
+                  width: WindowSize.fullCover,
+                );
+                debugPrint('[BackgroundTimer] alarm overlay shown');
+              }
             } catch (e, st) {
               debugPrint('[BackgroundTimer] alarm overlay failed: $e');
               await CrashLogger.instance.recordError(e, st,
@@ -875,6 +955,11 @@ void onStart(ServiceInstance service) async {
         bool isOverlayActive = await FlutterOverlayWindow.isActive();
         if (!isOverlayActive) {
           if (currentBlockedApp != currentApp) {
+            // YANGI bloklangan ilova kirishga urinishi — statistika
+            // counter'ini oshiramiz. Aynan o'sha ilovaga bir necha
+            // sekund chap-rost qaytsa qayta sanalmaydi, chunki
+            // `currentBlockedApp` saqlanib turadi.
+            await incrementBlockAttempt(currentApp);
             try {
               if ((await Vibration.hasVibrator()) ?? false) {
                 Vibration.vibrate(duration: 250);

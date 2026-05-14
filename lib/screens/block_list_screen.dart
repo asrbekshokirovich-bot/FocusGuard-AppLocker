@@ -7,6 +7,7 @@ import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
@@ -145,6 +146,36 @@ class _BlockListScreenState extends State<BlockListScreen> {
     setState(() {
       app['blocked'] = false;
     });
+  }
+
+  /// Temir Intizom yoqilgan seans davomida foydalanuvchi bloklangan ilovani
+  /// o'chirmoqchi bo'lsa, bu dialog chiqib tushuntirish beradi va amalni
+  /// bekor qiladi. Toggle holati o'zgartirilmaydi.
+  void _showStrictModeBlockedDialog() {
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(
+          lang.translate('block_list.strict_locked_title') ??
+              '🛡️ Temir Intizom yoqilgan',
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            lang.translate('block_list.strict_locked_desc') ??
+                'Seans tugaguncha bloklangan ilovalarni o\'chira olmaysiz. Irodangizni sinab ko\'ring va maqsadingizga sodiq qoling!',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(lang.translate('focus_timer.understood') ?? 'Tushunarli'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPermissionPromptDialog() {
@@ -408,6 +439,21 @@ class _BlockListScreenState extends State<BlockListScreen> {
             value: app['blocked'],
             activeColor: Theme.of(context).primaryColor,
             onChanged: (val) async {
+              // Temir Intizom himoyasi — agar seans davomida foydalanuvchi
+              // bloklangan ilovani O'CHIRMOQCHI bo'lsa (val=false), ruxsat
+              // bermaymiz va dialog ko'rsatamiz. Yangi ilova qo'shish
+              // (val=true) cheklanmagan.
+              if (!val && app['blocked'] == true) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.reload();
+                final isRunning = prefs.getBool('timer_is_running') ?? false;
+                final isStrict = prefs.getBool('timer_is_strict') ?? false;
+                if (isRunning && isStrict) {
+                  _showStrictModeBlockedDialog();
+                  return;
+                }
+              }
+
               if (val && app['isReal'] == true) {
                 // Avval ruxsatni tekshiramiz
                 bool overlayOk = await Permission.systemAlertWindow.isGranted;
@@ -441,6 +487,21 @@ class _BlockListScreenState extends State<BlockListScreen> {
               }
 
               await prefs.setStringList('blocked_apps', blockedPackages);
+
+              // Ilova nomi cache — Statistika "Eng ko'p urinilgan ilovalar"
+              // ekrani package nomidan haqiqiy ilova nomini olib ko'rsatish
+              // uchun shu cache'ni o'qiydi. Asosan real ilovalar uchun
+              // (`app['isReal'] == true`) saqlanadi.
+              if (val && app['isReal'] == true) {
+                try {
+                  final cacheRaw = prefs.getString('app_name_cache');
+                  final Map<String, dynamic> cache = cacheRaw != null
+                      ? (jsonDecode(cacheRaw) as Map<String, dynamic>)
+                      : <String, dynamic>{};
+                  cache[app['package']] = app['name'];
+                  await prefs.setString('app_name_cache', jsonEncode(cache));
+                } catch (_) {}
+              }
 
               // 2) Endi xavfsiz: service prefs'dan yangilangan ro'yxatni oladi.
               if (val) {

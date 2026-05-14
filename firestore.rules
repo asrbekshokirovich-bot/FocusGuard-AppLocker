@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// FocusGuard Firestore Security Rules
+//
+// Bu fayl Firebase Console'ga ko'chirilishi kerak:
+//   1. https://console.firebase.google.com → focus-guard-786ff
+//   2. Build → Firestore Database → Rules
+//   3. Quyidagi mazmunni yuklash → Publish
+//
+// Asosiy printsiplar:
+//   - Foydalanuvchi faqat o'z ma'lumotlariga kira oladi
+//   - Auth qilinmagan user'lar hech narsaga ruxsat olmaydi
+//   - Subkolleksiyalar (history) ham UID bilan himoyalanadi
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // users/{userId} — foydalanuvchi profili
+    // ============================================================
+    //   Saqlanadigan maydonlar:
+    //     name, email, isPremium, level, xp, totalMinutes,
+    //     streak, lastFocusDate, createdAt, customActivities,
+    //     updatedAt
+    match /users/{userId} {
+      // Faqat o'z document'iga kira oladi
+      allow read, write: if request.auth != null
+                        && request.auth.uid == userId;
+
+      // ============================================================
+      // users/{userId}/history/{date} — kunlik fokus tarixi
+      // ============================================================
+      //   Format: date = "YYYY-MM-DD"
+      //   Saqlanadigan maydonlar:
+      //     seconds, goal, met, sessions, xp, activities,
+      //     updatedAt
+      //
+      //   Cloud Sync xizmati (FREE plan):
+      //     so'nggi 7 kun calendar (faqat asosiy: seconds, goal, met)
+      //   Cloud Sync xizmati (PREMIUM plan):
+      //     cheksiz tarix + sessions, xp, activities tafsilotlari
+      match /history/{date} {
+        allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+      }
+
+      // ============================================================
+      // users/{userId}/plans/{planId} — fokus rejalari (kelajak)
+      // ============================================================
+      //   My Plans Screen ma'lumotlarini bulutda saqlash uchun.
+      //   Hozircha lokalda, lekin kelajakda sync qilish uchun
+      //   rules darrov tayyor turadi.
+      match /plans/{planId} {
+        allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+      }
+    }
+
+    // ============================================================
+    // Default deny — boshqa hech qaysi yo'lga ruxsat yo'q
+    // ============================================================
+    // Bu qator yozilmagan bo'lsa ham Firestore default holatda
+    // hammasi taqiq qiladi. Aniq yozish — xavfsizlik tekshiruvi
+    // o'tkazganda yordam beradi.
+  }
+}
