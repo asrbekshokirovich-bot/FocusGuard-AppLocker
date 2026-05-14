@@ -27,7 +27,7 @@
 ### Dart fayllar (`lib/`)
 ```
 lib/
-├── main.dart                    # Entry point + overlayMain() + WidgetsBindingObserver + CloudSyncService init
+├── main.dart                    # Entry point + overlayMain() + DailyReset init + CloudSync init
 ├── screens/ (22 ta)
 │   ├── splash_screen.dart       # Boshlang'ich ekran, ruxsat va auth tekshiruvi
 │   ├── language_screen.dart     # Til tanlash (kirish oqimi)
@@ -35,52 +35,54 @@ lib/
 │   ├── login_screen.dart        # Firebase Auth login (+ registration_date saqlaydi)
 │   ├── register_screen.dart     # Ro'yxatdan o'tish (+ registration_date saqlaydi)
 │   ├── legal_screen.dart        # Foydalanish shartlari
-│   ├── dashboard_screen.dart    # Asosiy hub (4 tab)
-│   ├── focus_timer_screen.dart  # Pomodoro taymer + faoliyatlar (bo'sh placeholder)
-│   ├── block_list_screen.dart   # App bloklash ro'yxati
-│   ├── stats_screen.dart        # Statistika + "Faoliyat" ro'yxati + haftalik bottom sheet
-│   ├── profile_screen.dart      # Profil va sozlamalar (+ "Mening ma'lumotlarim" menusi)
-│   ├── permissions_screen.dart  # Ruxsatlar boshqaruvi (Usage Access bug fixed)
+│   ├── dashboard_screen.dart    # Asosiy hub (4 tab); crash banner permission-denied'ni filtrlaydi
+│   ├── focus_timer_screen.dart  # Pomodoro: Chuqur/Yengil Fokus, faoliyatlar (mode-aware), audio
+│   ├── block_list_screen.dart   # App bloklash + Temir Intizom lock dialog + icon cache
+│   ├── stats_screen.dart        # To'liq real ma'lumotlar: chartlar, Aqlli Tahlil, Yengil Fokus karta
+│   ├── profile_screen.dart      # Profil + "Mening ma'lumotlarim" + "Ruxsatlar"
+│   ├── permissions_screen.dart  # Ruxsatlar (Usage Access cycling fixed)
 │   ├── overlay_screen.dart      # To'siq ekran (blok + alarm 2 rejim)
-│   ├── premium_screen.dart      # Premium obuna (+ "Cheksiz bulutli zaxira" feature)
+│   ├── premium_screen.dart      # Premium + "Cheksiz bulutli zaxira" feature
 │   ├── my_plans_screen.dart     # Fokus rejalari
 │   ├── calendar_screen.dart     # Oylik fokus tarixi + activity breakdown + 🎉 reg date
-│   ├── cloud_backup_screen.dart # ⭐ YANGI — Free/Premium + sync mode toggle + manual backup
-│   ├── level_screen.dart        # XP darajalari
+│   ├── cloud_backup_screen.dart # Free/Premium + auto/manual toggle + auto rejim tasdiqlash kartasi
+│   ├── level_screen.dart        # 16 ta daraja, XP+daqiqa badge, "Xs Ymin qoldi"
 │   ├── help_support_screen.dart # Yordam
 │   ├── interface_language_screen.dart  # Til o'zgartirish
 │   ├── notifications_settings_screen.dart
 │   └── themes_screen.dart       # 10 rang tema
-└── services/ (15 ta)
-    ├── app_translation_service.dart  # ASOSIY tarjima servisi (6 til)
-    ├── language_service.dart         # Legacy tarjima (faqat kirish oqimi, 3 til)
-    ├── firebase_service.dart         # Firebase Auth + Firestore + getRegistrationDate()
-    ├── theme_service.dart            # Dark/light + rang tema
-    ├── background_service.dart       # ASOSIY fon xizmati (bloklash + taymer)
-    ├── focus_timer_service.dart      # Taymer boshqaruvi (stream)
-    ├── level_service.dart            # XP, daraja, streak
-    ├── focus_history_service.dart    # Kunlik fokus tarixi + DayRecord(sessions, xp, activities)
-    ├── pending_results_processor.dart
-    ├── crash_logger.dart             # Xato qaydlash
-    ├── streak_reminder_service.dart  # 11:25 eslatma
+└── services/ (17 ta)
+    ├── app_translation_service.dart   # 6 til, barcha ekranlar
+    ├── language_service.dart          # Legacy (3 til, faqat kirish oqimi)
+    ├── firebase_service.dart          # Auth + Firestore + getRegistrationDate()
+    ├── theme_service.dart             # Dark/light + rang tema
+    ├── background_service.dart        # ASOSIY fon: timer + bloklash + counter'lar
+    ├── focus_timer_service.dart       # Timer stream
+    ├── level_service.dart             # 16 darajali XP threshold tizimi + migration
+    ├── focus_history_service.dart     # DayRecord(seconds, goal, met, sessions, xp, activities)
+    ├── pending_results_processor.dart # Pending XP/streak — yagona XP source
+    ├── crash_logger.dart              # Permission/network xato filtri
+    ├── streak_reminder_service.dart   # 11:25 eslatma
     ├── timer_notification_service.dart
     ├── service_starter.dart
-    ├── cloud_sync_service.dart       # ⭐ YANGI — offline-first auto/manual sync
-    └── internet_checker.dart         # ⭐ YANGI — connectivity + no-internet dialog
+    ├── cloud_sync_service.dart        # Offline-first auto/manual + circuit breaker
+    ├── internet_checker.dart          # connectivity + dialog
+    ├── daily_reset_service.dart       # ⭐ Kun reset (app launch/resume'da)
+    └── soundscape_service.dart        # ⭐ Tabiat ovozlari (audioplayers)
 ```
 
-### Android fayllar (`android/`)
+### Assets va boshqa fayllar
 ```
-android/app/src/main/
-├── kotlin/com/focusguard/app/MainActivity.kt
-├── AndroidManifest.xml          # 13 ruxsat, BackgroundService + OverlayService
-└── res/                         # ikonkalar, splash, temalar
+assets/
+├── logo.png
+├── uz.png, ru.png, us.png
+└── sounds/                     # ⭐ YANGI — bundled MP3 (~8 MB)
+    ├── rain.mp3                # Archive.org, Public Domain
+    ├── forest.mp3
+    ├── cafe.mp3
+    └── white_noise.mp3
 
-packages/flutter_overlay_window/android/src/main/java/.../
-├── FlutterOverlayWindowPlugin.java  # Plugin interfeysi
-├── OverlayService.java              # Overlay oynasi xizmati
-├── OverlayConstants.java            # Kanal nomlari, ID'lar
-└── WindowSetup.java                 # Overlay konfiguratsiyasi
+firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 ```
 
 ---
@@ -88,41 +90,89 @@ packages/flutter_overlay_window/android/src/main/java/.../
 ## MUHIM ARXITEKTURA
 
 ### Tarjima tizimi
-- **`AppTranslationService`** — 6 til (uz, en, ru, ko, de, fr), barcha asosiy ekranlar
-- **`LanguageService`** — 3 til (uz, en, ru), faqat kirish oqimi (splash → login)
-- Saqlash: `SharedPreferences` kaliti `selected_language`
-- Fon xizmati ham `AppTranslationService().init()` chaqiradi
+- **`AppTranslationService`** — 6 til (uz, en, ru, ko, de, fr)
+- **`LanguageService`** — 3 til (legacy, faqat kirish oqimi)
+- Saqlash: `selected_language`
 
 ### Fon xizmati arxitekturasi
-- **`background_service.dart`** — alohida Dart isolate, `onStart()` entry point
-- Taymer + bloklash logikasi har 1 soniyada ishlaydi
-- UI bilan aloqa: `service.invoke()` / `service.on()` orqali
-- XP/streak → `SharedPreferences` pending queue → main isolate'da `PendingResultsProcessor`
-- Background Firebase'ga kira olmaydi → Cloud Sync uchun ham SharedPreferences pending queue
+- **`background_service.dart`** — alohida Dart isolate, har 1 sec ticks
+- UI bilan aloqa: `service.invoke()` / `service.on()`
+- Background Firebase'ga kira olmaydi → SharedPreferences pending queue
+- `prefs.reload()` har stale cache muammosi uchun
 
 ### Overlay tizimi
 - `overlayMain()` → alohida Flutter engine → `OverlayScreen`
-- **2 rejim:** `timer_alarm_active: true` → Alarm UI | `false` → Bloklash UI
-- Kommunikatsiya: `FlutterBackgroundService().invoke()` orqali
+- 2 rejim: `timer_alarm_active` true → Alarm UI | false → Bloklash UI
+- Bloklash overlay yopiladi → alarm overlay'i o'tkaziladi (sequencing)
+- `prefs.reload()` background isolate'da kerak — main isolate o'zgartirgan `app_in_foreground`'ni jonli o'qish uchun
 
-### Cloud Sync arxitekturasi (Offline-first)
-- **`CloudSyncService`** — main isolate'da ishlaydi, `init()` main.dart'da chaqiriladi
+### Daraja tizimi (16 daraja)
+- **`LevelService.levelXpThresholds`** — XP chegaralar:
+  - L1: 0 (0s), L2: 600 (1s), L3: 1800 (3s), L4: 4200 (7s), L5: 9000 (15s)
+  - L6: 18000 (30s), L7: 30000 (50s), L8: 48000 (80s), L9: 72000 (120s)
+  - L10: 108000 (180s), L11: 150000 (250s), L12: 240000 (400s)
+  - L13: 360000 (600s), L14: 540000 (900s), L15: 780000 (1300s), L16: 1080000 (1800s)
+- 1 daqiqa = 10 XP
+- `LevelInfo levelInfoFromXp(int xp)` — UI uchun yagona helper
+- `migrateLevelIfNeeded()` — main.dart'da chaqiriladi, eski user'lar uchun
+- `getRankTitle(N)` → `rank_N` (1:1 mos)
+
+### Daily reset (`daily_reset_service.dart`) ⭐
+- App launch va resume'da `checkAndResetIfNewDay()` chaqiriladi
+- `last_focus_date` to'liq ISO sana (YYYY-MM-DD) saqlanadi
+- Kun o'tgan bo'lsa: kechagi data history'ga arxivlanadi, today_* counter'lar 0 ga tushadi
+- Background service uxlab qolgan bo'lsa ham ishlaydi
+- Eski `last_tracked_day` (faqat day raqami) bug'i tuzatildi
+
+### XP/Sessions tracking (single source of truth)
+- **XP yagona manba:** `PendingResultsProcessor` — `pending_xp_minutes` → `LevelService.addXP()`
+- `_updateProgress`'dan addXP olib tashlandi (avval 2 marta hisoblanardi)
+- **Sessions yagona manba:** `today_completed_sessions` + history.sessions (bugungi kalit istisno)
+- `addTodayXpFromMinutes(minutes)` — ichida `* 10` (`today_xp_earned` haqiqiy XP)
+
+### Cloud Sync (offline-first, premium-gated)
 - **Yagona haqiqiy manba:** SharedPreferences (lokal)
 - **Backup:** Firestore (bulut)
-- Har `recordDay()` → SharedPreferences yoziladi + `cloud_pending_dates` queue'ga qo'shiladi
-- `connectivity_plus` internet o'zgarishini kuzatadi → silent sync (auto rejimda)
-- Internet yo'q → queue lokal'da kutadi, internet kelganda avtomatik
-- `cloud_sync_mode` = `auto` yoki `manual`
-- **FREE** plan: faqat so'nggi 7 kun + asosiy ma'lumotlar (seconds/goal/met)
-- **PREMIUM** plan: cheksiz tarix + activities/sessions/xp tafsilotlari
+- `recordDay()` → `cloud_pending_dates` queue'ga avtomatik
+- Auto rejim: connectivity listener → silent sync
+- Manual rejim: tugma orqali, progress bar
+- **Circuit breaker:** 3 ta ketma-ket permission/network xato → sessiya davomida to'xtatadi
+- FREE: so'nggi 7 kun (seconds/goal/met)
+- PREMIUM: cheksiz + sessions/xp/activities
+
+### Audio (Tabiat Ovozlari) ⭐
+- **`SoundscapeService`** — `audioplayers` paketdan foydalanadi
+- 4 ta bundled MP3 (`assets/sounds/`): rain, forest, cafe, white_noise (~8 MB)
+- ReleaseMode.loop — fayl tugaganda qaytadan boshlanadi
+- Volume: 60%
+- Timer start/pause/resume/stop bilan sync
+- Silent fail — fayl yo'q bo'lsa crash yo'q
 
 ### Calendar / Activity tracking
-- **`DayRecord`** — `focus_history_YYYY-MM-DD` kalitda saqlanadi
-- Fields: `seconds`, `goal`, `met`, `sessions`, `xp`, `activities: Map<String, int>`
-- Activity progress kunlik: `activity_progress_YYYY-MM-DD` (URL-encoded query string)
-- Calendar ranglari: 🟢 yashil (met), 🟡 sariq (qisman), 🔴 qizil (umuman yo'q)
-- Registration date 🎉 overlay (haqiqiy `users/{uid}.createdAt` dan)
-- Kelajak + registration'gacha kunlar — xira, bosib bo'lmaydi
+- `DayRecord` — `focus_history_YYYY-MM-DD` kalitda
+- Fields: seconds, goal, met, sessions, xp, activities (Map)
+- Calendar ranglar: 🟢 met, 🟡 qisman, 🔴 yo'q
+- Registration date 🎉 overlay
+- Cell shape: `BorderRadius.circular(4)` (to'rt burchak)
+- Kelajak + registration'gacha — xira, bosib bo'lmaydi
+
+### Stats — to'liq real ma'lumotlar
+- **Fokus Balli:** so'nggi 7 kun (seconds/goal).clamp(0,1) o'rtachasi × 100
+- **Haftalik o'rtacha:** so'nggi 7 kun seconds yig'indisi / 7 / 3600
+- **Maqsadga erishildi %:** bugun_seconds / bugun_goal × 100
+- **Haftalik chart:** Du-Ya joriy hafta, real history dan, ustun tepasida vaqt (0 → ko'rsatilmaydi)
+- **Oylik chart:** 4 hafta, drill-down 7 kunlik breakdown
+- **Aqlli Tahlil:** real bugun-kecha farqi, hafta-vs-hafta foiz, hafta oxiri prognozi, keyingi milestone'gacha streak
+- **Top distractors:** 30 kunlik `block_attempts_*` aggregation + ilova ikonkasi cache
+- **Yengil Fokus karta:** `light_focus_total_seconds` kumulativ
+
+### Iron Discipline (mode-aware)
+- `_isStrictMode` toggle faqat Chuqur Fokus rejimida UI'da ko'rinadi
+- `_effectiveStrict = _isStrictMode && _selectedMode == 0`
+- Yengil Fokus'da: `isStrict = false` (orqaga qaytish bemalol, block list ham bemalol)
+- `timer_is_strict` SharedPreferences kalitida → `block_list_screen` o'qiydi
+
+---
 
 ### SharedPreferences muhim kalitlar
 | Kalit | Tur | Maqsad |
@@ -131,94 +181,130 @@ packages/flutter_overlay_window/android/src/main/java/.../
 | `blocked_apps` | StringList | Bloklangan paket nomlari |
 | `timer_alarm_active` | bool | Alarm o'ynayaptimi |
 | `timer_alarm_minutes` | int | Necha daqiqa seans bo'ldi |
-| `app_in_foreground` | bool | App foreground'dami |
-| `pending_xp_minutes` | int | Kutayotgan XP daqiqalari |
-| `pending_streak_date` | String | Kutayotgan streak sanasi |
-| `pending_completion_count` | int | Kutayotgan to'liq seanslar |
-| `daily_goal_seconds` | int | Kunlik maqsad (soniyada) |
-| `today_focus_seconds` | int | Bugungi fokus (soniyada) |
-| `today_completed_sessions` | int | Bugun to'liq tugagan seanslar |
-| `today_xp_earned` | int | Bugun olingan XP (daqiqada) |
-| `timer_end_timestamp` | int | Taymer tugash vaqti (ms) |
 | `timer_is_running` | bool | Taymer ishlayaptimi |
 | `timer_is_paused` | bool | Taymer pauzadami |
+| `timer_is_strict` | bool | Joriy seans Temir Intizom rejimidami |
+| `timer_is_light` | bool | Joriy seans Yengil Fokus rejimidami |
+| `timer_end_timestamp` | int | Taymer tugash vaqti (ms) |
+| `app_in_foreground` | bool | App foreground'dami |
+| `pending_xp_minutes` | int | Kutayotgan XP daqiqalari (PendingProcessor) |
+| `pending_streak_date` | String | Kutayotgan streak sanasi |
+| `pending_completion_count` | int | Kutayotgan to'liq seanslar |
+| `daily_goal_seconds` | int | Kunlik maqsad (default 7200 = 2 soat) |
+| `today_focus_seconds` | int | Bugungi fokus (yagona manba) |
+| `today_completed_sessions` | int | Bugun to'liq tugagan seanslar |
+| `today_xp_earned` | int | Bugun olingan XP (haqiqiy XP, daqiqa * 10) |
+| `last_focus_date` | String | YYYY-MM-DD, daily_reset_service ishlatadi |
+| `last_tracked_day` | int | Background service'ning eski kun kalitlovchisi |
+| `longest_session_minutes` | int | Eng uzun yakunlangan seans |
+| `light_focus_total_seconds` | int | Yengil Fokus jami vaqti (kumulativ) |
 | `custom_activities` | StringList | Foydalanuvchi qo'shgan faoliyatlar |
 | `activity_progress_YYYY-MM-DD` | String | Kunlik activity breakdown (query string) |
 | `focus_history_YYYY-MM-DD` | String | Kunlik DayRecord (JSON) |
+| `block_attempts_YYYY-MM-DD` | String | Kunlik bloklangan ilova urinishlari (JSON map) |
+| `app_name_cache` | String | package → display name (JSON map) |
+| `app_icon_<package>` | String | base64 encoded PNG (per app) |
+| `selected_sound` | String | Tabiat ovozi: none/rain/forest/cafe/white_noise |
 | `registration_date` | String | ISO8601 ro'yxatdan o'tgan sana |
 | `cloud_sync_mode` | String | `auto` yoki `manual` |
 | `cloud_pending_dates` | StringList | Firestore'ga yuborilmagan kun sanalari |
-| `cloud_last_sync_iso` | String | So'nggi sync vaqti (ISO8601) |
+| `cloud_last_sync_iso` | String | So'nggi sync vaqti |
+| `last_progress_reset` | String | Goal Missed notif idempotency |
 
 ---
 
-## OXIRGI O'ZGARISHLAR (Bu sessiyada bajarildi)
+## OXIRGI O'ZGARISHLAR
 
-### 1. Calendar feature kengaytirildi
-**Maqsad:** Kun bosilsa to'liq tafsilotlar, registration day belgisi, yangi rang sxemasi.
+### 1. Calendar feature (avval qilingan)
+- Detail panel, registration day 🎉, ranglar (yashil/sariq/qizil), drill-down
+- Day cell radius 4 (to'rt burchak)
 
-**Fayllar:**
-- `calendar_screen.dart` — Detail panel (sana, fokus/goal, sessions, XP, met, activity breakdown, 🎉 banner). Day cell ranglari: yashil/sariq/qizil/xira. Kelajak + reg'dan oldingi kunlar bosib bo'lmaydi (`onTap: null`).
-- `focus_history_service.dart` — `DayRecord` ga `sessions`, `xp`, `activities` qo'shildi. `recordDay()` har chaqirilganda `cloud_pending_dates` queue'ga avtomatik qo'shadi.
-- `background_service.dart` — `today_completed_sessions`, `today_xp_earned` counter'lar. `recordDay()` chaqiriqlariga `activities: activitiesForDay(dateKey)` qo'shildi (5 joyda).
-- `timer_notification_service.dart` — `sendTodayResultBasedOnProgress` ham activities/sessions/xp ni yozadi.
-- `firebase_service.dart` — `getRegistrationDate(uid)` metodi qo'shildi.
-- `login_screen.dart` — Login'da Firestore'dan `registration_date` o'qib SharedPreferences'ga saqlaydi.
-- `register_screen.dart` — Ro'yxatdan o'tishda `DateTime.now()` ni `registration_date` qilib saqlaydi.
+### 2. Faoliyat tizimi
+- Mock'lar tozalandi, default `[]`
+- `_selectedActivityIndex = -1` default — foydalanuvchi o'zi tanlasagina activity_progress yoziladi
+- Chuqur Fokus rejimida ko'rinadi, Yengil Fokus'da yashirin
 
-### 2. Faoliyat tizimi (mock'lar tozalandi)
-**Muammo:** Yangi user'da 4 ta mock (Dasturlash, O'qish, Ish, Meditatsiya) chiqib turardi.
+### 3. Stats — to'liq real ma'lumotlar
+- Fokus Balli, haftalik o'rtacha, maqsad %, haftalik/oylik chartlar
+- Aqlli Tahlil (PRO): real solishtirish, prognoz, streak forecast
+- `_buildSessionItem`'da inner GestureDetector olib tashlandi (eski mock chart ko'rinmaydi)
+- Bar chart maxVal=0 bug'i tuzatildi, ustun tepasida vaqt yoziladi
+- Jami seanslar bugungi history kalitini istisno qiladi (double count fix)
 
-**Fayllar:**
-- `focus_timer_screen.dart` — `_customActivities = []` default. Bo'sh holatda `_buildEmptyActivities()` widget ("Sevimli faoliyatingizni qo'shing").
-- `stats_screen.dart` — Default loadedActivities olib tashlandi. Faoliyat ro'yxati `GestureDetector`ga o'raldi.
-- "+" tugmasi kichraytirildi: 26×26 px, ikonka 11 px.
+### 4. Cloud Backup (avval qilingan)
+- `cloud_sync_service.dart`, `cloud_backup_screen.dart`, `internet_checker.dart`
+- Auto rejim → "Avtomatik yoqilgan" yashil tasdiq karta
+- Manual rejim → "Bulutga saqlash" ko'k tugma
+- Circuit breaker — 3 ta xato → to'xtaydi
 
-### 3. Stats — "Oxirgi seanslar" → "Faoliyat" + haftalik bottom sheet
-- `stats.recent_sessions` matni "Faoliyat" qilindi (6 tilda).
-- Yangi keys: `stats.activity_weekly_title`, `stats.activity_weekly_total`, `stats.activity_no_data`.
-- `_showActivityWeeklyDetails()` metodi — so'nggi 7 kun `activity_progress_YYYY-MM-DD` o'qib bar chart ko'rsatadi.
-- `_weekdayShort()`, `_formatMinutesToHm()` helper'lar.
+### 5. Permissions screen bug fix (avval qilingan)
+- Usage Access cycling tuzatildi: har chaqirig'da haqiqiy AppUsage API
 
-### 4. Cloud Backup tizimi (offline-first)
-**Yangi fayllar:**
+### 6. Daraja tizimi yangilandi
+- 16 ta daraja, hour-based XP thresholds (1h/3h/7h/.../1800h)
+- `LevelService.levelXpThresholds`, `levelFromXp()`, `levelInfoFromXp()`
+- Level screen: XP+daqiqa badge yuqori o'ng burchakda
+- "1.4 soat qoldi" → "1s 25daq qoldi"
+- One-time migration: eski user'lar level qayta hisoblanadi (`migrateLevelIfNeeded`)
 
-#### `lib/services/internet_checker.dart`
-- `isOnline()` — `connectivity_plus` orqali tekshiruv
-- `onConnectivityChanged` — internet o'zgarishi stream'i
-- `ensureOnline(context)` — internet yo'q bo'lsa "Tushunarli" dialog ko'rsatadi
-- Menyularga kirishda emas, faqat internet kerak bo'lgan tugma bosilganda chaqiriladi
+### 7. Daily reset (`daily_reset_service.dart`) ⭐
+- App launch va resume'da `checkAndResetIfNewDay()`
+- `last_focus_date` to'liq ISO sana
+- Kechagi data history'ga, today_* → 0
+- Background service uxlab qolsa ham ishlaydi
 
-#### `lib/services/cloud_sync_service.dart`
-- `init()` — main.dart'da chaqiriladi, connectivity listener boshlaydi
-- `_maybeSilentSync()` — auto rejimda internet bor + pending bor → silent yuboradi
-- `_syncPending(silent: true/false)` — queue'dagi kunlarni Firestore'ga yuboradi
-- `uploadAllManual()` — foydalanuvchi tugmasi bosgandan keyin to'liq backup
-- `restoreFromCloud()` — login'da Firestore'dan lokal'ga tortib oladi
-- `BackupProgress` model — progress stream UI uchun
-- FREE/PREMIUM: `_isPremiumUser(uid)` Firestore'dan tekshiradi, FREE faqat 7 kun
+### 8. XP/Sessions double-counting fix
+- `_updateProgress`'dan `addXP` olib tashlandi (faqat PendingProcessor)
+- Stats jami seanslar bugungi `focus_history_$today` kalitini istisno qiladi
+- `addTodayXpFromMinutes` ichida `* 10` (avval daqiqa saqlanardi)
 
-#### `lib/screens/cloud_backup_screen.dart`
-- Header: ☁️ ikonka + matn
-- Sync mode toggle: Avtomatik / Qo'lda (radio button)
-- Free Plan card: yashil border (current bo'lsa)
-- Premium Plan card: binafsha gradient + "Premium'ga o'tish" tugmasi
-- Backup tugma: bosilsa internet tekshiriladi, yuklash progress bar bilan ("45/120 kun")
-- So'nggi backup vaqti
+### 9. Default daily goal: 4 soat → 2 soat
+- 8 ta faylda `14400` → `7200`
+- Mavjud user'lar uchun saqlanadi (faqat yangi user'larga 2s default)
 
-#### O'zgartirilgan fayllar:
-- `main.dart` — `await CloudSyncService.instance.init()` qo'shildi
-- `profile_screen.dart` — "Mening ma'lumotlarim" menyu item Calendar'dan keyin
-- `premium_screen.dart` — `feature_cloud_title` / `feature_cloud_desc` qo'shildi
-- `pubspec.yaml` — `connectivity_plus: ^6.1.0`
-- `app_translation_service.dart` — 6 tilda ~60 yangi tarjima keys (`cloud_backup.*`, `internet.*`, `profile.menu_cloud_backup`, `premium.feature_cloud_*`)
+### 10. Iron Discipline mode-aware
+- `_effectiveStrict = _isStrictMode && _selectedMode == 0`
+- `timer_is_strict` SharedPreferences kalit
+- block_list_screen: dialog faqat strict + running paytida
 
-### 5. Permissions screen bug fix (Usage Access cycling)
-**Muammo:** Foydalanuvchi Usage Access ruxsatini bersa, qaytib kirsa yana yoniq ko'rinardi (aylanish).
+### 11. Light Focus tracking + UI ⭐
+- `light_focus_total_seconds` background service yangilab turadi
+- Stats'da alohida "Yengil Fokus" karta
+- Yengil Fokus rejimida faoliyat bo'limi yashirin
+- "Ruxsat Berilganlar" mock UI olib tashlandi (faqat Tabiat Ovozlari qoldi)
 
-**Sabab:** `_checkPermissions(isPassive: true)`'da `usage = _isUsageGranted` cached qiymat (default `false`) qaytarilardi.
+### 12. Top blocked attempts + icon cache
+- `incrementBlockAttempt(package)` background service'da
+- `block_attempts_YYYY-MM-DD` JSON map saqlanadi
+- 30 kunlik aggregation, top 5
+- `app_name_cache` + `app_icon_<package>` (base64 PNG)
+- block_list_screen ilova bloklaganda icon'ni saqlaydi + backfill
+- stats_screen: ikonkasi yo'q ilovalar uchun `installed_apps.getAppInfo()` fonida
 
-**Yechim:** `permissions_screen.dart` — har chaqiriqda `_checkUsagePermission()` chaqiriladi (u allaqachon passive, AppUsage API faqat exception qaytaradi).
+### 13. Background isolate prefs.reload() fix
+- Alarm overlay app fonida ham chiqadi (`app_in_foreground` jonli o'qiladi)
+- Mavjud bloklash overlay'i yopiladi → keyin alarm overlay'i
+- Permission check + CrashLogger source-tagging
+
+### 14. CrashLogger filtri
+- `_shouldIgnore(error)` — permission-denied, network-* xatolarni o'tkazib yuboradi
+- Dashboard banner ham eski expected-error'larni auto-clear qiladi
+
+### 15. iOS-style timer completion dialog
+- Material Dialog → `CupertinoAlertDialog`
+
+### 16. Tabiat Ovozlari ⭐ — to'liq ishlaydi
+- **`soundscape_service.dart`** yaratildi
+- `audioplayers: ^6.1.0` qo'shildi
+- 4 ta MP3 fayl Archive.org (CC0) dan yuklab `assets/sounds/`'ga bundled
+- Timer start/pause/resume/stop bilan sync
+- ReleaseMode.loop, volume 60%
+- Silent fail agar fayl yo'q
+
+### 17. Firestore rules ⭐
+- `firestore.rules` fayl yaratildi
+- `users/{uid}` + `history/{date}` + `plans/{planId}` matches
+- Foydalanuvchi Firebase Console'ga bir martalik ko'chiradi (Publish)
 
 ---
 
@@ -270,22 +356,34 @@ PREMIUM plan (cheksiz):
   goal: int
   met: bool
   sessions: int                  # Bugun to'liq tugagan timer seanslar soni
-  xp: int                        # Bugun olingan XP (daqiqa)
+  xp: int                        # Bugun olingan XP (haqiqiy XP qiymati)
   activities: Map<String, int>   # {"Dasturlash": 90, "O'qish": 60}
   updatedAt: Timestamp
 }
 ```
 
+### Firestore Rules (`firestore.rules` fayl)
+- `users/{userId}` — faqat egasi o'qishi/yozishi mumkin
+- `users/{userId}/history/{date}` — egasi uchun cheksiz
+- `users/{userId}/plans/{planId}` — kelajak uchun tayyor
+
 ---
 
 ## MUHIM ESLATMALAR
+
 - Samsung qurilmalarda `SYSTEM_ALERT_WINDOW` jimgina bekor qilinishi mumkin → `CrashLogger`ga yoziladi
-- Background isolate Firebase Auth/Firestore'ga kira olmaydi → `SharedPreferences` pending queue ishlatiladi
-- Overlay alohida Flutter engine'da ishlaydi → `DartPluginRegistrant.ensureInitialized()` shart
-- `prefs.reload()` har bloklash tekshiruvida chaqiriladi (stale cache muammosi)
-- `FlutterRingtonePlayer().stop()` faqat background isolate'da chaqirilishi kerak (u yerda boshlangan)
-- Cloud Sync internet kerak bo'lgan tugma bosilgandagina ensureOnline chaqiriladi — menyularga kirishda emas
-- Firestore offline persistence yoqilgan (`main.dart`'da) → 100 MB cache avtomatik
-- Activity kalitlari 2 xil bo'lishi mumkin: `activities.coding` (eski mock) yoki to'g'ridan-to'g'ri ism ("Dasturlash")
-- `_activityDisplayName(key, lang)` — eski format'dagi kalitlarni tarjima qiladi
-- `connectivity_plus` v6+ `List<ConnectivityResult>` qaytaradi — `any((r) => r != none)` orqali tekshirish
+- Background isolate Firebase Auth/Firestore'ga kira olmaydi → SharedPreferences pending queue
+- `prefs.reload()` background isolate'da KRITIK — main isolate yozgan o'zgarishlar uchun
+- `FlutterRingtonePlayer().stop()` faqat background isolate'da (u yerda boshlangan)
+- Cloud Sync internet kerak bo'lgan tugma bosilgandagina `ensureOnline` chaqiriladi
+- Firestore offline persistence yoqilgan (`main.dart`) → 100 MB cache avtomatik
+- Activity kalitlari 2 xil: `activities.coding` (legacy) yoki ism ("Dasturlash")
+- `_activityDisplayName(key, lang)` — legacy kalitlarni tarjima qiladi
+- `connectivity_plus` v6+ `List<ConnectivityResult>` qaytaradi — `.any((r) => r != none)`
+- XP yagona manba — `PendingResultsProcessor`, foreground'dan addXP chaqirilmaydi
+- `today_focus_seconds` yagona progress manba — `daily_progress_hours` ishlatilmaydi
+- Audio player main isolate'da ishlaydi — app foreground'da bo'lganda
+- `firestore.rules` Firebase Console'da Publish qilinishi kerak (kelajak premium uchun)
+- Mp3 fayllar `assets/sounds/`'da bundled — foydalanuvchi tortib olmaydi
+- 1 daqiqa fokus = 10 XP (`level_service.dart`, formula yagona joyda)
+- 16 ta daraja, soat-asosli chegaralar (1, 3, 7, 15, 30, 50, 80, 120, 180, 250, 400, 600, 900, 1300, 1800)

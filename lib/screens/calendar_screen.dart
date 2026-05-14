@@ -204,7 +204,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     // bo'lsa (ilova hali ishlatilmagan), default qiymatlar bilan
     // ko'rsatamiz.
     final seconds = rec?.seconds ?? 0;
-    final goal = (rec?.goal ?? 14400);
+    final goal = (rec?.goal ?? 7200);
     final met = rec?.met ?? false;
     final percent = goal > 0
         ? ((seconds / goal) * 100).clamp(0.0, 100.0)
@@ -485,7 +485,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Container(
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(8),
+              // To'rt burchak ko'rinishi uchun kichik radius (avval 8 edi —
+              // hujayralar pill ko'rinishida edi). Endi hujayralar aniq
+              // kvadrat (1:1 aspectRatio) yumshoq burchak bilan.
+              borderRadius: BorderRadius.circular(4),
               border: isToday
                   ? Border.all(color: const Color(0xFF007AFF), width: 2)
                   : null,

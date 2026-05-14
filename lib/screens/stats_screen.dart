@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,8 @@ import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
 import 'dart:math' as math;
 
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
 import '../services/level_service.dart';
@@ -55,6 +58,11 @@ class _StatsScreenState extends State<StatsScreen>
   // Top eng ko'p kirishga urinilgan ilovalar (so'nggi 30 kun).
   // Har element: {package: String, name: String, count: int}
   List<Map<String, dynamic>> _topBlockedAttempts = [];
+  // Yengil Fokus (Light Focus) rejimida o'tkazilgan jami vaqt (sekundda).
+  // Foydalanuvchi mode==1 (yengil fokus) tanlasa, background service har
+  // soniya `light_focus_total_seconds` ni oshiradi. Bu hisob umumiy
+  // statistika emas — alohida ko'rsatkich.
+  int _lightFocusTotalSeconds = 0;
   StreamSubscription? _timerSub;
   Timer? _refreshTimer;
   final List<String> _weekDays = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
@@ -120,25 +128,36 @@ class _StatsScreenState extends State<StatsScreen>
         loadedProgress =
             decoded.map((k, v) => MapEntry(k, int.tryParse(v) ?? 0));
       }
-      // Lokal history'dan jami seanslar va eng uzun seansni hisoblash
+      // Lokal history'dan jami seanslar va eng uzun seansni hisoblash.
+      // BUGUNGI history yozuvi `today_completed_sessions` qiymatini ham
+      // o'z ichiga olishi mumkin (background service har timer tugashida
+      // recordDay chaqiradi). Shuning uchun bugungi kalitni ATKAB
+      // o'tkazib yuboramiz — aks holda bir kun ikki marta hisoblanardi.
       int totalSessions = prefs.getInt('today_completed_sessions') ?? 0;
+      final now = DateTime.now();
+      final todayKey =
+          'focus_history_${now.year}-${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
       for (final key in prefs.getKeys()) {
-        if (key.startsWith('focus_history_')) {
-          final raw = prefs.getString(key);
-          if (raw == null) continue;
-          try {
-            final data = jsonDecode(raw) as Map<String, dynamic>;
-            totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
-          } catch (_) {}
-        }
+        if (!key.startsWith('focus_history_')) continue;
+        if (key == todayKey) continue; // bugungi kunni `today_*` dan oldik
+        final raw = prefs.getString(key);
+        if (raw == null) continue;
+        try {
+          final data = jsonDecode(raw) as Map<String, dynamic>;
+          totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
+        } catch (_) {}
       }
       final longest = prefs.getInt('longest_session_minutes') ?? 0;
+      final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
 
       // Real haftalik/oylik ma'lumotlarni history'dan hisoblash
       final chartData = await _computeChartData(prefs);
 
-      // So'nggi 30 kun ichidagi top bloklangan ilovalarga urinishlar
+      // So'nggi 30 kun ichidagi top bloklangan ilovalarga urinishlar.
+      // Ikonkasi yo'q ilovalar uchun fonda yuklab cache'ga qo'yamiz.
       final topAttempts = _computeTopBlockedAttempts(prefs);
+      _fetchMissingIcons(prefs, topAttempts);
 
       if (mounted) {
         setState(() {
@@ -146,6 +165,7 @@ class _StatsScreenState extends State<StatsScreen>
           _activityProgress = loadedProgress;
           _totalSessions = totalSessions;
           _longestSessionMinutes = longest;
+          _lightFocusTotalSeconds = lightTotal;
           _realWeeklyHours = chartData.weeklyHours;
           _realMonthlyHours = chartData.monthlyHours;
           _realMonthlyDays = chartData.monthlyDays;
@@ -192,18 +212,68 @@ class _StatsScreenState extends State<StatsScreen>
           nameCache = jsonDecode(cacheRaw) as Map<String, dynamic>;
         } catch (_) {}
       }
-      final list = aggregated.entries
-          .map((e) => {
-                'package': e.key,
-                'name': nameCache[e.key]?.toString(),
-                'count': e.value,
-              })
-          .toList();
+      final list = aggregated.entries.map((e) {
+        // Ilova ikonkasini cache'dan o'qish (block_list_screen saqlagan)
+        Uint8List? iconBytes;
+        try {
+          final iconStr = prefs.getString('app_icon_${e.key}');
+          if (iconStr != null && iconStr.isNotEmpty) {
+            iconBytes = base64Decode(iconStr);
+          }
+        } catch (_) {}
+        return {
+          'package': e.key,
+          'name': nameCache[e.key]?.toString(),
+          'count': e.value,
+          'icon': iconBytes,
+        };
+      }).toList();
       list.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
       // Top 5 ni qaytaramiz
       return list.take(5).toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// Ikonkasi yo'q ilovalar uchun `installed_apps` orqali fonda yuklab
+  /// cache'ga saqlash. Tugaganda `_refreshLocalStats()` qayta ishlatib
+  /// UI yangilanadi. Idempotent — har yangi ikonka topilganda qayta yozadi.
+  Future<void> _fetchMissingIcons(
+      SharedPreferences prefs, List<Map<String, dynamic>> items) async {
+    bool anyFetched = false;
+    for (final item in items) {
+      if (item['icon'] != null) continue; // allaqachon bor
+      final pack = item['package'] as String;
+      try {
+        final AppInfo? info = await InstalledApps.getAppInfo(pack);
+        if (info?.icon != null) {
+          await prefs.setString(
+              'app_icon_$pack', base64Encode(info!.icon!));
+          // Nomni ham yangilab qo'yamiz (agar yo'q bo'lsa)
+          if (item['name'] == null && info.name.isNotEmpty) {
+            final cacheRaw = prefs.getString('app_name_cache');
+            final cache = cacheRaw != null
+                ? (jsonDecode(cacheRaw) as Map<String, dynamic>)
+                : <String, dynamic>{};
+            cache[pack] = info.name;
+            await prefs.setString('app_name_cache', jsonEncode(cache));
+          }
+          anyFetched = true;
+        }
+      } catch (_) {
+        // Ilova o'chirilgan bo'lishi mumkin — o'tkazib yuboramiz
+      }
+    }
+    // Agar biror ikonka yuklangan bo'lsa, ro'yxatni qayta hisoblab UI'ni
+    // yangilaymiz (yangi ikonkalar bilan).
+    if (anyFetched && mounted) {
+      final newItems = _computeTopBlockedAttempts(prefs);
+      if (mounted) {
+        setState(() {
+          _topBlockedAttempts = newItems;
+        });
+      }
     }
   }
 
@@ -241,17 +311,17 @@ class _StatsScreenState extends State<StatsScreen>
       final isToday = date.year == now.year &&
           date.month == now.month &&
           date.day == now.day;
-      if (isToday) return prefs.getInt('daily_goal_seconds') ?? 14400;
+      if (isToday) return prefs.getInt('daily_goal_seconds') ?? 7200;
       final dateKey =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}';
       final raw = prefs.getString('focus_history_$dateKey');
-      if (raw == null) return prefs.getInt('daily_goal_seconds') ?? 14400;
+      if (raw == null) return prefs.getInt('daily_goal_seconds') ?? 7200;
       try {
         final data = jsonDecode(raw) as Map<String, dynamic>;
-        return (data['goal'] as num?)?.toInt() ?? 14400;
+        return (data['goal'] as num?)?.toInt() ?? 7200; // 2 soat default
       } catch (_) {
-        return 14400;
+        return 7200;
       }
     }
 
@@ -288,7 +358,7 @@ class _StatsScreenState extends State<StatsScreen>
 
     // 3. Bugungi maqsad foizi
     final todaySeconds = prefs.getInt('today_focus_seconds') ?? 0;
-    final todayGoal = prefs.getInt('daily_goal_seconds') ?? 14400;
+    final todayGoal = prefs.getInt('daily_goal_seconds') ?? 7200;
     final todayPercent =
         todayGoal > 0 ? ((todaySeconds / todayGoal) * 100).round().clamp(0, 100) : 0;
 
@@ -400,22 +470,31 @@ class _StatsScreenState extends State<StatsScreen>
       loadedProgress = decoded.map((key, value) => MapEntry(key, int.parse(value)));
     }
 
-    // Lokal'dan jami seanslar (today + history) va eng uzun seansni hisoblash
+    // Lokal'dan jami seanslar (today + history) va eng uzun seansni hisoblash.
+    // Bugungi `focus_history_*` kalitni o'tkazib yuboramiz — chunki uning
+    // `sessions` qiymati `today_completed_sessions` bilan bir xil bo'ladi.
     int totalSessions = prefs.getInt('today_completed_sessions') ?? 0;
+    final nowDt = DateTime.now();
+    final todayKey0 =
+        'focus_history_${nowDt.year}-${nowDt.month.toString().padLeft(2, '0')}-'
+        '${nowDt.day.toString().padLeft(2, '0')}';
     for (final key in prefs.getKeys()) {
-      if (key.startsWith('focus_history_')) {
-        final raw = prefs.getString(key);
-        if (raw == null) continue;
-        try {
-          final data = jsonDecode(raw) as Map<String, dynamic>;
-          totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
-        } catch (_) {}
-      }
+      if (!key.startsWith('focus_history_')) continue;
+      if (key == todayKey0) continue;
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      try {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
+      } catch (_) {}
     }
     final longest = prefs.getInt('longest_session_minutes') ?? 0;
+    final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
     // Real chart ma'lumotlarini birinchi yuklashda ham hisoblaymiz
     final chartData = await _computeChartData(prefs);
     final topAttempts = _computeTopBlockedAttempts(prefs);
+    // Yo'q ikonkalarni fonda yuklash
+    _fetchMissingIcons(prefs, topAttempts);
 
     if (mounted) {
       setState(() {
@@ -423,6 +502,7 @@ class _StatsScreenState extends State<StatsScreen>
         _activityProgress = loadedProgress;
         _totalSessions = totalSessions;
         _longestSessionMinutes = longest;
+        _lightFocusTotalSeconds = lightTotal;
         _realWeeklyHours = chartData.weeklyHours;
         _realMonthlyHours = chartData.monthlyHours;
         _realMonthlyDays = chartData.monthlyDays;
@@ -546,6 +626,10 @@ class _StatsScreenState extends State<StatsScreen>
 
                       // Metrics Grid
                       _buildMetricsGrid(lang),
+                      const SizedBox(height: 14),
+
+                      // Yengil Fokus — alohida karta
+                      _buildLightFocusCard(lang),
                       const SizedBox(height: 14),
 
                       // Activity Breakdown
@@ -1050,6 +1134,90 @@ class _StatsScreenState extends State<StatsScreen>
     );
   }
 
+  /// Yengil Fokus rejimida o'tkazilgan jami vaqt — alohida karta.
+  /// Foydalanuvchi Yengil Fokus mode'da har soniya `light_focus_total_seconds`
+  /// oshadi. Bu karta umumiy statistikaga to'sqinlik qilmaydi (XP, level,
+  /// streak hammasi yagona today_focus_seconds asosida).
+  Widget _buildLightFocusCard(AppTranslationService lang) {
+    final minutes = _lightFocusTotalSeconds ~/ 60;
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    final hourLabel = lang.translate('stats.unit_h') ?? 's';
+    final minLabel = lang.translate('stats.unit_m') ?? 'daq';
+    String label;
+    if (h == 0) {
+      label = '$m $minLabel';
+    } else if (m == 0) {
+      label = '$h $hourLabel';
+    } else {
+      label = '$h $hourLabel $m $minLabel';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF34C759).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              CupertinoIcons.leaf_arrow_circlepath,
+              color: Color(0xFF34C759),
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lang.translate('stats.metrics_light_focus') ?? 'Yengil Fokus',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  lang.translate('stats.light_focus_desc') ?? 'Jami yengil fokus vaqti',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF34C759),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGridMetric(String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1148,18 +1316,42 @@ class _StatsScreenState extends State<StatsScreen>
               final pack = d['package'] as String;
               final name = (d['name'] as String?) ?? _shortPackageName(pack);
               final count = d['count'] as int;
+              final iconBytes = d['icon'] as Uint8List?;
               final color = _colorForPackage(pack);
-              final icon = _iconForPackage(pack);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
+                    // Haqiqiy ilova ikonkasi (block_list'da saqlangan)
+                    // mavjud bo'lsa ko'rsatamiz. Aks holda — fallback:
+                    // mashhur ilovalar uchun brend ikonkasi yoki "ban".
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10)),
-                      child: FaIcon(icon, color: color, size: 16),
+                        color: iconBytes != null
+                            ? Colors.transparent
+                            : color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: iconBytes != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(
+                                iconBytes,
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                            )
+                          : Center(
+                              child: FaIcon(
+                                _iconForPackage(pack),
+                                color: color,
+                                size: 18,
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1231,9 +1423,9 @@ class _StatsScreenState extends State<StatsScreen>
   }
 
   Widget _buildSessionItem(BuildContext context, String title, String duration, String time, Color color) {
-    return GestureDetector(
-      onTap: () => _showSessionDetails(context, title),
-      child: Container(
+    // Tashqi GestureDetector (`_showActivityWeeklyDetails`'ga ulangan)
+    // tap'ni qabul qiladi — bu yerda alohida onTap'siz container.
+    return Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -1261,8 +1453,7 @@ class _StatsScreenState extends State<StatsScreen>
             Text(duration, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildActivityBreakdown(AppTranslationService lang) {
@@ -1670,37 +1861,84 @@ class _BarChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final double barWidth = (size.width - (labels.length - 1) * 16) / labels.length;
-    final double maxVal = data.reduce(math.max);
-    
+    // Maksimal qiymat — eng baland ustun. Agar barcha ma'lumot 0 bo'lsa
+    // (yangi user, hech qachon fokus qilmagan) bo'lib chiqarish xatosini
+    // oldini olamiz va hech qanday ustun chizmaymiz (faqat label'lar).
+    double maxVal = 0.0;
+    for (final v in data) {
+      if (v > maxVal) maxVal = v;
+    }
+
+    // Tepada qiymat yozish uchun joy ajratamiz — chart bar'lari uchun
+    // mavjud balandlik biroz kichikroq bo'ladi.
+    const double topLabelPadding = 18;
+    final double chartAreaHeight = (size.height - topLabelPadding).clamp(0, size.height);
+
     for (int i = 0; i < data.length; i++) {
-      final double barHeight = (data[i] / maxVal) * size.height * animationValue;
       final double left = i * (barWidth + 16);
-      final double top = size.height - barHeight;
-      
-      final RRect rrect = RRect.fromLTRBR(
-        left, top, left + barWidth, size.height,
-        const Radius.circular(8),
-      );
+      // 1. Bar (faqat maxVal > 0 bo'lsa va data[i] > 0 bo'lsa)
+      if (maxVal > 0 && data[i] > 0) {
+        final double barHeight =
+            (data[i] / maxVal) * chartAreaHeight * animationValue;
+        final double top = size.height - barHeight;
+        final RRect rrect = RRect.fromLTRBR(
+          left, top, left + barWidth, size.height,
+          const Radius.circular(8),
+        );
+        final paint = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [activeColor, activeColor.withOpacity(0.4)],
+          ).createShader(rrect.outerRect);
+        canvas.drawRRect(rrect, paint);
 
-      final paint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [activeColor, activeColor.withOpacity(0.4)],
-        ).createShader(rrect.outerRect);
+        // Bar TEPASIDA qiymat — "1s 30daq" yoki "45daq" yoki "0"
+        final valueLabel = _formatBarValue(data[i]);
+        final valuePainter = TextPainter(
+          text: TextSpan(
+            text: valueLabel,
+            style: GoogleFonts.inter(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: activeColor,
+            ),
+          ),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+        )..layout(minWidth: barWidth, maxWidth: barWidth);
+        // Ustundan biroz tepada
+        final valueTop = (top - valuePainter.height - 2).clamp(0.0, size.height);
+        valuePainter.paint(canvas, Offset(left, valueTop));
+      }
 
-      canvas.drawRRect(rrect, paint);
-      
-      final textPainter = TextPainter(
+      // 2. Pastda label (Du, Se, ...)
+      final labelPainter = TextPainter(
         text: TextSpan(
           text: labels[i],
-          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: onSurfaceColor.withOpacity(0.6)),
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: onSurfaceColor.withOpacity(0.6),
+          ),
         ),
+        textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout(minWidth: barWidth, maxWidth: barWidth);
-      
-      textPainter.paint(canvas, Offset(left, size.height + 8));
+      labelPainter.paint(canvas, Offset(left, size.height + 8));
     }
+  }
+
+  /// Bar tepasidagi qiymatni qisqa formatda chiqarish: "0", "30daq",
+  /// "1s", "2s 15daq". `data[i]` SOATDA berilgan double qiymat.
+  String _formatBarValue(double hours) {
+    final totalMinutes = (hours * 60).round();
+    if (totalMinutes <= 0) return '0';
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    if (h == 0) return '${m}daq';
+    if (m == 0) return '${h}s';
+    return '${h}s ${m}daq';
   }
 
   @override

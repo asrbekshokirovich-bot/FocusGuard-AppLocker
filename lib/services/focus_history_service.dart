@@ -95,7 +95,7 @@ class FocusHistoryService {
 
       if (isToday) {
         final seconds = prefs.getInt('today_focus_seconds') ?? 0;
-        final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+        final goal = prefs.getInt('daily_goal_seconds') ?? 7200;
         final sessions = prefs.getInt('today_completed_sessions') ?? 0;
         final xp = prefs.getInt('today_xp_earned') ?? 0;
         // Bugungi activity progress'ni `activity_progress_$today` dan
@@ -149,7 +149,7 @@ class FocusHistoryService {
             date.day == now.day;
         if (isToday) {
           final seconds = prefs.getInt('today_focus_seconds') ?? 0;
-          final goal = prefs.getInt('daily_goal_seconds') ?? 14400;
+          final goal = prefs.getInt('daily_goal_seconds') ?? 7200;
           final sessions = prefs.getInt('today_completed_sessions') ?? 0;
           final xp = prefs.getInt('today_xp_earned') ?? 0;
           final todayKey = _dateKey(date).replaceFirst(_keyPrefix, '');

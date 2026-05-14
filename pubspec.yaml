@@ -60,6 +60,7 @@ dependencies:
   flutter_timezone: ^5.0.2
   timezone: ^0.11.0
   connectivity_plus: ^6.1.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -95,6 +96,13 @@ flutter:
     - assets/uz.png
     - assets/ru.png
     - assets/us.png
+    # Tabiat ovozlari — Yengil Fokus rejimida loop tarzda chaladi.
+    # MP3 fayllar siz tomondan qo'shiladi (3-5 MB har biri):
+    #   - assets/sounds/rain.mp3       (yomg'ir)
+    #   - assets/sounds/forest.mp3     (o'rmon)
+    #   - assets/sounds/cafe.mp3       (kafe)
+    #   - assets/sounds/white_noise.mp3 (oq shovqin)
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

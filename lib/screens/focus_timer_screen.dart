@@ -14,6 +14,7 @@ import '../services/app_translation_service.dart';
 import '../services/timer_notification_service.dart';
 import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
+import '../services/soundscape_service.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
@@ -44,9 +45,13 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   // Mock'lar olib tashlandi: foydalanuvchi "+" tugmasi orqali
   // o'zining haqiqiy faoliyatlarini qo'shadi.
   List<Map<String, dynamic>> _customActivities = [];
-  int _selectedActivityIndex = 0;
+  // -1 — hech qaysi faoliyat tanlanmagan (default). Foydalanuvchi o'zi
+  // tanlasagina qiymat 0..N bo'ladi. Tanlanmagan holatda timer ishlasa,
+  // umumiy statistika (today_focus_seconds, XP, sessions) ishlaveradi —
+  // faqat activity_progress yozilmaydi.
+  int _selectedActivityIndex = -1;
   
-  double _dailyGoalHours = 4.0;
+  double _dailyGoalHours = 2.0;
   double _currentProgressHours = 0.0;
   Map<String, int> _activityProgress = {}; // Activity key/name -> minutes spent today
   String _motivationPhrase = 'Bugun ajoyib kun bo\'ladi!';
@@ -130,10 +135,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     }
 
     setState(() {
-      _dailyGoalHours = (prefs.getInt('daily_goal_seconds') ?? 14400) / 3600;
+      _dailyGoalHours = (prefs.getInt('daily_goal_seconds') ?? 7200) / 3600;
       _currentProgressHours = todayFocusSeconds / 3600;
       _motivationPhrase = prefs.getString('motivation_phrase') ?? AppTranslationService().translate('focus_timer.motivation_default');
       _motivationController.text = _motivationPhrase;
+      // Tabiat ovozi tanlangani — SoundscapeService kalitidan o'qiymiz
+      _selectedSound = prefs.getString('selected_sound') ?? 'none';
 
       // Faoliyatlarni yuklash
       final activitiesJson = prefs.getStringList('custom_activities');
@@ -202,11 +209,17 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     final todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
     setState(() => _currentProgressHours = todayFocusSeconds / 3600);
 
-    // XP va Level Service bilan integratsiya
-    await LevelService().addXP((secondsAdded / 60).toInt());
+    // XP va streak update'lari `PendingResultsProcessor` orqali bajariladi
+    // (background_service `queuePendingXP` qiladi, main isolate processor
+    // o'qib `LevelService.addXP` chaqiradi). Bu yerda yana chaqirsak XP
+    // 2 marta hisoblanardi (foreground + pending).
 
-    // Faoliyat progressini yangilash
-    if (_selectedActivityIndex < _customActivities.length) {
+    // Faoliyat progressini yangilash — faqat foydalanuvchi aniq faoliyat
+    // tanlagan bo'lsa. `-1` (default) bo'lsa, hech bir activity'ga vaqt
+    // yozilmaydi, lekin umumiy statistika (today_focus_seconds, XP,
+    // sessions) ishlaveradi.
+    if (_selectedActivityIndex >= 0 &&
+        _selectedActivityIndex < _customActivities.length) {
       final activity = _customActivities[_selectedActivityIndex];
       final activityKey = activity['key'] ?? activity['name'];
       final currentActivityMinutes = _activityProgress[activityKey] ?? 0;
@@ -230,6 +243,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     _marqueeController.dispose();
     _activityPageController.dispose();
     _motivationController.dispose();
+    // Tabiat ovozini ham to'xtatamiz — ekran yopildi
+    SoundscapeService.instance.stop();
     super.dispose();
   }
 
@@ -272,23 +287,41 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       modeName: _selectedMode == 0 ? lang.translate('focus_timer.status_deep') : lang.translate('focus_timer.status_light'),
       modeIcon: _selectedMode == 0 ? '⚡' : '🌿',
       levelTitle: fullLevelTitle,
-      isStrict: _selectedMode == 0,
+      // Temir Intizom faqat Chuqur Fokus'da: foydalanuvchi toggle yoqib
+      // qo'ygan + mode==0 bo'lgan paytda. Yengil Fokus'da isStrict=false.
+      isStrict: _effectiveStrict,
     );
+
+    // Tabiat ovozini ishga tushiramiz (agar tanlangan bo'lsa). 'none'
+    // bo'lsa SoundscapeService o'zi hech narsa qilmaydi.
+    SoundscapeService.instance.play(_selectedSound);
   }
 
   void _pauseTimer() {
     _timerService.pauseTimer();
-  }
-  
-  void _resumeTimer() {
-    _timerService.resumeTimer();
+    // Pauza paytida ovozni ham to'xtatamiz. Resume'da qaytadan boshlanadi.
+    SoundscapeService.instance.stop();
   }
 
+  void _resumeTimer() {
+    _timerService.resumeTimer();
+    // Pauza qaytarilganda ovozni qayta yoqamiz (tanlovi bo'lsa)
+    SoundscapeService.instance.play(_selectedSound);
+  }
+
+  /// Temir Intizom faqat Chuqur Fokus rejimida ishlaydi. Yengil Fokus'da
+  /// foydalanuvchi istagan paytda chiqishi mumkin. UI da toggle Yengil
+  /// Fokus'da yashirilgan, lekin `_isStrictMode` state qiymati default'da
+  /// `true` bo'lib qoladi — shu sababli mantiqda mode'ni ham tekshiramiz.
+  bool get _effectiveStrict => _isStrictMode && _selectedMode == 0;
+
   void _stopTimer() {
-    if (_isStrictMode && _isRunning) {
+    if (_effectiveStrict && _isRunning) {
       _showStopConfirmationDialog();
     } else {
       _timerService.stopTimer();
+      // Seans to'xtatildi → tabiat ovozini ham to'xtatamiz
+      SoundscapeService.instance.stop();
     }
   }
 
@@ -320,6 +353,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   void _onTimerComplete(int minutes) async {
     _updateProgress(minutes * 60);
     HapticFeedback.vibrate();
+    // Tabiat ovozini to'xtatamiz — endi taymer alarm ringtoni o'ynaydi.
+    SoundscapeService.instance.stop();
 
     // Rington background service tomonidan allaqachon o'ynalmoqda
     // (looping=true). Bu yerda qayta o'ynatmaymiz.
@@ -596,9 +631,13 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                 leading: Icon(sound['icon'] as IconData, color: Theme.of(context).primaryColor),
                 title: Text(_getLocalizedSoundName(sound['name'] as String, lang), style: GoogleFonts.inter()),
                 trailing: _selectedSound == sound['name'] ? const Icon(CupertinoIcons.check_mark, color: Color(0xFF34C759)) : null,
-                onTap: () {
-                  setState(() => _selectedSound = sound['name'] as String);
-                  Navigator.pop(context);
+                onTap: () async {
+                  final newSound = sound['name'] as String;
+                  setState(() => _selectedSound = newSound);
+                  // Tanlovni saqlaymiz va agar seans hozir ishlayotgan
+                  // bo'lsa, ovoz darrov yangisiga almashtiriladi.
+                  await SoundscapeService.instance.setSelectedSound(newSound);
+                  if (mounted) Navigator.pop(context);
                 },
               )),
             ],
@@ -835,10 +874,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       valueListenable: lang.languageNotifier,
       builder: (context, _, __) {
         return PopScope(
-          canPop: !(_isStrictMode && _isRunning),
+          canPop: !(_effectiveStrict && _isRunning),
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            if (_isStrictMode && _isRunning) {
+            if (_effectiveStrict && _isRunning) {
               _showStopConfirmationDialog();
             }
           },
@@ -1029,20 +1068,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                               ),
                             ),
                           ] else ...[
-                            _buildOptionRow(
-                              CupertinoIcons.square_grid_2x2,
-                              const Color(0xFF34C759),
-                              lang.translate('focus_timer.allowed_apps'),
-                              lang.translate('focus_timer.allowed_desc').replaceAll('{count}', '3'),
-                              false,
-                              onTap: () => _showFeatureInfo(
-                                lang.translate('focus_timer.allowed_apps'),
-                                lang.translate('focus_timer.allowed_apps_info'), // Need to add this to service
-                                CupertinoIcons.square_grid_2x2,
-                                const Color(0xFF34C759),
-                              ),
-                            ),
-                            Divider(color: Colors.grey.withOpacity(0.1), height: 1),
+                            // Yengil Fokus rejimida faqat Tabiat Ovozlari
+                            // ko'rsatiladi. "Ruxsat Berilganlar" mock funksiyasi
+                            // olib tashlandi — soddaroq UX uchun.
                             _buildOptionRow(
                               CupertinoIcons.speaker_2_fill,
                               const Color(0xFF5E5CE6),
@@ -1161,40 +1189,46 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          lang.translate('focus_timer.activity'),
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+                  // Faoliyat turlari faqat Chuqur Fokus (Deep Work) rejimida
+                  // ko'rinadi. Yengil Fokus rejimida foydalanuvchi shunchaki
+                  // fokus qiladi — faoliyat tanlash kerakmas.
+                  if (_selectedMode == 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            lang.translate('focus_timer.activity'),
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: (_selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)).withOpacity(0.1),
-                            shape: BoxShape.circle,
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(CupertinoIcons.plus, size: 11, color: Theme.of(context).primaryColor),
+                              onPressed: _showActivityEditor,
+                            ),
                           ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            icon: Icon(CupertinoIcons.plus, size: 11, color: _selectedMode == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759)),
-                            onPressed: _showActivityEditor,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                  if (_selectedMode == 0) const SizedBox(height: 12),
                   Column(
                     children: [
-                      if (_customActivities.isEmpty)
+                      if (_selectedMode != 0)
+                        const SizedBox.shrink()
+                      else if (_customActivities.isEmpty)
                         _buildEmptyActivities(lang)
                       else ...[
                         SizedBox(

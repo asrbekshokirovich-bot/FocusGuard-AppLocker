@@ -98,18 +98,38 @@ class _BlockListScreenState extends State<BlockListScreen> {
   }
 
   Future<void> _loadIconsInBackground(List<AppInfo> apps) async {
+    SharedPreferences? prefs;
+    Set<String> blockedSet = <String>{};
+    try {
+      prefs = await SharedPreferences.getInstance();
+      blockedSet = (prefs.getStringList('blocked_apps') ?? []).toSet();
+    } catch (_) {}
+
     for (final app in apps) {
       if (!mounted) return;
       // Faqat ro'yxatdagi ilovalar uchun icon yukla
       final idx = _appsList.indexWhere((a) => a['package'] == app.packageName);
       if (idx == -1) continue;
-      
+
       try {
         final AppInfo? detailed = await InstalledApps.getAppInfo(app.packageName);
         if (detailed?.icon != null && mounted) {
           setState(() {
             _appsList[idx]['icon'] = detailed!.icon;
           });
+
+          // Bloklangan ilovalar uchun ikonkani statistika ekraniga
+          // saqlaymiz. Eski bloklangan ilovalar uchun ham bir martalik
+          // backfill — keyin "Eng ko'p urinilgan" karta ularning real
+          // ikonkasini ko'rsatadi.
+          if (prefs != null && blockedSet.contains(app.packageName)) {
+            try {
+              await prefs.setString(
+                'app_icon_${app.packageName}',
+                base64Encode(detailed!.icon!),
+              );
+            } catch (_) {}
+          }
         }
       } catch (_) {
         continue;
@@ -488,18 +508,28 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
               await prefs.setStringList('blocked_apps', blockedPackages);
 
-              // Ilova nomi cache — Statistika "Eng ko'p urinilgan ilovalar"
-              // ekrani package nomidan haqiqiy ilova nomini olib ko'rsatish
-              // uchun shu cache'ni o'qiydi. Asosan real ilovalar uchun
-              // (`app['isReal'] == true`) saqlanadi.
+              // Ilova nomi va ikonkasi cache — Statistika "Eng ko'p urinilgan
+              // ilovalar" ekrani package nomidan haqiqiy nom va ikonkasini
+              // olib ko'rsatish uchun shu cache'larni o'qiydi.
               if (val && app['isReal'] == true) {
                 try {
+                  // 1. Ilova nomi cache (JSON map: package → name)
                   final cacheRaw = prefs.getString('app_name_cache');
                   final Map<String, dynamic> cache = cacheRaw != null
                       ? (jsonDecode(cacheRaw) as Map<String, dynamic>)
                       : <String, dynamic>{};
                   cache[app['package']] = app['name'];
                   await prefs.setString('app_name_cache', jsonEncode(cache));
+
+                  // 2. Ilova ikonkasi cache (base64 encoded) — har bir
+                  // package alohida kalit: `app_icon_<package>`
+                  final iconBytes = app['icon'];
+                  if (iconBytes is Uint8List) {
+                    await prefs.setString(
+                      'app_icon_${app['package']}',
+                      base64Encode(iconBytes),
+                    );
+                  }
                 } catch (_) {}
               }
 

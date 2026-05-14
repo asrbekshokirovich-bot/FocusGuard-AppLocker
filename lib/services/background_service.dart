@@ -178,7 +178,7 @@ void onStart(ServiceInstance service) async {
   
   // Kunlik maqsad o'zgaruvchilari
   int todayFocusSeconds = 0;
-  int dailyGoalSeconds = 14400; // Standart 4 soat
+  int dailyGoalSeconds = 7200; // Standart 2 soat (foydalanuvchi o'zgartira oladi)
   bool analysisSent = false;
   int lastDay = DateTime.now().day;
 
@@ -380,6 +380,10 @@ void onStart(ServiceInstance service) async {
     modeIcon = event['modeIcon'];
     levelTitle = event['levelTitle'];
     isStrict = event['isStrict'];
+    // Yengil Fokus rejimini alohida saqlaymiz — statistika "Yengil Fokus"
+    // kartasi shu kalitdan o'qiydi. mode==1 → light, mode==0 → deep.
+    final isLightFocus = !(isStrict);
+    await prefs.setBool('timer_is_light', isLightFocus);
     isTimerRunning = true;
     isPaused = false; // yangi sessiya — paused emas
 
@@ -542,7 +546,7 @@ void onStart(ServiceInstance service) async {
 
   // Kunlik ma'lumotlarni yuklash
   todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
-  dailyGoalSeconds = prefs.getInt('daily_goal_seconds') ?? 14400;
+  dailyGoalSeconds = prefs.getInt('daily_goal_seconds') ?? 7200;
   analysisSent = prefs.getBool('analysis_sent_${DateTime.now().day}') ?? false;
   lastDay = prefs.getInt('last_tracked_day') ?? DateTime.now().day;
 
@@ -786,6 +790,14 @@ void onStart(ServiceInstance service) async {
       todayFocusSeconds++;
       if (todayFocusSeconds % 10 == 0) { // Har 10 soniyada saqlaymiz
         await prefs.setInt('today_focus_seconds', todayFocusSeconds);
+      }
+      // Yengil Fokus rejimi bo'lsa — alohida counter ham oshadi.
+      // Statistika "Yengil Fokus" karta shu kalitdan o'qiydi.
+      // !isStrict → Yengil Fokus (Light Focus); isStrict → Chuqur Fokus.
+      if (!isStrict && todayFocusSeconds % 10 == 0) {
+        final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
+        // Bir vaqtning o'zida 10 sekund qo'shamiz (har 10 sekund saqlaymiz)
+        await prefs.setInt('light_focus_total_seconds', lightTotal + 10);
       }
     }
 
