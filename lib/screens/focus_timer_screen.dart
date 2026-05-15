@@ -300,6 +300,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       // Temir Intizom faqat Chuqur Fokus'da: foydalanuvchi toggle yoqib
       // qo'ygan + mode==0 bo'lgan paytda. Yengil Fokus'da isStrict=false.
       isStrict: _effectiveStrict,
+      // Yengil Fokus rejimi flagini alohida uzatamiz — background service
+      // shu qiymat asosida `light_focus_total_seconds` counterni oshiradi.
+      isLight: _selectedMode == 1,
     );
 
     // Tabiat ovozi FAQAT Yengil Fokus rejimida chalinadi. Chuqur Fokus —

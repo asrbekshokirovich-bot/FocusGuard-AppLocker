@@ -175,7 +175,13 @@ void onStart(ServiceInstance service) async {
   String modeIcon = "";
   String levelTitle = "";
   bool isStrict = false;
-  
+  // Yengil Fokus rejimi flagi — UI explicit uzatadi. Avval `!isStrict` proxy
+  // ishlatardik, lekin Deep Focus + Strict OFF ham `light` deb hisoblanardi.
+  bool isLightMode = false;
+  // Yengil Fokus seconds counter — saqlash oralig'i ichida (10 sek) yo'qotmaslik
+  // uchun memoryda yig'amiz, stop/pause/complete'da flush qilamiz.
+  int lightFocusBuffer = 0;
+
   // Kunlik maqsad o'zgaruvchilari
   int todayFocusSeconds = 0;
   int dailyGoalSeconds = 7200; // Standart 2 soat (foydalanuvchi o'zgartira oladi)
@@ -277,33 +283,63 @@ void onStart(ServiceInstance service) async {
 
   /// Bugungi XP hisoblagichini oshirish. Parametr — DAQIQALAR (eski API).
   /// Ichkarida 1 daqiqa = 10 XP formulasi qo'llaniladi.
+  /// XP'ni vaqtdan formula bilan hisoblash — yagona joy. 1 daq = 10 XP.
+  /// 6 sek = 1 XP. Hech qaerda boshqa formula ishlatilmasligi kerak.
+  int xpFromSeconds(int seconds) => (seconds * 10 / 60).round();
+
+  /// today_xp_earned ni today_focus_seconds'dan qayta hisoblab yozadi.
+  /// Yagona haqiqat manbai: today_focus_seconds. XP — formula bilan.
+  /// Bu chaqirilgandan keyin vaqt va XP doim bir-biriga aniq mos keladi.
+  Future<void> syncTodayXpFromFocusSeconds() async {
+    final xp = xpFromSeconds(todayFocusSeconds);
+    await prefs.setInt('today_xp_earned', xp);
+  }
+
+  /// today_focus_seconds'ga sekund qo'shish + XP'ni qayta hisoblash.
+  /// Late detection (background uxlab qolgan paytda tugagan seans) uchun:
+  /// tick loop bu vaqtni ko'rmagan bo'lsa, manual qo'shish kerak.
+  Future<void> addToFocusSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    todayFocusSeconds += seconds;
+    await prefs.setInt('today_focus_seconds', todayFocusSeconds);
+    await syncTodayXpFromFocusSeconds();
+  }
+
+  /// DEPRECATED: bu metodlar endi XP'ni alohida qo'shmaydi. XP yagona
+  /// formula bilan `today_focus_seconds`'dan keladi. Tick loop allaqachon
+  /// focus_seconds'ni oshirgan bo'ladi (natural complete, partial stop). Faqat
+  /// XP'ni qayta sinxronlashtirish kerak. Late detection holatida esa
+  /// `addToFocusSeconds()` chaqirilishi kerak — tick loop ishlamagan.
   Future<void> addTodayXpFromMinutes(int minutes) async {
     if (minutes <= 0) return;
-    final n = prefs.getInt('today_xp_earned') ?? 0;
-    await prefs.setInt('today_xp_earned', n + minutes * 10);
+    await syncTodayXpFromFocusSeconds();
   }
 
-  /// Bugungi XP hisoblagichini SEKUND aniqligida oshirish. 6 sek = 1 XP
-  /// (1 daqiqa = 10 XP). 10 sekund → ~2 XP. Qisqa seanslar uchun ham
-  /// foydalanuvchi nimadir oladi.
   Future<void> addTodayXpFromSeconds(int seconds) async {
     if (seconds <= 0) return;
-    final xp = (seconds * 10 / 60).round();
-    if (xp <= 0) return;
-    final n = prefs.getInt('today_xp_earned') ?? 0;
-    await prefs.setInt('today_xp_earned', n + xp);
+    await syncTodayXpFromFocusSeconds();
   }
 
-  /// Eng uzun yakunlangan seans daqiqalarini yangilash. Statistika ekrani
-  /// shu qiymatdan foydalanadi ("Eng uzun seans" karta). Faqat o'sganda
-  /// yoziladi — bir marta 60 daqiqalik seansdan keyin foydalanuvchi 20
-  /// daqiqalik seans qilsa, qiymat 60'da qoladi.
-  Future<void> updateLongestSession(int minutes) async {
-    if (minutes <= 0) return;
-    final current = prefs.getInt('longest_session_minutes') ?? 0;
-    if (minutes > current) {
-      await prefs.setInt('longest_session_minutes', minutes);
+  /// Eng uzun seans sekundlarini yangilash. Statistika ekrani shu qiymatdan
+  /// foydalanadi ("Eng uzun seans" karta). Faqat o'sganda yoziladi.
+  /// Sekund aniqligida — qisqa seanslar (1-59 sek) ham yo'qotilmaydi.
+  /// Backward-compat uchun `longest_session_minutes`'ni ham yangilab qo'yamiz.
+  Future<void> updateLongestSessionSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    final current = prefs.getInt('longest_session_seconds') ?? 0;
+    if (seconds > current) {
+      await prefs.setInt('longest_session_seconds', seconds);
+      await prefs.setInt('longest_session_minutes', seconds ~/ 60);
     }
+  }
+
+  /// Yengil Fokus bufferini Saqlangan jami qiymatga qo'shamiz va resetlaymiz.
+  /// Stop/pause/complete'da chaqiriladi — 0-9 sek qoldiq yo'qolmasligi uchun.
+  Future<void> flushLightFocusBuffer() async {
+    if (lightFocusBuffer <= 0) return;
+    final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
+    await prefs.setInt('light_focus_total_seconds', lightTotal + lightFocusBuffer);
+    lightFocusBuffer = 0;
   }
 
   /// Bloklangan ilovaga kirishga urinish — statistikaga +1. Har kun uchun
@@ -398,11 +434,13 @@ void onStart(ServiceInstance service) async {
     modeName = event['modeName'];
     modeIcon = event['modeIcon'];
     levelTitle = event['levelTitle'];
-    isStrict = event['isStrict'];
-    // Yengil Fokus rejimini alohida saqlaymiz — statistika "Yengil Fokus"
-    // kartasi shu kalitdan o'qiydi. mode==1 → light, mode==0 → deep.
-    final isLightFocus = !(isStrict);
-    await prefs.setBool('timer_is_light', isLightFocus);
+    isStrict = event['isStrict'] ?? false;
+    // Yengil Fokus rejimini UI explicit uzatadi (mode==1). Avval `!isStrict`
+    // proxy ishlatardik — Deep Focus + Strict OFF holatida noto'g'ri "Light"
+    // deb yozardi. Endi flag aniq UI'dan keladi.
+    isLightMode = event['isLight'] ?? false;
+    lightFocusBuffer = 0; // yangi seans — buffer reset
+    await prefs.setBool('timer_is_light', isLightMode);
     isTimerRunning = true;
     isPaused = false; // yangi sessiya — paused emas
 
@@ -436,9 +474,16 @@ void onStart(ServiceInstance service) async {
       if (elapsed >= 1) {
         await queuePendingXpSeconds(elapsed);
         await addTodayXpFromSeconds(elapsed);
+        // Partial stop ham seans deb hisoblanadi (foydalanuvchi vaqt sarflagan).
+        await incrementTodaySessions();
+        // Eng uzun seans — sekund aniqligida, qisqa seans (1-59 sek) ham
+        // hisoblansin (avval daqiqaga aylantirilardi → 0 bo'lib qolardi).
+        await updateLongestSessionSeconds(elapsed);
         debugPrint(
-            '[BackgroundTimer] partial stop: ${elapsed}s queued for XP');
+            '[BackgroundTimer] partial stop: ${elapsed}s queued for XP + session counted');
       }
+      // Yengil Fokus bufferini flush — qisqa qoldiq yo'qolmasin.
+      await flushLightFocusBuffer();
       // Calendar uchun ham bugungi kun history'ga darrov yozib qo'yamiz
       // (todayFocusSeconds tick loop'da yangilangan).
       await FocusHistoryService.instance.recordDay(
@@ -456,12 +501,14 @@ void onStart(ServiceInstance service) async {
     remainingSeconds = 0;
     sessionInitialSeconds = 0;
     isStrict = false;
+    isLightMode = false;
     await prefs.remove('timer_end_timestamp');
     await prefs.remove('timer_remaining_seconds');
     await prefs.remove('session_initial_seconds');
     await prefs.setBool('timer_is_running', false);
     await prefs.setBool('timer_is_paused', false);
     await prefs.setBool('timer_is_strict', false);
+    await prefs.setBool('timer_is_light', false);
 
     // syncTimer() o'zi notifikatsiyani "Focus Guard / Monitoring faol"
     // ga qaytaradi (chunki isTimerRunning=false va isPaused=false).
@@ -475,6 +522,8 @@ void onStart(ServiceInstance service) async {
     await prefs.setBool('timer_is_paused', true);
     // Qolgan vaqtni saqlab qo'yamiz — resume paytida shu yerdan davom
     await prefs.setInt('timer_remaining_seconds', remainingSeconds);
+    // Pauza — Yengil Fokus bufferini saqlash. Resume'da yangidan yig'ila boshlaydi.
+    await flushLightFocusBuffer();
     syncTimer();
   });
 
@@ -529,14 +578,21 @@ void onStart(ServiceInstance service) async {
       // yangilanish qo'shamiz — foydalanuvchi mehnati yo'qotilmasin.
       final savedInitial = prefs.getInt('session_initial_seconds') ?? 0;
       if (savedInitial > 0) {
+        // MUHIM: bu blok service ishga tushishida ishlaydi va tick loop
+        // ishlamagan. today_focus_seconds'ni avval prefs'dan o'qib olamiz,
+        // keyin savedInitial'ni qo'shamiz — XP/vaqt sinxron qoladi.
+        todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
         final sessionMinutes = savedInitial ~/ 60;
         await queuePendingXP(sessionMinutes);
         await queueCompletion();
         await incrementTodaySessions();
-        await addTodayXpFromMinutes(sessionMinutes);
-        await updateLongestSession(sessionMinutes);
+        // Late detection: tick loop ishlamagan → focus_seconds'ni manual oshirish
+        await addToFocusSeconds(savedInitial); // XP ham ichida sync bo'ladi
+        await updateLongestSessionSeconds(savedInitial);
+        await flushLightFocusBuffer();
         debugPrint(
-            '[BackgroundTimer] late-detected completion: ${sessionMinutes}m queued');
+            '[BackgroundTimer] late-detected completion: ${savedInitial}s '
+            '(${sessionMinutes}m) added to focus_seconds');
         await FocusHistoryService.instance.recordDay(
           date: DateTime.now(),
           seconds: todayFocusSeconds,
@@ -668,18 +724,27 @@ void onStart(ServiceInstance service) async {
         // 4. Rington-bilan notifikatsiya yuboramiz (app yopiq bo'lsa ham)
         isTimerRunning = false;
         isStrict = false;
+        isLightMode = false;
         await prefs.setBool('timer_is_running', false);
         await prefs.setBool('timer_is_strict', false);
+        await prefs.setBool('timer_is_light', false);
 
         if (sessionInitialSeconds > 0) {
           final sessionMinutes = sessionInitialSeconds ~/ 60;
-          await queuePendingXP(sessionMinutes);
+          // Pending queue → Firestore level XP (sekund aniqligida).
+          // Daqiqa o'rniga sekund queue ishlatamiz — sub-minute yo'qolmasin.
+          await queuePendingXpSeconds(sessionInitialSeconds);
           await queueCompletion();
           await incrementTodaySessions();
-          await addTodayXpFromMinutes(sessionMinutes);
-          await updateLongestSession(sessionMinutes);
+          // Tick loop allaqachon today_focus_seconds'ni oshirgan. XP'ni sinxronlash:
+          // XP = round(focus_seconds * 10 / 60). Drift bo'lmaydi.
+          await syncTodayXpFromFocusSeconds();
+          await updateLongestSessionSeconds(sessionInitialSeconds);
+          // Yengil Fokus bufferini flush — natural complete'da ham qoldiq saqlanadi.
+          await flushLightFocusBuffer();
           debugPrint(
-              '[BackgroundTimer] timer completed: ${sessionMinutes}m queued for XP');
+              '[BackgroundTimer] timer completed: ${sessionInitialSeconds}s '
+              '(${sessionMinutes}m), focus=${todayFocusSeconds}s, xp synced');
 
           // Calendar uchun darrov bugungi history yangilash —
           // foydalanuvchi Calendar'ga kirsa, bugun ✅ ko'rishi uchun
@@ -808,14 +873,19 @@ void onStart(ServiceInstance service) async {
       todayFocusSeconds++;
       if (todayFocusSeconds % 10 == 0) { // Har 10 soniyada saqlaymiz
         await prefs.setInt('today_focus_seconds', todayFocusSeconds);
+        // XP ham har 10 sek'da sync — UI live yangilanib turadi.
+        // Formula: round(focus_seconds * 10 / 60). Drift bo'lmaydi.
+        await prefs.setInt('today_xp_earned', xpFromSeconds(todayFocusSeconds));
       }
-      // Yengil Fokus rejimi bo'lsa — alohida counter ham oshadi.
-      // Statistika "Yengil Fokus" karta shu kalitdan o'qiydi.
-      // !isStrict → Yengil Fokus (Light Focus); isStrict → Chuqur Fokus.
-      if (!isStrict && todayFocusSeconds % 10 == 0) {
-        final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
-        // Bir vaqtning o'zida 10 sekund qo'shamiz (har 10 sekund saqlaymiz)
-        await prefs.setInt('light_focus_total_seconds', lightTotal + 10);
+      // Yengil Fokus rejimi bo'lsa — bufferni har soniyada oshiramiz.
+      // 10 sekundga yetganda saqlanadi (batareyaga yengil). Stop/pause/complete
+      // paytida qoldiq ham flush qilinadi — 0-9 sek yo'qotilmaydi.
+      // `isLightMode` UI'dan keladi (avval `!isStrict` proxy edi va Deep+No-Strict'ni Light deb belgilardi).
+      if (isLightMode) {
+        lightFocusBuffer++;
+        if (lightFocusBuffer >= 10) {
+          await flushLightFocusBuffer();
+        }
       }
     }
 

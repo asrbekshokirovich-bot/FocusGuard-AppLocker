@@ -53,6 +53,7 @@ class FocusTimerService {
     required String modeIcon,
     required String levelTitle,
     required bool isStrict,
+    required bool isLight,
   }) async {
     // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz
     bool isRunning = await _service.isRunning();
@@ -68,6 +69,7 @@ class FocusTimerService {
       'modeIcon': modeIcon,
       'levelTitle': levelTitle,
       'isStrict': isStrict,
+      'isLight': isLight,
     });
     _isRunning = true;
 

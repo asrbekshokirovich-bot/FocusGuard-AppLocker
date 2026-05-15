@@ -123,14 +123,18 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 - Eski `last_tracked_day` (faqat day raqami) bug'i tuzatildi
 
 ### XP/Sessions tracking (single source of truth, sekund aniqligida)
-- **XP yagona manba:** `PendingResultsProcessor` — `pending_xp_minutes` + `pending_xp_seconds` → `LevelService.addXpFromSeconds()`
-- `_updateProgress`'dan addXP olib tashlandi (avval 2 marta hisoblanardi)
-- **Sessions yagona manba:** `today_completed_sessions` + history.sessions (bugungi kalit istisno)
-- `addTodayXpFromMinutes(minutes)` — ichida `* 10` (`today_xp_earned` haqiqiy XP)
-- `addTodayXpFromSeconds(seconds)` — XP = `(seconds * 10 / 60).round()` (6 sek = 1 XP)
-- `queuePendingXpSeconds(seconds)` — qisman to'xtatishlar uchun (1+ sek)
-- Stop threshold: >= 1 sekund (avval 60 sek edi — kichik seanslar yo'qotilardi)
-- `LevelService.addXpFromSeconds()` — Firestore `totalSeconds` + `totalMinutes` yozadi
+- **🔑 Yagona haqiqat manbai: `today_focus_seconds`** — har tick'da oshadi.
+- **XP doim formula bilan:** `xp = round(seconds × 10 ÷ 60)` (`xpFromSeconds()` helper)
+- `today_xp_earned` alohida saqlanadi, lekin DOIM `today_focus_seconds`'dan qayta hisoblanadi.
+  Drift bo'lishi mumkin emas — vaqt va XP doim aniq mos keladi.
+- `syncTodayXpFromFocusSeconds()` — XP'ni sekundlardan qayta yozadi.
+- `addToFocusSeconds(seconds)` — late detection uchun (service uxlab qolgan).
+- `addTodayXpFromMinutes/Seconds` — endi faqat sync chaqiradi (tick loop allaqachon focus_seconds'ni oshirgan).
+- Tick loop har 10 sek'da `today_focus_seconds` + `today_xp_earned` ikkalasini saqlaydi.
+- **Sessions:** `today_completed_sessions` + history.sessions (bugungi kalit istisno).
+  Partial stop ham seans deb hisoblanadi (`elapsed >= 1 sek`).
+- **Firestore Level XP:** `pending_xp_seconds` queue → `LevelService.addXpFromSeconds()` (sekund aniqligida)
+- Stop threshold: >= 1 sek (avval 60 sek edi).
 
 ### Cloud Sync (offline-first, premium-gated)
 - **Yagona haqiqiy manba:** SharedPreferences (lokal)
@@ -215,6 +219,7 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 | `app_icon_<package>` | String | base64 encoded PNG (per app) |
 | `selected_sound` | String | Tabiat ovozi: none/rain/forest |
 | `pending_xp_seconds` | int | Kutayotgan XP sekundlari (sekund aniqligida) |
+| `longest_session_seconds` | int | Eng uzun seans sekundda (yangi, aniq) |
 | `totalSeconds` | int (Firestore) | Foydalanuvchining jami fokus sekundlari |
 | `registration_date` | String | ISO8601 ro'yxatdan o'tgan sana |
 | `cloud_sync_mode` | String | `auto` yoki `manual` |
@@ -336,6 +341,36 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 - `_selectedActivityIndex = -1` default
 - Sekund aniqligi bilan ham faoliyat to'g'ri yoziladi
 
+### 20. Yengil Fokus tracking aniq flag bilan
+- Avval `!isStrict` proxy ishlatardik — Deep+No-Strict noto'g'ri Light deb yozilardi.
+- Endi UI explicit `isLight` flagini uzatadi (`focus_timer_service.startTimer`'da yangi parametr).
+- Background `isLightMode` o'zgaruvchisi shu flagdan keladi.
+- `lightFocusBuffer` memoryda yig'iladi, har 10 sek saqlanadi.
+- Stop/pause/complete'da `flushLightFocusBuffer()` chaqiriladi — 0-9 sek qoldiq yo'qolmaydi.
+
+### 21. Eng uzun seans sekundda
+- Yangi kalit `longest_session_seconds` (eski `longest_session_minutes` backward-compat saqlanadi).
+- Partial stop ham yangilaydi (avval faqat natural complete).
+- Stats display: `_formatLongestSession()` — "30 sek", "5 daq 30 sek", "1 s 30 daq" formatda.
+
+### 22. Jami seanslar — partial ham hisoblanadi
+- `stopTimer` listener'da `elapsed >= 1 sek` bo'lsa `incrementTodaySessions()` chaqiriladi.
+- Avval faqat to'liq tugagan seans hisoblanardi.
+
+### 23. Stats haftalik chart 3-hafta tafsiloti hafta kunlari fix
+- Avval statik `[Du, Se, Ch, ...]` ro'yxat ishlatardi — sana bilan bog'lanmagan.
+- Endi `DateTime(year, month, day).weekday` orqali har kun haqiqiy hafta kuni hisoblanadi.
+
+### 24. XP yagona haqiqat manbai (drift fix) ⭐
+- **Muammo:** XP alohida `today_xp_earned` hisoblagichida saqlanardi va `today_focus_seconds`'dan drift qilardi.
+  Foydalanuvchi 5 daq fokus qilsa-yu, 40 XP olardi (50 o'rniga).
+- **Yechim:** XP endi DOIM `today_focus_seconds`'dan formula bilan keladi:
+  `xp = round(seconds × 10 ÷ 60)` (`xpFromSeconds()` helper).
+- `today_xp_earned` saqlanadi, lekin har tick/stop/complete'da `today_focus_seconds`'dan
+  qayta hisoblanadi → drift mumkin emas.
+- Late detection: `addToFocusSeconds(savedInitial)` chaqiriladi → focus_seconds ham, XP ham birga oshadi.
+- Garantiya: 300 sek = 50 XP, 270 sek = 45 XP, 60 sek = 10 XP — har joyda bir xil.
+
 ---
 
 ## NOTIFICATION ID'LAR (to'qnashmaslik uchun)
@@ -420,3 +455,8 @@ PREMIUM plan (cheksiz):
 - Sekund aniqligida tracking: 6 sek = 1 XP, qisqa seanslar (10 sek) ham hisoblanadi
 - Audio FAQAT Yengil Fokus rejimida, sound picker 3 variant (none/rain/forest)
 - Activity toggle: tanlash/bekor qilish bita bosish bilan
+- **XP yagona haqiqat manbai: `today_focus_seconds`** — XP doim formula bilan keladi (`xpFromSeconds()`), alohida hisoblanmaydi
+- Yengil Fokus: UI explicit `isLight` flag uzatadi (`!isStrict` proxy emas)
+- Eng uzun seans: `longest_session_seconds` (sekund aniqligida)
+- Partial stop ham seans deb hisoblanadi (elapsed >= 1 sek)
+- Stats haftalik 3-hafta tafsiloti hafta kunlari `DateTime.weekday` orqali

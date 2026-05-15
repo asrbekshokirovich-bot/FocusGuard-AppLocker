@@ -37,7 +37,9 @@ class _StatsScreenState extends State<StatsScreen>
   int _totalMinutes = 0;
   // Lokal'dan hisoblanadigan metriklar — internetdan mustaqil.
   int _totalSessions = 0;
-  int _longestSessionMinutes = 0;
+  // Eng uzun seans — sekund aniqligida (yangi `longest_session_seconds` kalit).
+  // Statistika ekrani "Xmin Ysek" yoki "Xs Ymin" formatda chiqaradi.
+  int _longestSessionSeconds = 0;
   // Real haftalik ma'lumot: 7 ta soat qiymati (Du-Ya, joriy hafta).
   List<double> _realWeeklyHours = [0, 0, 0, 0, 0, 0, 0];
   // Real oylik ma'lumot: 4-5 ta soat qiymati (oydagi haftalar).
@@ -148,7 +150,9 @@ class _StatsScreenState extends State<StatsScreen>
           totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
         } catch (_) {}
       }
-      final longest = prefs.getInt('longest_session_minutes') ?? 0;
+      // Eng uzun seans — yangi sekund kaliti, eskisi (minutes) backward-compat.
+      final longestSec = prefs.getInt('longest_session_seconds') ??
+          ((prefs.getInt('longest_session_minutes') ?? 0) * 60);
       final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
 
       // Real haftalik/oylik ma'lumotlarni history'dan hisoblash
@@ -164,7 +168,7 @@ class _StatsScreenState extends State<StatsScreen>
           _customActivities = loadedActivities;
           _activityProgress = loadedProgress;
           _totalSessions = totalSessions;
-          _longestSessionMinutes = longest;
+          _longestSessionSeconds = longestSec;
           _lightFocusTotalSeconds = lightTotal;
           _realWeeklyHours = chartData.weeklyHours;
           _realMonthlyHours = chartData.monthlyHours;
@@ -488,7 +492,9 @@ class _StatsScreenState extends State<StatsScreen>
         totalSessions += (data['sessions'] as num?)?.toInt() ?? 0;
       } catch (_) {}
     }
-    final longest = prefs.getInt('longest_session_minutes') ?? 0;
+    // Eng uzun seans — yangi sekund kaliti, eskisi backward-compat.
+    final longestSec = prefs.getInt('longest_session_seconds') ??
+        ((prefs.getInt('longest_session_minutes') ?? 0) * 60);
     final lightTotal = prefs.getInt('light_focus_total_seconds') ?? 0;
     // Real chart ma'lumotlarini birinchi yuklashda ham hisoblaymiz
     final chartData = await _computeChartData(prefs);
@@ -501,7 +507,7 @@ class _StatsScreenState extends State<StatsScreen>
         _customActivities = loadedActivities;
         _activityProgress = loadedProgress;
         _totalSessions = totalSessions;
-        _longestSessionMinutes = longest;
+        _longestSessionSeconds = longestSec;
         _lightFocusTotalSeconds = lightTotal;
         _realWeeklyHours = chartData.weeklyHours;
         _realMonthlyHours = chartData.monthlyHours;
@@ -918,7 +924,14 @@ class _StatsScreenState extends State<StatsScreen>
     if (_detailedWeekIndex != null) {
       final startDay = (_detailedWeekIndex! * 7) + 1;
       final shortDays = labels is List ? List<String>.from(labels) : ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
-      return List.generate(7, (i) => '${shortDays[i]} ${startDay + i}');
+      // Har bir kunning haqiqiy hafta kunini DateTime'dan olamiz —
+      // statik [Du, Se, ...] ro'yxat hafta sanasiga mos kelmaydi.
+      final now = DateTime.now();
+      return List.generate(7, (i) {
+        final day = startDay + i;
+        final date = DateTime(now.year, now.month, day);
+        return '${shortDays[date.weekday - 1]} $day';
+      });
     }
     return List.generate(4, (i) => lang.translate('stats.week_label').toString().replaceAll('{count}', (i + 1).toString()));
   }
@@ -1126,7 +1139,7 @@ class _StatsScreenState extends State<StatsScreen>
         ),
         _buildGridMetric(
           lang.translate('stats.metrics_longest'),
-          '$_longestSessionMinutes${lang.translate('stats.unit_m')}',
+          _formatLongestSession(_longestSessionSeconds, lang),
           CupertinoIcons.timer_fill,
           const Color(0xFFFF9500),
         ),
@@ -1824,6 +1837,27 @@ class _StatsScreenState extends State<StatsScreen>
     if (m > 0) parts.add('$m ${lang.translate('stats.unit_m') ?? 'daq'}');
     if (s > 0 && h == 0) parts.add('$s sek');
     return parts.join(' ');
+  }
+
+  /// Eng uzun seans metric kartasi uchun ixcham format:
+  /// 0 → "0 sek", 30 → "30 sek", 90 → "1 daq 30 sek", 3700 → "1 s 1 daq"
+  String _formatLongestSession(int seconds, AppTranslationService lang) {
+    if (seconds <= 0) return '0 sek';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    final hUnit = lang.translate('stats.unit_h') ?? 's';
+    final mUnit = lang.translate('stats.unit_m') ?? 'daq';
+    if (h > 0) {
+      // Soat va daqiqa — sekundlarni tashlaymiz, ixchamlik uchun
+      if (m == 0) return '$h $hUnit';
+      return '$h $hUnit $m $mUnit';
+    }
+    if (m > 0) {
+      if (s == 0) return '$m $mUnit';
+      return '$m $mUnit $s sek';
+    }
+    return '$s sek';
   }
 }
 
