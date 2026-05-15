@@ -76,11 +76,9 @@ lib/
 assets/
 ├── logo.png
 ├── uz.png, ru.png, us.png
-└── sounds/                     # ⭐ YANGI — bundled MP3 (~8 MB)
+└── sounds/                     # ⭐ bundled MP3 (~1 MB)
     ├── rain.mp3                # Archive.org, Public Domain
-    ├── forest.mp3
-    ├── cafe.mp3
-    └── white_noise.mp3
+    └── forest.mp3              # Archive.org, Public Domain
 
 firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 ```
@@ -124,11 +122,15 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 - Background service uxlab qolgan bo'lsa ham ishlaydi
 - Eski `last_tracked_day` (faqat day raqami) bug'i tuzatildi
 
-### XP/Sessions tracking (single source of truth)
-- **XP yagona manba:** `PendingResultsProcessor` — `pending_xp_minutes` → `LevelService.addXP()`
+### XP/Sessions tracking (single source of truth, sekund aniqligida)
+- **XP yagona manba:** `PendingResultsProcessor` — `pending_xp_minutes` + `pending_xp_seconds` → `LevelService.addXpFromSeconds()`
 - `_updateProgress`'dan addXP olib tashlandi (avval 2 marta hisoblanardi)
 - **Sessions yagona manba:** `today_completed_sessions` + history.sessions (bugungi kalit istisno)
 - `addTodayXpFromMinutes(minutes)` — ichida `* 10` (`today_xp_earned` haqiqiy XP)
+- `addTodayXpFromSeconds(seconds)` — XP = `(seconds * 10 / 60).round()` (6 sek = 1 XP)
+- `queuePendingXpSeconds(seconds)` — qisman to'xtatishlar uchun (1+ sek)
+- Stop threshold: >= 1 sekund (avval 60 sek edi — kichik seanslar yo'qotilardi)
+- `LevelService.addXpFromSeconds()` — Firestore `totalSeconds` + `totalMinutes` yozadi
 
 ### Cloud Sync (offline-first, premium-gated)
 - **Yagona haqiqiy manba:** SharedPreferences (lokal)
@@ -142,19 +144,26 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 
 ### Audio (Tabiat Ovozlari) ⭐
 - **`SoundscapeService`** — `audioplayers` paketdan foydalanadi
-- 4 ta bundled MP3 (`assets/sounds/`): rain, forest, cafe, white_noise (~8 MB)
+- 2 ta bundled MP3 (`assets/sounds/`): rain, forest (~1 MB)
+- Sound picker: 3 ta variant (Yo'q / Yomg'ir / O'rmon)
+- **FAQAT Yengil Fokus rejimida ijro etiladi** (`_selectedMode == 1`)
+- Chuqur Fokus rejimida hech qanday audio chiqmaydi
 - ReleaseMode.loop — fayl tugaganda qaytadan boshlanadi
 - Volume: 60%
-- Timer start/pause/resume/stop bilan sync
+- Timer start/pause/resume/stop/dispose bilan sync
+- To'xtatish dialog tasdiqlanganda ham stop chaqiriladi
 - Silent fail — fayl yo'q bo'lsa crash yo'q
 
 ### Calendar / Activity tracking
 - `DayRecord` — `focus_history_YYYY-MM-DD` kalitda
 - Fields: seconds, goal, met, sessions, xp, activities (Map)
+- `activity_progress_YYYY-MM-DD` — sekund aniqligida saqlanadi (avval daqiqa edi)
 - Calendar ranglar: 🟢 met, 🟡 qisman, 🔴 yo'q
 - Registration date 🎉 overlay
-- Cell shape: `BorderRadius.circular(4)` (to'rt burchak)
+- Cell shape: `BorderRadius.circular(10)` (yumshoq burchak), `childAspectRatio: 1.0` (kvadrat)
 - Kelajak + registration'gacha — xira, bosib bo'lmaydi
+- Activity tanlash: bita bossa tanlanadi, ikkinchi bossa tanlash bekor qilinadi (toggle)
+- `_selectedActivityIndex = -1` default — foydalanuvchi tanlasagina yoziladi
 
 ### Stats — to'liq real ma'lumotlar
 - **Fokus Balli:** so'nggi 7 kun (seconds/goal).clamp(0,1) o'rtachasi × 100
@@ -204,7 +213,9 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 | `block_attempts_YYYY-MM-DD` | String | Kunlik bloklangan ilova urinishlari (JSON map) |
 | `app_name_cache` | String | package → display name (JSON map) |
 | `app_icon_<package>` | String | base64 encoded PNG (per app) |
-| `selected_sound` | String | Tabiat ovozi: none/rain/forest/cafe/white_noise |
+| `selected_sound` | String | Tabiat ovozi: none/rain/forest |
+| `pending_xp_seconds` | int | Kutayotgan XP sekundlari (sekund aniqligida) |
+| `totalSeconds` | int (Firestore) | Foydalanuvchining jami fokus sekundlari |
 | `registration_date` | String | ISO8601 ro'yxatdan o'tgan sana |
 | `cloud_sync_mode` | String | `auto` yoki `manual` |
 | `cloud_pending_dates` | StringList | Firestore'ga yuborilmagan kun sanalari |
@@ -217,7 +228,7 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 
 ### 1. Calendar feature (avval qilingan)
 - Detail panel, registration day 🎉, ranglar (yashil/sariq/qizil), drill-down
-- Day cell radius 4 (to'rt burchak)
+- Day cell `borderRadius: 10`, `childAspectRatio: 1.0` (kvadrat)
 
 ### 2. Faoliyat tizimi
 - Mock'lar tozalandi, default `[]`
@@ -296,8 +307,11 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 ### 16. Tabiat Ovozlari ⭐ — to'liq ishlaydi
 - **`soundscape_service.dart`** yaratildi
 - `audioplayers: ^6.1.0` qo'shildi
-- 4 ta MP3 fayl Archive.org (CC0) dan yuklab `assets/sounds/`'ga bundled
-- Timer start/pause/resume/stop bilan sync
+- 2 ta MP3 fayl Archive.org (CC0) dan: rain.mp3, forest.mp3 (cafe/white_noise olib tashlandi)
+- Sound picker: 3 ta variant (Yo'q / Yomg'ir / O'rmon)
+- **FAQAT Yengil Fokus rejimida** ijro etiladi
+- Timer start/pause/resume/stop/dispose bilan sync
+- Strict dialog tasdiqlanganda stop chaqiriladi
 - ReleaseMode.loop, volume 60%
 - Silent fail agar fayl yo'q
 
@@ -305,6 +319,22 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 - `firestore.rules` fayl yaratildi
 - `users/{uid}` + `history/{date}` + `plans/{planId}` matches
 - Foydalanuvchi Firebase Console'ga bir martalik ko'chiradi (Publish)
+
+### 18. Sekund aniqligida tracking ⭐
+- Activity progress, XP, daily total — barchasi sekundda
+- `_updateProgress()` `activity_progress_YYYY-MM-DD`'ga sekund yozadi (avval daqiqa)
+- `_formatActivityProgress(int seconds)` — "Xd Ys" formatda
+- `LevelService.addXpFromSeconds(seconds)` — 6 sek = 1 XP (`(seconds*10/60).round()`)
+- `BackgroundService.addTodayXpFromSeconds()` + `queuePendingXpSeconds()`
+- `PendingResultsProcessor` ikkala queue'ni o'qiydi: `pending_xp_minutes` + `pending_xp_seconds`
+- Stop threshold: >= 1 sek (avval 60 sek edi — qisqa seanslar yo'qotilardi)
+- Stats haftalik activity chart sekundda — "1s 30 daq 45 sek" format
+- Firestore `users/{uid}.totalSeconds` field qo'shildi
+
+### 19. Activity toggle UI
+- Bita bossa tanlanadi, qaytadan bossa tanlash bekor qilinadi
+- `_selectedActivityIndex = -1` default
+- Sekund aniqligi bilan ham faoliyat to'g'ri yoziladi
 
 ---
 
@@ -387,3 +417,6 @@ PREMIUM plan (cheksiz):
 - Mp3 fayllar `assets/sounds/`'da bundled — foydalanuvchi tortib olmaydi
 - 1 daqiqa fokus = 10 XP (`level_service.dart`, formula yagona joyda)
 - 16 ta daraja, soat-asosli chegaralar (1, 3, 7, 15, 30, 50, 80, 120, 180, 250, 400, 600, 900, 1300, 1800)
+- Sekund aniqligida tracking: 6 sek = 1 XP, qisqa seanslar (10 sek) ham hisoblanadi
+- Audio FAQAT Yengil Fokus rejimida, sound picker 3 variant (none/rain/forest)
+- Activity toggle: tanlash/bekor qilish bita bosish bilan

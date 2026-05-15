@@ -485,10 +485,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Container(
             decoration: BoxDecoration(
               color: background,
-              // To'rt burchak ko'rinishi uchun kichik radius (avval 8 edi —
-              // hujayralar pill ko'rinishida edi). Endi hujayralar aniq
-              // kvadrat (1:1 aspectRatio) yumshoq burchak bilan.
-              borderRadius: BorderRadius.circular(4),
+              // Kvadrat hujayralar (1:1 aspectRatio) o'rtacha yumshoq
+              // burchaklar bilan (radius 10) — foydalanuvchi ko'rsatgan
+              // dizaynga mos: aniq kvadrat, lekin keskin uchli emas.
+              borderRadius: BorderRadius.circular(10),
               border: isToday
                   ? Border.all(color: const Color(0xFF007AFF), width: 2)
                   : null,

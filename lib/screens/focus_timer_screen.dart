@@ -209,31 +209,41 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     final todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
     setState(() => _currentProgressHours = todayFocusSeconds / 3600);
 
-    // XP va streak update'lari `PendingResultsProcessor` orqali bajariladi
-    // (background_service `queuePendingXP` qiladi, main isolate processor
-    // o'qib `LevelService.addXP` chaqiradi). Bu yerda yana chaqirsak XP
-    // 2 marta hisoblanardi (foreground + pending).
+    // XP va streak update'lari `PendingResultsProcessor` orqali bajariladi.
 
-    // Faoliyat progressini yangilash — faqat foydalanuvchi aniq faoliyat
-    // tanlagan bo'lsa. `-1` (default) bo'lsa, hech bir activity'ga vaqt
-    // yozilmaydi, lekin umumiy statistika (today_focus_seconds, XP,
-    // sessions) ishlaveradi.
+    // Faoliyat progressini yangilash — `_activityProgress[key]` endi
+    // SEKUNDLARDA saqlanadi (avval daqiqada edi — 10 sek 0 ga aylanardi).
+    // Bu yerda raw sekundlarni qo'shamiz, aniqlik saqlanadi.
     if (_selectedActivityIndex >= 0 &&
-        _selectedActivityIndex < _customActivities.length) {
+        _selectedActivityIndex < _customActivities.length &&
+        secondsAdded > 0) {
       final activity = _customActivities[_selectedActivityIndex];
       final activityKey = activity['key'] ?? activity['name'];
-      final currentActivityMinutes = _activityProgress[activityKey] ?? 0;
-      final minutesToAdd = (secondsAdded / 60).round();
+      final currentSeconds = _activityProgress[activityKey] ?? 0;
 
       setState(() {
-        _activityProgress[activityKey] = currentActivityMinutes + minutesToAdd;
+        _activityProgress[activityKey] = currentSeconds + secondsAdded;
       });
 
-      // Saqlash
+      // Saqlash (sekundda)
       final today = DateTime.now().toString().split(' ')[0];
-      final progressString = Uri(queryParameters: _activityProgress.map((key, value) => MapEntry(key, value.toString()))).query;
+      final progressString = Uri(
+        queryParameters:
+            _activityProgress.map((key, value) => MapEntry(key, value.toString())),
+      ).query;
       await prefs.setString('activity_progress_$today', progressString);
     }
+  }
+
+  /// Sekundlarni "5d 30s" yoki "30s" yoki "5d" formatiga aylantirish.
+  /// Activity progress'ni ko'rsatish uchun (kichik vaqtlar uchun aniqlik).
+  String _formatActivityProgress(int seconds) {
+    if (seconds <= 0) return '0';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m == 0) return '${s}s';
+    if (s == 0) return '${m}d';
+    return '${m}d ${s}s';
   }
 
   @override
@@ -292,9 +302,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       isStrict: _effectiveStrict,
     );
 
-    // Tabiat ovozini ishga tushiramiz (agar tanlangan bo'lsa). 'none'
-    // bo'lsa SoundscapeService o'zi hech narsa qilmaydi.
-    SoundscapeService.instance.play(_selectedSound);
+    // Tabiat ovozi FAQAT Yengil Fokus rejimida chalinadi. Chuqur Fokus —
+    // jimgina ishlash kerak (chalg'itmasin). Foydalanuvchi Yengil Fokus'da
+    // "Yomg'ir" tanlab qo'ygan bo'lsa-da, Chuqur Fokus'ga o'tib seansni
+    // boshlasa, ovoz ishlamaydi.
+    if (_selectedMode == 1) {
+      SoundscapeService.instance.play(_selectedSound);
+    } else {
+      // Xavfsizlik uchun: agar avvalgi seansdan audio qolgan bo'lsa to'xtaymiz.
+      SoundscapeService.instance.stop();
+    }
   }
 
   void _pauseTimer() {
@@ -305,8 +322,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
 
   void _resumeTimer() {
     _timerService.resumeTimer();
-    // Pauza qaytarilganda ovozni qayta yoqamiz (tanlovi bo'lsa)
-    SoundscapeService.instance.play(_selectedSound);
+    // Pauza qaytarilganda ovozni qayta yoqamiz — faqat Yengil Fokus'da.
+    if (_selectedMode == 1) {
+      SoundscapeService.instance.play(_selectedSound);
+    }
   }
 
   /// Temir Intizom faqat Chuqur Fokus rejimida ishlaydi. Yengil Fokus'da
@@ -317,10 +336,18 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
 
   void _stopTimer() {
     if (_effectiveStrict && _isRunning) {
+      // Temir Intizom yoqilgan + ishlayotgan paytda dialog chiqadi.
+      // Dialog ichida tasdiqlasa audio ham, timer ham to'xtaydi.
       _showStopConfirmationDialog();
     } else {
+      // To'xtatishdan oldin o'tgan vaqtni activity progress'iga
+      // yozib qo'yamiz — hatto 10 sekund ham hisoblanadi (sekund
+      // aniqligida saqlanadi).
+      final elapsedSeconds = (_selectedMinutes * 60) - _remainingSeconds;
+      if (elapsedSeconds >= 1 && _selectedActivityIndex >= 0) {
+        _updateProgress(elapsedSeconds);
+      }
       _timerService.stopTimer();
-      // Seans to'xtatildi → tabiat ovozini ham to'xtatamiz
       SoundscapeService.instance.stop();
     }
   }
@@ -341,7 +368,15 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(context);
+              // Strict dialog orqali to'xtatilganda ham activity progress
+              // saqlanadi (sekund aniqligi) va audio to'xtatiladi.
+              final elapsedSeconds =
+                  (_selectedMinutes * 60) - _remainingSeconds;
+              if (elapsedSeconds >= 1 && _selectedActivityIndex >= 0) {
+                _updateProgress(elapsedSeconds);
+              }
               _timerService.stopTimer();
+              SoundscapeService.instance.stop();
             },
             child: Text(lang.translate('focus_timer.give_up') ?? 'Taslim bo\'lish'),
           ),
@@ -596,12 +631,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (BuildContext context) {
         final lang = AppTranslationService();
+        // Faqat 3 ta variant — Kafe va Oq shovqin olib tashlandi.
         final sounds = [
           {'name': 'none', 'icon': CupertinoIcons.slash_circle},
           {'name': 'rain', 'icon': CupertinoIcons.cloud_rain},
           {'name': 'forest', 'icon': CupertinoIcons.tree},
-          {'name': 'cafe', 'icon': CupertinoIcons.house},
-          {'name': 'white_noise', 'icon': CupertinoIcons.waveform_path_ecg},
         ];
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1652,10 +1686,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         onTap: () {
           if (_isRunning) return;
           setState(() {
-            _selectedActivityIndex = index;
-            _selectedMinutes = minutes; // Update main timer
-            _remainingSeconds = minutes * 60;
-            _isPaused = false;
+            // TOGGLE — agar shu activity allaqachon tanlangan bo'lsa,
+            // qaytib bekor qilinadi (-1). Aks holda yangi tanlov.
+            if (_selectedActivityIndex == index) {
+              _selectedActivityIndex = -1;
+            } else {
+              _selectedActivityIndex = index;
+              _selectedMinutes = minutes; // taymer vaqti
+              _remainingSeconds = minutes * 60;
+              _isPaused = false;
+            }
           });
         },
         onLongPress: () {
@@ -1709,7 +1749,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
               ),
               const SizedBox(height: 2),
               Text(
-                '${_activityProgress[activityKey] ?? 0} / $minutes ${lang.translate('focus_timer.min')}',
+                // `_activityProgress` endi sekundda saqlanadi. "5d 30s / 45 daq"
+                // ko'rinishida ko'rsatamiz — kichik vaqtlar ham ko'rinadi.
+                '${_formatActivityProgress(_activityProgress[activityKey] ?? 0)} / $minutes ${lang.translate('focus_timer.min')}',
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,

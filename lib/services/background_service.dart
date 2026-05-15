@@ -244,6 +244,16 @@ void onStart(ServiceInstance service) async {
     debugPrint('[Pending] +$minutes XP min, total=${existing + minutes}');
   }
 
+  /// Sekund aniqligida XP queue — qisqa seanslar (10 sek, 30 sek) uchun.
+  /// Daqiqalar pending'iga qaramay alohida saqlanadi va PendingResultsProcessor
+  /// uni o'qib `LevelService.addXpFromSeconds()` chaqiradi.
+  Future<void> queuePendingXpSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    final existing = prefs.getInt('pending_xp_seconds') ?? 0;
+    await prefs.setInt('pending_xp_seconds', existing + seconds);
+    debugPrint('[Pending] +$seconds XP sec, total=${existing + seconds}');
+  }
+
   Future<void> queueStreakForToday() async {
     final today = todayDateKey();
     final existing = prefs.getString('pending_streak_date');
@@ -265,14 +275,23 @@ void onStart(ServiceInstance service) async {
     await prefs.setInt('today_completed_sessions', n + 1);
   }
 
-  /// Bugungi XP hisoblagichini oshirish. Parametr — DAQIQALAR. Ichkarida
-  /// `level_service.dart` formulasiga ko'ra 1 daqiqa = 10 XP qilib
-  /// hisoblanadi va `today_xp_earned` (haqiqiy XP qiymati) ga qo'shiladi.
-  /// Calendar detail panel `record.xp` ni shu kalitdan jonli o'qiydi.
+  /// Bugungi XP hisoblagichini oshirish. Parametr — DAQIQALAR (eski API).
+  /// Ichkarida 1 daqiqa = 10 XP formulasi qo'llaniladi.
   Future<void> addTodayXpFromMinutes(int minutes) async {
     if (minutes <= 0) return;
     final n = prefs.getInt('today_xp_earned') ?? 0;
     await prefs.setInt('today_xp_earned', n + minutes * 10);
+  }
+
+  /// Bugungi XP hisoblagichini SEKUND aniqligida oshirish. 6 sek = 1 XP
+  /// (1 daqiqa = 10 XP). 10 sekund → ~2 XP. Qisqa seanslar uchun ham
+  /// foydalanuvchi nimadir oladi.
+  Future<void> addTodayXpFromSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    final xp = (seconds * 10 / 60).round();
+    if (xp <= 0) return;
+    final n = prefs.getInt('today_xp_earned') ?? 0;
+    await prefs.setInt('today_xp_earned', n + xp);
   }
 
   /// Eng uzun yakunlangan seans daqiqalarini yangilash. Statistika ekrani
@@ -410,16 +429,15 @@ void onStart(ServiceInstance service) async {
 
   service.on('stopTimer').listen((event) async {
     // Partial XP: foydalanuvchi taymerni to'liq tugatishini kutmadi.
-    // Qancha vaqt ishlatganini hisoblab, shu XP'ni pending queue'ga
-    // qo'yamiz. Aks holda 30 daqiqalik mehnat bekorga ketardi.
+    // SEKUND aniqligida XP beriladi — hatto 10 sekund ham hisoblanadi
+    // (1 daqiqa = 10 XP, 6 sek = 1 XP).
     if (sessionInitialSeconds > 0 && remainingSeconds < sessionInitialSeconds) {
       final elapsed = sessionInitialSeconds - remainingSeconds;
-      final elapsedMinutes = elapsed ~/ 60;
-      if (elapsedMinutes >= 1) {
-        await queuePendingXP(elapsedMinutes);
-        await addTodayXpFromMinutes(elapsedMinutes);
+      if (elapsed >= 1) {
+        await queuePendingXpSeconds(elapsed);
+        await addTodayXpFromSeconds(elapsed);
         debugPrint(
-            '[BackgroundTimer] partial stop: ${elapsedMinutes}m queued for XP');
+            '[BackgroundTimer] partial stop: ${elapsed}s queued for XP');
       }
       // Calendar uchun ham bugungi kun history'ga darrov yozib qo'yamiz
       // (todayFocusSeconds tick loop'da yangilangan).

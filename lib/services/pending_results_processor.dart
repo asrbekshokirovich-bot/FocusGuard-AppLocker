@@ -45,23 +45,26 @@ class PendingResultsProcessor {
       // CRITICAL: boshqa isolate yozgan qiymatlar uchun cache'ni reset
       await prefs.reload();
 
-      // 1) Pending XP
-      final pendingXp = prefs.getInt('pending_xp_minutes') ?? 0;
-      if (pendingXp > 0) {
-        debugPrint('[PendingProcessor] processing $pendingXp XP minutes');
-        // Avval prefs'dan o'chirib qo'yamiz — agar addXP fail bo'lsa
-        // ikkinchi safar qayta-qayta yozilmasligi uchun. Idempotency'ni
-        // saqlash uchun bu eng muhim qadam.
+      // 1) Pending XP — daqiqa va sekund queue'larini birlashtiramiz
+      final pendingXpMinutes = prefs.getInt('pending_xp_minutes') ?? 0;
+      final pendingXpSeconds = prefs.getInt('pending_xp_seconds') ?? 0;
+      // Jami sekundlarni hisoblash (daqiqa * 60 + sekund)
+      final totalSeconds = pendingXpMinutes * 60 + pendingXpSeconds;
+      if (totalSeconds > 0) {
+        debugPrint('[PendingProcessor] processing $totalSeconds XP seconds '
+            '($pendingXpMinutes min + $pendingXpSeconds sec)');
+        // Avval prefs'dan o'chirib qo'yamiz — atomic
         await prefs.remove('pending_xp_minutes');
+        await prefs.remove('pending_xp_seconds');
         try {
-          await LevelService().addXP(pendingXp);
+          // Sekund aniqligida XP bering (6 sek = 1 XP)
+          await LevelService().addXpFromSeconds(totalSeconds);
         } catch (e) {
           debugPrint('[PendingProcessor] addXP failed: $e — re-queuing');
-          // Agar Firestore offline va saqlay olmasa, qayta queuega
-          // yozib qo'yamiz — keyingi safarda urinish qilamiz.
-          final retryPending = (prefs.getInt('pending_xp_minutes') ?? 0) +
-              pendingXp;
-          await prefs.setInt('pending_xp_minutes', retryPending);
+          // Saqlay olmasa, qaytadan queuega
+          final retrySec = (prefs.getInt('pending_xp_seconds') ?? 0) +
+              totalSeconds;
+          await prefs.setInt('pending_xp_seconds', retrySec);
         }
       }
 

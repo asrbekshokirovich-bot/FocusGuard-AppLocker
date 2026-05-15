@@ -1606,31 +1606,31 @@ class _StatsScreenState extends State<StatsScreen>
 
   /// Faoliyat bosilganda haftalik tarixni bottom sheet'da ko'rsatadi.
   /// So'nggi 7 kun davomida `activity_progress_YYYY-MM-DD` kalitlaridan
-  /// shu activity uchun nechta daqiqa sarflanganini o'qiydi.
+  /// shu activity uchun nechta SEKUND sarflanganini o'qiydi.
   Future<void> _showActivityWeeklyDetails(
       String activityKey, String displayName, AppTranslationService lang) async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final List<MapEntry<DateTime, int>> weeklyData = [];
-    int totalMinutes = 0;
+    int totalSeconds = 0;
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final dateKey =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}';
       final progressJson = prefs.getString('activity_progress_$dateKey');
-      int minutes = 0;
+      int seconds = 0;
       if (progressJson != null) {
         try {
           final decoded = Uri.splitQueryString(progressJson);
-          minutes = int.tryParse(decoded[activityKey] ?? '0') ?? 0;
+          seconds = int.tryParse(decoded[activityKey] ?? '0') ?? 0;
         } catch (_) {}
       }
-      totalMinutes += minutes;
-      weeklyData.add(MapEntry(date, minutes));
+      totalSeconds += seconds;
+      weeklyData.add(MapEntry(date, seconds));
     }
     if (!mounted) return;
-    final maxMinutes =
+    final maxSeconds =
         weeklyData.map((e) => e.value).fold<int>(0, (a, b) => a > b ? a : b);
     showModalBottomSheet(
       context: context,
@@ -1680,7 +1680,7 @@ class _StatsScreenState extends State<StatsScreen>
               ),
             ),
             const SizedBox(height: 20),
-            if (totalMinutes == 0)
+            if (totalSeconds == 0)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
@@ -1700,8 +1700,13 @@ class _StatsScreenState extends State<StatsScreen>
             else
               ...weeklyData.map((entry) {
                 final dayLabel = _weekdayShort(entry.key.weekday, lang);
-                final mins = entry.value;
-                final ratio = maxMinutes > 0 ? mins / maxMinutes : 0.0;
+                final secs = entry.value;
+                final ratio = maxSeconds > 0 ? secs / maxSeconds : 0.0;
+                final m = secs ~/ 60;
+                final s = secs % 60;
+                final label = m == 0
+                    ? '${s}s'
+                    : (s == 0 ? '${m}d' : '${m}d ${s}s');
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -1735,9 +1740,9 @@ class _StatsScreenState extends State<StatsScreen>
                       ),
                       const SizedBox(width: 12),
                       SizedBox(
-                        width: 56,
+                        width: 64,
                         child: Text(
-                          '$mins ${lang.translate('stats.unit_m') ?? 'daq'}',
+                          label,
                           textAlign: TextAlign.right,
                           style: lang.getFont(
                             fontSize: 13,
@@ -1768,7 +1773,7 @@ class _StatsScreenState extends State<StatsScreen>
                   ),
                 ),
                 Text(
-                  _formatMinutesToHm(totalMinutes, lang),
+                  _formatSecondsToHms(totalSeconds, lang),
                   style: lang.getFont(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -1805,6 +1810,20 @@ class _StatsScreenState extends State<StatsScreen>
     if (h == 0) return '$m ${lang.translate('stats.unit_m') ?? 'daq'}';
     if (m == 0) return '$h ${lang.translate('stats.unit_h') ?? 's'}';
     return '$h ${lang.translate('stats.unit_h') ?? 's'} $m ${lang.translate('stats.unit_m') ?? 'daq'}';
+  }
+
+  /// Sekundlardan "1s 5d 30sek" yoki "30sek" yoki "5d" formatiga.
+  /// Kichik vaqtlar uchun (activity weekly chart jami).
+  String _formatSecondsToHms(int seconds, AppTranslationService lang) {
+    if (seconds <= 0) return '0 sek';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    final parts = <String>[];
+    if (h > 0) parts.add('$h ${lang.translate('stats.unit_h') ?? 's'}');
+    if (m > 0) parts.add('$m ${lang.translate('stats.unit_m') ?? 'daq'}');
+    if (s > 0 && h == 0) parts.add('$s sek');
+    return parts.join(' ');
   }
 }
 

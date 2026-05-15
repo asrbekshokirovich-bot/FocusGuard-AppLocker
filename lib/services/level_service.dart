@@ -82,6 +82,59 @@ class LevelService {
     return _firestore.collection('users').doc(user.uid).snapshots();
   }
 
+  /// Sekund aniqligida XP qo'shish — qisqa seanslar uchun (10 sek, 30 sek).
+  /// 6 sekund = 1 XP (1 daqiqa = 10 XP). Ichkarida `addXP` ga aylantirib
+  /// chaqiramiz, lekin sekundlarni daqiqa ekvivalenti sifatida saqlaymiz —
+  /// `totalMinutes` ham aniq bo'lishi uchun.
+  Future<void> addXpFromSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final docRef = _firestore.collection('users').doc(user.uid);
+    try {
+      bool levelUp = false;
+      int newLevelResult = 1;
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) return;
+
+        int currentXP = snapshot.data()?['xp'] ?? 0;
+        int currentLevel = snapshot.data()?['level'] ?? 1;
+        int currentTotalSec = snapshot.data()?['totalSeconds'] ?? 0;
+        // Eski totalMinutes ni jami sekundlardan hisoblaymiz
+        int currentTotalMin = (currentTotalSec + seconds) ~/ 60;
+
+        // 6 sekund = 1 XP (round)
+        int gainedXP = (seconds * 10 / 60).round();
+        int newXP = currentXP + gainedXP;
+
+        int newLevel = levelFromXp(newXP);
+        newLevelResult = newLevel;
+        if (newLevel > currentLevel) levelUp = true;
+
+        transaction.update(docRef, {
+          'xp': newXP,
+          'level': newLevel,
+          'totalSeconds': currentTotalSec + seconds,
+          'totalMinutes': currentTotalMin,
+        });
+      });
+
+      if (levelUp) {
+        final lang = AppTranslationService();
+        final rankTitle = getRankTitle(newLevelResult, lang);
+        TimerNotificationService().showLevelUpNotification(
+          newLevel: newLevelResult,
+          rankTitle: rankTitle,
+        );
+      }
+    } catch (e) {
+      debugPrint('Add XP from seconds Error: $e');
+    }
+  }
+
   // Tajriba ballarini (XP) qo'shish
   Future<void> addXP(int minutes) async {
     final user = _auth.currentUser;
