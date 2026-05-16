@@ -68,7 +68,9 @@ lib/
     ├── cloud_sync_service.dart        # Offline-first auto/manual + circuit breaker
     ├── internet_checker.dart          # connectivity + dialog
     ├── daily_reset_service.dart       # ⭐ Kun reset (app launch/resume'da)
-    └── soundscape_service.dart        # ⭐ Tabiat ovozlari (audioplayers)
+    ├── soundscape_service.dart        # ⭐ Tabiat ovozlari (audioplayers)
+    ├── plan_service.dart              # ⭐ Rejalar CRUD + scheduled notifs + Firestore sync
+    └── dnd_service.dart               # ⭐ Anti-Chalg'itish (Do Not Disturb) via MethodChannel
 ```
 
 ### Assets va boshqa fayllar
@@ -221,6 +223,12 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 | `pending_xp_seconds` | int | Kutayotgan XP sekundlari (sekund aniqligida) |
 | `longest_session_seconds` | int | Eng uzun seans sekundda (yangi, aniq) |
 | `totalSeconds` | int (Firestore) | Foydalanuvchining jami fokus sekundlari |
+| `anti_distract_enabled` | bool | Anti-Chalg'itish toggle holati |
+| `dnd_active_by_us` | bool | DnD hozir biz tomondan yoqilganmi |
+| `dnd_prev_filter` | int | DnD'ni qaytarish uchun avvalgi filter |
+| `plans_list` | StringList | Reja yozuvlari (JSON) |
+| `next_plan_notif_id` | int | Keyingi reja uchun unique notif ID counter |
+| `cloud_restored_once` | bool | Bulutdan birinchi avtomatik tiklash qilinganmi |
 | `registration_date` | String | ISO8601 ro'yxatdan o'tgan sana |
 | `cloud_sync_mode` | String | `auto` yoki `manual` |
 | `cloud_pending_dates` | StringList | Firestore'ga yuborilmagan kun sanalari |
@@ -361,7 +369,81 @@ firestore.rules                  # ⭐ Firebase Console'ga ko'chirish uchun
 - Avval statik `[Du, Se, Ch, ...]` ro'yxat ishlatardi — sana bilan bog'lanmagan.
 - Endi `DateTime(year, month, day).weekday` orqali har kun haqiqiy hafta kuni hisoblanadi.
 
-### 24. XP yagona haqiqat manbai (drift fix) ⭐
+### 24. Plans (Rejalarim) — real ishlovchi ⭐
+- **`PlanService`** yangi service — SharedPreferences + Firestore CRUD
+- Plan model: `Plan(id, title, dateTime, notifId)`
+- Lokal kalit: `plans_list` (StringList of JSON)
+- Firestore: `users/{uid}/plans/{planId}` (rules tayyor)
+- `flutter_local_notifications.zonedSchedule()` — har plan'ga notif
+- Notif ID range: 10000+ (counter `next_plan_notif_id`)
+- `AndroidScheduleMode.exactAllowWhileIdle` — DnD/Doze rejimida ham ishlaydi
+- Master + plans toggle tekshiriladi (`_notifAllowed()`)
+- App startda `rescheduleAllPlans()` (reboot/upgrade fix)
+- `applyNotificationToggle()` — toggle o'zgarganda barcha notif qayta sozlanadi
+- `restoreFromFirestore()` — yangi qurilmaga ko'chish uchun
+- Plans screen `_plans` mock ro'yxat o'rniga `PlanService.getAllPlans()` ishlatadi
+
+### 25. Notification toggle'lar real ishlaydi ⭐
+- Avval `notification_main` + `notification_focus` + `notification_plans` toggle'lari saqlanardi-yu, hech kim tekshirmasdi.
+- Endi har bir notification path tekshirilgan:
+  - `showTimerNotification` → `notification_focus` (foreground service UX notif)
+  - `showTimerCompletedNotification` → `notification_focus` (taymer tugadi)
+  - `StreakReminderService.scheduleDailyReminder` → `notification_main` + `notification_focus`
+  - `showLevelUpNotification` → `notification_achievements` ✓ (oldindan ishlardi)
+  - `showGoalMissedNotification`/`showGoalAchievedNotification` → `notification_analysis` ✓
+  - `PlanService` → `notification_main` + `notification_plans`
+- `NotificationsSettingsScreen._updateSetting()` toggle o'zgarganda darrov `PlanService.applyNotificationToggle()` + `StreakReminderService.scheduleDailyReminder()` qayta chaqiriladi
+- Master OFF → barcha notif scheduled bekor qilinadi
+
+### 26. Anti-Chalg'itish (DnD) real ishlaydi ⭐
+- **`MainActivity.kt`** MethodChannel `focusguard/dnd` (4 metod: isPermissionGranted, openPermissionSettings, getCurrentFilter, setFilter)
+- **`dnd_service.dart`** Dart wrapper: enableFocusMode, disableFocusMode, setToggleEnabled, isToggleEnabled, recoverIfStuck
+- AndroidManifest'ga `ACCESS_NOTIFICATION_POLICY` qo'shildi
+- Faqat **Chuqur Fokus + toggle ON** holatida DnD INTERRUPTION_FILTER_PRIORITY rejimga o'tkaziladi
+- Taymer tugaganda (natural/stop/strict dialog) DnD avvalgi holatga qaytadi
+- Toggle holati saqlanadi (`anti_distract_enabled`), taymer tugaganda **tegmaydi**
+- Stuck recovery: app crash bo'lib DnD yoqiq qolsa, qayta ochilganda avtomatik tuzatiladi
+- Toggle bossanda permission yo'q bo'lsa dialog → Settings ochiladi
+- 6 tilda yangi keys: `dnd_permission_title`, `dnd_permission_body`, `later`, `grant`
+
+### 27. Rejalarim (My Plans) real ishlaydi ⭐
+- **`plan_service.dart`** — SharedPreferences (`plans_list`) + Firestore `users/{uid}/plans/{id}`
+- Plan model: `Plan(id, title, dateTime, notifId)`
+- `flutter_local_notifications.zonedSchedule()` — har plan'ga aniq vaqtdagi notif
+- `AndroidScheduleMode.exactAllowWhileIdle` — Doze rejimida ham ishlaydi
+- Notif ID range: 10000+ (counter `next_plan_notif_id`)
+- Master + plans toggle tekshiriladi
+- App startda `rescheduleAllPlans()` (reboot/upgrade fix)
+- `applyNotificationToggle()` — toggle o'zgarganda barcha notif qayta sozlanadi
+- Reja qo'shganda POST_NOTIFICATIONS ruxsati avtomatik tekshiriladi (dialog + Settings)
+- 6 tilda keys: `plans.empty`, `plans.delete`, `plans.delete_confirm`, `plans.status_past`, `plans.notif_perm_*`
+
+### 28. Notification toggle'lar real ishlaydi ⭐
+- Avval saqlanardi-yu, hech kim tekshirmasdi. Endi har bir notification path tekshirilgan:
+  - `showTimerNotification` → `notification_focus`
+  - `showTimerCompletedNotification` → `notification_focus`
+  - `StreakReminderService.scheduleDailyReminder` → `notification_main` + `notification_focus`
+  - `showLevelUpNotification` → `notification_achievements` (avval ham ishlardi)
+  - `showGoalMissedNotification`/`showGoalAchievedNotification` → `notification_analysis` (avval ham)
+  - `PlanService` → `notification_main` + `notification_plans`
+- `NotificationsSettings` toggle o'zgarganda darrov `PlanService.applyNotificationToggle()` + `StreakReminderService.scheduleDailyReminder()` qayta chaqiriladi
+- Master OFF → barcha scheduled notif (plan + streak) bekor bo'ladi
+
+### 29. Cloud auto-restore (uninstall fix) ⭐
+- Avval `restoreFromCloud()` mavjud edi, lekin hech qaerda chaqirilmasdi.
+- Endi `autoRestoreOnFirstRun()` — `cloud_restored_once` flag bilan idempotent.
+- Splash'da, user login bo'lsa, `CloudSyncService.instance.autoRestoreOnFirstRun()` + `PlanService.instance.restoreFromFirestore()` chaqiriladi.
+- `restoreFromCloud(overwrite: false)` — lokal'da yozuv bor bo'lsa, ustidan yozmaydi (ikkita qurilmali user uchun xavfsiz).
+- `PlanService.restoreFromFirestore(overwrite: false)` ham xavfsiz — lokal bo'sh bo'lsa tortib oladi.
+- FREE: so'nggi 7 kun tiklanadi. PREMIUM: butun tarix.
+
+### 30. Calendar kvadrat shakl (pill fix) ⭐
+- Avval `Expanded(child: GridView)` ishlatardi — GridView noaniq balandlikni egallab cells'ni pill ko'rinishida chiqarardi.
+- Endi `SingleChildScrollView + GridView(shrinkWrap: true, physics: NeverScrollableScrollPhysics)` — grid faqat kerakli o'lcham.
+- Har cell `AspectRatio(1.0)` ichida — kafolatlangan kvadrat shakl.
+- `BorderRadius.circular(10)` — yumshoq yumaloq burchaklar.
+
+### 31. XP yagona haqiqat manbai (drift fix) ⭐
 - **Muammo:** XP alohida `today_xp_earned` hisoblagichida saqlanardi va `today_focus_seconds`'dan drift qilardi.
   Foydalanuvchi 5 daq fokus qilsa-yu, 40 XP olardi (50 o'rniga).
 - **Yechim:** XP endi DOIM `today_focus_seconds`'dan formula bilan keladi:

@@ -15,6 +15,7 @@ import '../services/timer_notification_service.dart';
 import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
 import '../services/soundscape_service.dart';
+import '../services/dnd_service.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
@@ -96,6 +97,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
 
     WidgetsBinding.instance.addObserver(this);
     _loadDailyProgress();
+    // Anti-Chalg'itish toggle holatini saqlangan qiymatdan yuklash.
+    // Foydalanuvchi avval yoqgan/o'chirgan bo'lsa shu qiymat saqlanadi.
+    DndService.instance.isToggleEnabled().then((enabled) {
+      if (mounted) setState(() => _isAntiDistract = enabled);
+    });
   }
 
   @override
@@ -315,6 +321,13 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       // Xavfsizlik uchun: agar avvalgi seansdan audio qolgan bo'lsa to'xtaymiz.
       SoundscapeService.instance.stop();
     }
+
+    // Anti-Chalg'itish (DnD) — faqat Chuqur Fokus + toggle yoqilgan bo'lsa.
+    // Yengil Fokus'da chalg'itmaymiz, foydalanuvchi notifikatsiyalarni
+    // bemalol ko'rishi mumkin.
+    if (_selectedMode == 0 && _isAntiDistract) {
+      DndService.instance.enableFocusMode();
+    }
   }
 
   void _pauseTimer() {
@@ -329,6 +342,54 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     if (_selectedMode == 1) {
       SoundscapeService.instance.play(_selectedSound);
     }
+  }
+
+  /// Anti-Chalg'itish toggle bosilganda — toggle holatini saqlash va
+  /// agar ON bo'lsa permission tekshirish. Yo'q bo'lsa dialog ko'rsatamiz.
+  void _onAntiDistractToggle(bool value) async {
+    setState(() => _isAntiDistract = value);
+    await DndService.instance.setToggleEnabled(value);
+    if (!value) return; // off — permission kerak emas
+    final granted = await DndService.instance.isPermissionGranted();
+    if (!granted && mounted) {
+      _showDndPermissionDialog();
+    }
+  }
+
+  /// DnD permission so'rash dialogi. Foydalanuvchi "Berish" bossa
+  /// tizim Settings ekrani ochiladi.
+  void _showDndPermissionDialog() {
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(
+          lang.translate('focus_timer.dnd_permission_title') ??
+              'Sukut rejimi ruxsati kerak',
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            lang.translate('focus_timer.dnd_permission_body') ??
+                'Anti-Chalg\'itish funksiyasi ishlashi uchun "Sukut rejimini boshqarish" ruxsatini berishingiz kerak. Ruxsat bersangiz, taymer paytida barcha bildirishnomalar jim turadi.',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('focus_timer.later') ?? 'Keyinroq'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(lang.translate('focus_timer.grant') ?? 'Berish'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              DndService.instance.openPermissionSettings();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   /// Temir Intizom faqat Chuqur Fokus rejimida ishlaydi. Yengil Fokus'da
@@ -352,6 +413,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       }
       _timerService.stopTimer();
       SoundscapeService.instance.stop();
+      // DnD'ni avvalgi holatga qaytarish (agar biz yoqgan bo'lsak).
+      DndService.instance.disableFocusMode();
     }
   }
 
@@ -380,6 +443,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
               }
               _timerService.stopTimer();
               SoundscapeService.instance.stop();
+              // DnD ham qaytariladi (agar biz yoqgan bo'lsak).
+              DndService.instance.disableFocusMode();
             },
             child: Text(lang.translate('focus_timer.give_up') ?? 'Taslim bo\'lish'),
           ),
@@ -393,6 +458,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     HapticFeedback.vibrate();
     // Tabiat ovozini to'xtatamiz — endi taymer alarm ringtoni o'ynaydi.
     SoundscapeService.instance.stop();
+    // Anti-Chalg'itish DnD'ni qaytaramiz — foydalanuvchi yutuqdan keyin
+    // notifikatsiyalarni qabul qilishi mumkin.
+    DndService.instance.disableFocusMode();
 
     // Rington background service tomonidan allaqachon o'ynalmoqda
     // (looping=true). Bu yerda qayta o'ynatmaymiz.
@@ -1096,7 +1164,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                               lang.translate('focus_timer.anti_distract_desc'),
                               true,
                               value: _isAntiDistract,
-                              onChanged: (v) => setState(() => _isAntiDistract = v),
+                              onChanged: (v) => _onAntiDistractToggle(v),
                               onTap: () => _showFeatureInfo(
                                 lang.translate('focus_timer.anti_distract'),
                                 lang.translate('focus_timer.anti_distract_info'), // Need to add this to service

@@ -638,10 +638,6 @@ class _StatsScreenState extends State<StatsScreen>
                       _buildLightFocusCard(lang),
                       const SizedBox(height: 14),
 
-                      // Activity Breakdown
-                      _buildActivityBreakdown(lang),
-                      const SizedBox(height: 14),
-
                       // Faoliyat — Dashboard'ga qo'shilgan har bir activity
                       // bu yerda darrov chiqadi (`_customActivities` dan).
                       // Bugun shu activity'ga vaqt sarflanmagan bo'lsa "0 daq"
@@ -671,7 +667,10 @@ class _StatsScreenState extends State<StatsScreen>
                                   activity['name'] ??
                                   activityKey)
                               : (activity['name'] ?? activityKey);
-                          final todayMinutes =
+                          // `_activityProgress` SEKUND aniqligida saqlanadi.
+                          // Avval `${x}daq` deb chiqarardi — sekund → daq deb noto'g'ri tasvirlandi.
+                          // Endi `_formatSecondsToHms` orqali aniq format ko'rsatamiz.
+                          final todaySeconds =
                               _activityProgress[activityKey] ?? 0;
                           return GestureDetector(
                             onTap: () => _showActivityWeeklyDetails(
@@ -679,7 +678,7 @@ class _StatsScreenState extends State<StatsScreen>
                             child: _buildSessionItem(
                               context,
                               displayName,
-                              '$todayMinutes${lang.translate('stats.unit_m')}',
+                              _formatSecondsToHms(todaySeconds, lang),
                               lang.translate('stats.today'),
                               Theme.of(context).primaryColor,
                             ),
@@ -1469,61 +1468,9 @@ class _StatsScreenState extends State<StatsScreen>
       );
   }
 
-  Widget _buildActivityBreakdown(AppTranslationService lang) {
-    if (_activityProgress.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            lang.translate('stats.chart_weekly'), // "Faollik"
-            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)
-          ),
-          const SizedBox(height: 16),
-          ..._customActivities.where((a) => _activityProgress.containsKey(a['key'] ?? a['name'])).map((activity) {
-            final key = activity['key'] ?? activity['name'];
-            final done = _activityProgress[key] ?? 0;
-            final target = activity['minutes'] ?? 45;
-            final percent = (done / target).clamp(0.0, 1.0);
-            
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(activity['name'], style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-                      Text('$done / $target ${lang.translate('stats.unit_m')}', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: percent,
-                      minHeight: 8,
-                      backgroundColor: Colors.grey.withOpacity(0.1),
-                      valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
+  // _buildActivityBreakdown olib tashlandi — "Haftalik Faollik" kartasi
+  // foydalanuvchi tomonidan kerak emas deb topildi. Pastdagi "Faoliyat"
+  // bo'limi yetarli ma'lumotni beradi (sekund aniqligida).
 
   Widget _buildPremiumBanner(BuildContext context, AppTranslationService lang) {
     return GestureDetector(

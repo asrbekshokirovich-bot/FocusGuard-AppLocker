@@ -335,6 +335,9 @@ class AppTranslationService {
         'daily_analysis_desc': 'Kunning oxirida natijalar haqida xulosa',
         'permission_notice':
             'Bildirishnomalar qurilmangiz sozlamalarida ruxsat etilgan bo\'lishi kerak.',
+        'plan_reminder_title': 'Reja vaqti yetdi! ⏰',
+        'plan_channel_name': 'Rejalar eslatmasi',
+        'plan_channel_desc': 'Foydalanuvchi rejalari haqida eslatma',
         'streak_reminder_title': 'Olovni o\'chirib qo\'ymang! 🔥',
         'streak_reminder_body':
             'Bugun hali fokus qilmadingiz. Streak\'ni saqlab qolish uchun hozir vaqt ajrating!',
@@ -469,9 +472,18 @@ class AppTranslationService {
         'count_suffix': '{count} ta',
         'status_upcoming': 'Kelajakda',
         'status_done': 'Bajarildi',
+        'status_past': 'O\'tib ketgan',
         'new_plan': 'Yangi reja',
         'cancel': 'Bekor qilish',
         'done': 'Tayyor',
+        'empty': 'Hozircha rejalar yo\'q',
+        'delete': 'O\'chirish',
+        'delete_confirm': 'Haqiqatan ham ushbu rejani o\'chirmoqchimisiz?',
+        'notif_perm_title': 'Bildirishnoma ruxsati kerak',
+        'notif_perm_body':
+            'Reja vaqti kelganda eslatma yuborishimiz uchun bildirishnoma ruxsatini yoqing. Aks holda reja saqlanadi, lekin eslatma kelmaydi.',
+        'later': 'Keyinroq',
+        'open_settings': 'Sozlamalarni ochish',
         'plan_name': 'Reja nomi',
         'plan_name_hint': 'Masalan: Dasturlash darsi',
         'date': 'Sana',
@@ -512,6 +524,11 @@ class AppTranslationService {
         'anti_distract_desc': 'Bildirishnomalar to\'liq o\'chirilgan',
         'anti_distract_info':
             'Barcha ijtimoiy tarmoqlar va chalg\'ituvchi ilovalardan keladigan bildirishnomalar butkul o\'chiriladi.',
+        'dnd_permission_title': 'Sukut rejimi ruxsati kerak',
+        'dnd_permission_body':
+            'Anti-Chalg\'itish funksiyasi ishlashi uchun "Sukut rejimini boshqarish" ruxsatini berishingiz kerak. Ruxsat bersangiz, taymer paytida barcha bildirishnomalar jim turadi.',
+        'later': 'Keyinroq',
+        'grant': 'Berish',
         'allowed_apps': 'Ruxsat Berilganlar',
         'allowed_desc': '{count} ta ilovaga ruxsat bor',
         'allowed_apps_info':
@@ -871,6 +888,9 @@ class AppTranslationService {
         'daily_analysis_desc': 'Summary of results at the end of the day',
         'permission_notice':
             'Notifications must be allowed in your device settings.',
+        'plan_reminder_title': 'Plan time has come! ⏰',
+        'plan_channel_name': 'Plan reminders',
+        'plan_channel_desc': 'Reminder about user plans',
         'streak_reminder_title': 'Don\'t let the fire go out! 🔥',
         'streak_reminder_body':
             'You haven\'t focused today yet. Take a moment now to keep your streak alive!',
@@ -1005,9 +1025,18 @@ class AppTranslationService {
         'count_suffix': '{count} total',
         'status_upcoming': 'Upcoming',
         'status_done': 'Completed',
+        'status_past': 'Past',
         'new_plan': 'New plan',
         'cancel': 'Cancel',
         'done': 'Done',
+        'empty': 'No plans yet',
+        'delete': 'Delete',
+        'delete_confirm': 'Are you sure you want to delete this plan?',
+        'notif_perm_title': 'Notification permission needed',
+        'notif_perm_body':
+            'Please enable notifications so we can remind you when it\'s time for your plan. Otherwise the plan will be saved but no reminder will fire.',
+        'later': 'Later',
+        'open_settings': 'Open settings',
         'plan_name': 'Plan name',
         'plan_name_hint': 'E.g.: Programming lesson',
         'date': 'Date',
@@ -1047,6 +1076,11 @@ class AppTranslationService {
         'anti_distract_desc': 'Notifications completely silent',
         'anti_distract_info':
             'All notifications from social media and distracting apps will be completely silenced.',
+        'dnd_permission_title': 'Do Not Disturb access needed',
+        'dnd_permission_body':
+            'To enable Anti-Distraction, please grant "Do Not Disturb access". When enabled, all notifications will be silenced during your focus session.',
+        'later': 'Later',
+        'grant': 'Grant',
         'allowed_apps': 'Allowed Apps',
         'allowed_desc': '{count} apps allowed',
         'allowed_apps_info':
@@ -1399,6 +1433,9 @@ class AppTranslationService {
         'daily_analysis_desc': 'Итоги результатов в конце дня',
         'permission_notice':
             'Уведомления должны быть разрешены в настройках вашего устройства.',
+        'plan_reminder_title': 'Время для плана! ⏰',
+        'plan_channel_name': 'Напоминания о планах',
+        'plan_channel_desc': 'Напоминания о планах пользователя',
         'streak_reminder_title': 'Не дайте огню погаснуть! 🔥',
         'streak_reminder_body':
             'Вы еще не фокусировались сегодня. Уделите немного времени, чтобы сохранить серию!',
@@ -1534,9 +1571,18 @@ class AppTranslationService {
         'count_suffix': '{count} всего',
         'status_upcoming': 'В будущем',
         'status_done': 'Выполнено',
+        'status_past': 'Прошло',
         'new_plan': 'Новый план',
         'cancel': 'Отмена',
         'done': 'Готово',
+        'empty': 'Планов пока нет',
+        'delete': 'Удалить',
+        'delete_confirm': 'Вы уверены, что хотите удалить этот план?',
+        'notif_perm_title': 'Нужно разрешение на уведомления',
+        'notif_perm_body':
+            'Разрешите уведомления, чтобы мы могли напомнить о плане в нужное время. Иначе план сохранится, но напоминание не придёт.',
+        'later': 'Позже',
+        'open_settings': 'Открыть настройки',
         'plan_name': 'Название плана',
         'plan_name_hint': 'Напр.: Урок программирования',
         'date': 'Дата',
@@ -1576,6 +1622,11 @@ class AppTranslationService {
         'anti_distract_desc': 'Уведомления полностью отключены',
         'anti_distract_info':
             'Все уведомления из социальных сетей и отвлекающих приложений будут полностью отключены.',
+        'dnd_permission_title': 'Нужен доступ к режиму "Не беспокоить"',
+        'dnd_permission_body':
+            'Чтобы Анти-Отвлечение работало, нужно дать доступ к управлению режимом "Не беспокоить". Тогда во время фокуса все уведомления будут отключены.',
+        'later': 'Позже',
+        'grant': 'Разрешить',
         'allowed_apps': 'Разрешенные приложения',
         'allowed_desc': 'Разрешено {count} прилож.',
         'allowed_apps_info':
@@ -1885,6 +1936,9 @@ class AppTranslationService {
         'daily_analysis_title': '일일 분석',
         'daily_analysis_desc': '하루 일과 종료 시 결과 요약',
         'permission_notice': '기기 설정에서 알림 권한이 허용되어야 합니다.',
+        'plan_reminder_title': '계획 시간입니다! ⏰',
+        'plan_channel_name': '계획 알림',
+        'plan_channel_desc': '사용자 계획에 대한 알림',
         'strict_mode_info':
             '엄격 모드가 켜져 있으면 타이머가 끝날 때까지 종료하거나 중지할 수 없습니다. 이는 방해 요소로부터 최대한의 보호를 제공합니다.',
         'anti_distract_info':
@@ -2092,9 +2146,17 @@ class AppTranslationService {
         'count_suffix': '총 {count}개',
         'status_upcoming': '예정됨',
         'status_done': '완료됨',
+        'status_past': '지남',
         'new_plan': '새 계획',
         'cancel': '취소',
         'done': '완료',
+        'empty': '아직 계획이 없습니다',
+        'delete': '삭제',
+        'delete_confirm': '이 계획을 정말 삭제하시겠습니까?',
+        'notif_perm_title': '알림 권한이 필요합니다',
+        'notif_perm_body': '계획 시간에 알림을 보낼 수 있도록 알림 권한을 허용해주세요. 그렇지 않으면 계획은 저장되지만 알림이 오지 않습니다.',
+        'later': '나중에',
+        'open_settings': '설정 열기',
         'plan_name': '계획 이름',
         'plan_name_hint': '예: 코딩 수업',
         'date': '날짜',
@@ -2129,6 +2191,10 @@ class AppTranslationService {
         'anti_distract': '방해 금지',
         'anti_distract_desc': '알림 완전 무음',
         'anti_distract_info': '소셜 미디어 및 방해되는 앱의 모든 알림이 완전히 무음 처리됩니다.',
+        'dnd_permission_title': '방해 금지 모드 권한이 필요합니다',
+        'dnd_permission_body': '방해 금지 기능을 사용하려면 "방해 금지 모드 액세스" 권한을 허용해야 합니다. 권한을 허용하면 집중 시간 동안 모든 알림이 음소거됩니다.',
+        'later': '나중에',
+        'grant': '허용',
         'allowed_apps': '허용된 앱',
         'allowed_desc': '{count}개 앱 허용됨',
         'allowed_apps_info': '선택한 필수 앱(예: 사전 또는 계산기)만 허용됩니다.',
@@ -2459,6 +2525,9 @@ class AppTranslationService {
         'daily_analysis_desc': 'Ergebniszusammenfassung am Tagesende',
         'permission_notice':
             'Benachrichtigungen müssen in den Geräteeinstellungen erlaubt sein.',
+        'plan_reminder_title': 'Es ist Zeit für deinen Plan! ⏰',
+        'plan_channel_name': 'Plan-Erinnerungen',
+        'plan_channel_desc': 'Benachrichtigungen für Benutzerpläne',
         'streak_reminder_title': 'Lass das Feuer nicht ausgehen! 🔥',
         'streak_reminder_body':
             'Du hast heute noch nicht fokussiert. Nimm dir jetzt einen Moment Zeit, um deinen Streak am Leben zu erhalten!',
@@ -2594,8 +2663,17 @@ class AppTranslationService {
         'count_suffix': '{count} gesamt',
         'status_upcoming': 'Anstehend',
         'status_done': 'Erledigt',
+        'status_past': 'Vergangen',
         'new_plan': 'Neuer Plan',
         'cancel': 'Abbrechen',
+        'empty': 'Noch keine Pläne',
+        'delete': 'Löschen',
+        'delete_confirm': 'Möchten Sie diesen Plan wirklich löschen?',
+        'notif_perm_title': 'Benachrichtigungsberechtigung erforderlich',
+        'notif_perm_body':
+            'Bitte erlauben Sie Benachrichtigungen, damit wir Sie zur Planzeit erinnern können. Sonst wird der Plan gespeichert, aber es kommt keine Erinnerung.',
+        'later': 'Später',
+        'open_settings': 'Einstellungen öffnen',
         'done': 'Fertig',
         'plan_name': 'Planname',
         'plan_name_hint': 'z.B. Programmierstunde',
@@ -2634,6 +2712,11 @@ class AppTranslationService {
         'give_up': 'Ich gebe auf',
         'anti_distract': 'Anti-Ablenkung',
         'anti_distract_desc': 'Benachrichtigungen komplett stumm',
+        'dnd_permission_title': '"Nicht stören"-Berechtigung benötigt',
+        'dnd_permission_body':
+            'Damit Anti-Ablenkung funktioniert, musst du den "Nicht stören"-Zugriff erlauben. Dann werden während des Fokus alle Benachrichtigungen stummgeschaltet.',
+        'later': 'Später',
+        'grant': 'Erlauben',
         'anti_distract_info':
             'Alle Benachrichtigungen von sozialen Medien werden blockiert.',
         'allowed_apps': 'Erlaubte Apps',
@@ -2980,6 +3063,9 @@ class AppTranslationService {
         'daily_analysis_desc': 'Résumé des résultats en fin de journée',
         'permission_notice':
             'Les notifications doivent être autorisées dans les réglages de l\'appareil.',
+        'plan_reminder_title': 'Il est temps pour votre plan ! ⏰',
+        'plan_channel_name': 'Rappels de plan',
+        'plan_channel_desc': 'Rappels concernant les plans utilisateur',
         'streak_reminder_title': 'Ne laissez pas le feu s\'éteindre ! 🔥',
         'streak_reminder_body':
             'Vous n\'avez pas encore focus aujourd\'hui. Prenez un moment maintenant pour garder votre streak actif !',
@@ -3114,9 +3200,18 @@ class AppTranslationService {
         'count_suffix': '{count} au total',
         'status_upcoming': 'À venir',
         'status_done': 'Terminé',
+        'status_past': 'Passé',
         'new_plan': 'Nouveau plan',
         'cancel': 'Annuler',
         'done': 'Prêt',
+        'empty': 'Aucun plan pour l\'instant',
+        'delete': 'Supprimer',
+        'delete_confirm': 'Voulez-vous vraiment supprimer ce plan ?',
+        'notif_perm_title': 'Autorisation de notification requise',
+        'notif_perm_body':
+            'Veuillez autoriser les notifications pour que nous puissions vous rappeler à l\'heure du plan. Sinon le plan sera enregistré mais aucun rappel ne sera envoyé.',
+        'later': 'Plus tard',
+        'open_settings': 'Ouvrir les réglages',
         'plan_name': 'Nom du plan',
         'plan_name_hint': 'ex: Cours de programmation',
         'date': 'Date',
@@ -3156,6 +3251,11 @@ class AppTranslationService {
         'anti_distract_desc': 'Notifications totalement muettes',
         'anti_distract_info':
             'Toutes les notifications des réseaux sociaux seront bloquées.',
+        'dnd_permission_title': 'Accès "Ne pas déranger" requis',
+        'dnd_permission_body':
+            'Pour activer Anti-Distraction, veuillez accorder l\'accès "Ne pas déranger". Une fois activé, toutes les notifications seront muettes pendant la session de focus.',
+        'later': 'Plus tard',
+        'grant': 'Autoriser',
         'allowed_apps': 'Apps autorisées',
         'allowed_desc': '{count} apps autorisées',
         'allowed_apps_info':

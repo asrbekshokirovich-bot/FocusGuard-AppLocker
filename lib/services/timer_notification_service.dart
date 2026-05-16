@@ -60,6 +60,11 @@ class TimerNotificationService {
     required String modeIcon,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    // Foreground service notifikatsiyasi (timer ishlayotganda ongoing).
+    // Foydalanuvchi `notification_focus`'ni o'chirsa ham — Android foreground
+    // service ID 7777 alohida boshqariladi. Bu yerda 999 — user-facing UX
+    // notification, shuni `notification_focus` toggle bilan boshqaramiz.
+    if (!await _shouldShow('notification_focus')) return;
     await init();
 
     final body = '$modeIcon $modeName  |  $levelTitle';
@@ -295,6 +300,8 @@ class TimerNotificationService {
   /// Tugma matnida XP miqdori ham ko'rsatilib, motivatsiya beradi.
   Future<void> showTimerCompletedNotification({required int minutes}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    // `notification_focus` toggle — taymer tugash xabarini boshqaradi.
+    if (!await _shouldShow('notification_focus')) return;
     await init();
 
     final lang = AppTranslationService();

@@ -1,11 +1,12 @@
 import 'dart:ui';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/app_translation_service.dart';
+import '../services/plan_service.dart';
 
 class MyPlansScreen extends StatefulWidget {
   const MyPlansScreen({super.key});
@@ -16,11 +17,95 @@ class MyPlansScreen extends StatefulWidget {
 
 class _MyPlansScreenState extends State<MyPlansScreen> {
   final lang = AppTranslationService();
-  
-  final List<Map<String, String>> _plans = [
-    {'title': 'Dasturlash darsi', 'time': '30.04.2026 10:00', 'status': 'plans.status_upcoming'},
-    {'title': 'Kitob o\'qish', 'time': '01.05.2026 15:30', 'status': 'plans.status_upcoming'},
-  ];
+
+  // Lokal SharedPreferences'dan yuklangan rejalar (PlanService boshqaradi).
+  // Avval mock ro'yxat edi — endi real va persistent.
+  List<Plan> _plans = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlans();
+  }
+
+  Future<void> _loadPlans() async {
+    final plans = await PlanService.instance.getAllPlans();
+    if (mounted) {
+      setState(() {
+        _plans = plans;
+        _loading = false;
+      });
+    }
+  }
+
+  /// Reja vaqtini "DD.MM.YYYY HH:mm" formatda chiqarish (eski UI formati).
+  String _formatPlanTime(DateTime dt) {
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final y = dt.year.toString();
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$d.$m.$y $hh:$mm';
+  }
+
+  /// "Kelajakda" yoki "O'tib ketgan" status — DateTime'dan derive qilinadi.
+  String _statusKeyFor(DateTime dt) {
+    return dt.isAfter(DateTime.now())
+        ? 'plans.status_upcoming'
+        : 'plans.status_past';
+  }
+
+  /// Bildirishnoma ruxsatini tekshirish. Agar yo'q bo'lsa — avval native
+  /// Android dialog so'raladi (Android 13+). Foydalanuvchi "rad qilish"
+  /// bossa — bizning custom dialog chiqadi va Sozlamalarga yo'naltiradi.
+  ///
+  /// Plan baribir saqlanadi (foydalanuvchining ishi yo'qolmasin), dialog
+  /// faqat ogohlantirish sifatida. Reja vaqtida notif chiqishi uchun
+  /// foydalanuvchi ruxsatni qo'lda yoqishi kerak.
+  Future<void> _checkNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isGranted) return; // hammasi yaxshi
+
+    // Avval native Android dialog (faqat 1 marta ishlaydi — keyin "denied").
+    final newStatus = await Permission.notification.request();
+    if (newStatus.isGranted) return;
+
+    // Foydalanuvchi rad qildi yoki avval rad qilingan — Sozlamalarni ochishga yo'naltiramiz.
+    if (!mounted) return;
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(
+          lang.translate('plans.notif_perm_title') ??
+              'Bildirishnoma ruxsati kerak',
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            lang.translate('plans.notif_perm_body') ??
+                'Reja vaqti kelganda eslatma yuborishimiz uchun bildirishnoma ruxsatini yoqing. Aks holda reja saqlanadi, lekin eslatma kelmaydi.',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('plans.later') ?? 'Keyinroq'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(
+              lang.translate('plans.open_settings') ?? 'Sozlamalarni ochish',
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +208,39 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        ..._plans.asMap().entries.map((entry) => _buildPlanItem(entry.value, entry.key)).toList(),
+                        if (_loading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(child: CupertinoActivityIndicator()),
+                          )
+                        else if (_plans.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  FaIcon(
+                                    FontAwesomeIcons.calendarXmark,
+                                    size: 48,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withOpacity(0.3),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    lang.translate('plans.empty') ?? 'Hozircha rejalar yo\'q',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          ..._plans.map((p) => _buildPlanItem(p)).toList(),
                       ],
                     ),
                   ),
@@ -166,15 +283,16 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     );
   }
 
-  Widget _buildPlanItem(Map<String, String> plan, int index) {
+  Widget _buildPlanItem(Plan plan) {
     return GestureDetector(
-      onTap: () => _showPlanDialog(editIndex: index),
+      onTap: () => _showPlanDialog(editPlan: plan),
       onLongPress: () {
         showCupertinoDialog(
           context: context,
           builder: (context) => CupertinoAlertDialog(
-            title: Text(plan['title']!),
-            content: const Text('Haqiqatan ham ushbu rejani o\'chirmoqchimisiz?'),
+            title: Text(plan.title),
+            content: Text(lang.translate('plans.delete_confirm') ??
+                'Haqiqatan ham ushbu rejani o\'chirmoqchimisiz?'),
             actions: [
               CupertinoDialogAction(
                 child: Text(lang.translate('plans.cancel'), style: GoogleFonts.inter()),
@@ -182,12 +300,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               ),
               CupertinoDialogAction(
                 isDestructiveAction: true,
-                child: Text('O\'chirish', style: GoogleFonts.inter()),
-                onPressed: () {
-                  setState(() {
-                    _plans.removeAt(index);
-                  });
+                child: Text(lang.translate('plans.delete') ?? 'O\'chirish',
+                    style: GoogleFonts.inter()),
+                onPressed: () async {
                   Navigator.pop(context);
+                  await PlanService.instance.deletePlan(plan.id);
+                  await _loadPlans();
                 },
               ),
             ],
@@ -219,9 +337,9 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(plan['title']!, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                  Text(plan.title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                   Text(
-                    lang.translate(plan['status']!), 
+                    lang.translate(_statusKeyFor(plan.dateTime)),
                     style: GoogleFonts.inter(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                   ),
                 ],
@@ -230,7 +348,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(plan['time']!, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor)),
+                Text(_formatPlanTime(plan.dateTime), style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: Theme.of(context).primaryColor)),
                 const FaIcon(FontAwesomeIcons.bell, color: Color(0xFFFF3B30), size: 12),
               ],
             ),
@@ -240,7 +358,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     );
   }
 
-  void _showPlanDialog({int? editIndex}) {
+  void _showPlanDialog({Plan? editPlan}) {
     final titleController = TextEditingController();
     final dayController = TextEditingController();
     final monthController = TextEditingController();
@@ -248,19 +366,14 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     final hourController = TextEditingController();
     final minuteController = TextEditingController();
 
-    if (editIndex != null) {
-      final plan = _plans[editIndex];
-      titleController.text = plan['title']!;
-      try {
-        final parts = plan['time']!.split(' ');
-        final dateParts = parts[0].split('.');
-        final timeParts = parts[1].split(':');
-        dayController.text = dateParts[0];
-        monthController.text = dateParts[1];
-        yearController.text = dateParts[2];
-        hourController.text = timeParts[0];
-        minuteController.text = timeParts[1];
-      } catch (e) {}
+    if (editPlan != null) {
+      titleController.text = editPlan.title;
+      final dt = editPlan.dateTime;
+      dayController.text = dt.day.toString().padLeft(2, '0');
+      monthController.text = dt.month.toString().padLeft(2, '0');
+      yearController.text = dt.year.toString();
+      hourController.text = dt.hour.toString().padLeft(2, '0');
+      minuteController.text = dt.minute.toString().padLeft(2, '0');
     } else {
       DateTime now = DateTime.now();
       dayController.text = now.day.toString().padLeft(2, '0');
@@ -358,27 +471,46 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                             ),
                             Text(lang.translate('plans.new_plan'), style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 17, color: Theme.of(context).colorScheme.onSurface)),
                             TextButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 if (titleController.text.isNotEmpty &&
                                     dayController.text.length == 2 &&
                                     monthController.text.length == 2 &&
                                     yearController.text.length == 4 &&
                                     hourController.text.length == 2 &&
                                     minuteController.text.length == 2) {
-                                  
-                                  setState(() {
-                                    final newPlan = {
-                                      'title': titleController.text,
-                                      'time': "${dayController.text}.${monthController.text}.${yearController.text} ${hourController.text}:${minuteController.text}",
-                                      'status': 'plans.status_upcoming',
-                                    };
-                                    if (editIndex != null) {
-                                      _plans[editIndex] = newPlan;
+                                  try {
+                                    final dt = DateTime(
+                                      int.parse(yearController.text),
+                                      int.parse(monthController.text),
+                                      int.parse(dayController.text),
+                                      int.parse(hourController.text),
+                                      int.parse(minuteController.text),
+                                    );
+                                    // O'tib ketgan vaqtga yangi reja qo'shilmasligi kerak
+                                    if (editPlan == null && dt.isBefore(DateTime.now())) return;
+                                    Navigator.pop(context);
+                                    if (editPlan != null) {
+                                      await PlanService.instance.updatePlan(
+                                        id: editPlan.id,
+                                        title: titleController.text,
+                                        dateTime: dt,
+                                      );
                                     } else {
-                                      _plans.add(newPlan);
+                                      await PlanService.instance.addPlan(
+                                        title: titleController.text,
+                                        dateTime: dt,
+                                      );
                                     }
-                                  });
-                                  Navigator.pop(context);
+                                    await _loadPlans();
+                                    // Reja saqlandi — endi bildirishnoma
+                                    // ruxsatini tekshiramiz. Yo'q bo'lsa
+                                    // dialog chiqib Sozlamalarga yo'naltiradi.
+                                    if (editPlan == null) {
+                                      await _checkNotificationPermission();
+                                    }
+                                  } catch (e) {
+                                    debugPrint('Plan save error: $e');
+                                  }
                                 }
                               },
                               child: Text(lang.translate('plans.done'), style: GoogleFonts.inter(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold, fontSize: 15)),

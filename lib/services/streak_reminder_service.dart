@@ -3,6 +3,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_translation_service.dart';
 import 'focus_history_service.dart';
 
@@ -54,6 +55,19 @@ class StreakReminderService {
   ///     boshlaganda chaqirsa bo'ladi).
   Future<void> scheduleDailyReminder({int hour = 11, int minute = 25}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    // Master toggle + focus toggle — agar foydalanuvchi o'chirgan bo'lsa
+    // schedule qilmaymiz. Mavjud schedule bekor bo'ladi.
+    final prefs = await SharedPreferences.getInstance();
+    final main = prefs.getBool('notification_main') ?? true;
+    final focus = prefs.getBool('notification_focus') ?? true;
+    if (!main || !focus) {
+      // Avval scheduled bo'lgan bo'lsa bekor qilamiz.
+      try {
+        await _plugin.cancel(id: _reminderId);
+      } catch (_) {}
+      debugPrint('[StreakReminder] toggle off → cancelled scheduled reminder');
+      return;
+    }
     await init();
 
     final lang = AppTranslationService();

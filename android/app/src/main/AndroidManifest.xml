@@ -20,6 +20,10 @@
          notifikatsiya (incoming call kabi) ko'rsatish uchun. Android 14+
          da bu maxsus permission. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Anti-Chalg'itish (Do Not Disturb) — taymer ishlayotganida DnD rejimi
+         yoqiladi, barcha bildirishnomalar jim turadi. Foydalanuvchi
+         "Sukut rejimini boshqarish" ruxsatini bir martalik berishi kerak. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
         android:label="Focus Guard"

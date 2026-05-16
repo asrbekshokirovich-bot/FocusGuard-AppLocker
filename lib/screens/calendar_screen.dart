@@ -144,21 +144,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           body: _loading
               ? const Center(child: CircularProgressIndicator())
-              : Padding(
+              : SingleChildScrollView(
+                  // Expanded(GridView) cells'ni cho'zib pill ko'rinishida
+                  // chiqarardi. Endi SingleChildScrollView + shrinkWrap grid —
+                  // cells aniq KVADRAT bo'ladi (1:1 aspect).
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Bugungi maqsad va progress — tepada alohida karta.
-                      // Foydalanuvchi Calendar'ga kirishi bilan bugungi
-                      // maqsadi nima va qancha bajarganini darrov ko'radi.
                       _buildTodayCard(lang),
                       const SizedBox(height: 12),
                       _buildMonthHeader(lang),
                       const SizedBox(height: 12),
                       _buildWeekdayHeader(lang),
                       const SizedBox(height: 8),
-                      Expanded(child: _buildCalendarGrid(lang)),
+                      _buildCalendarGrid(lang),
                       const SizedBox(height: 12),
                       _buildLegend(lang),
                       const SizedBox(height: 12),
@@ -384,6 +384,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = DateTime(now.year, now.month, now.day);
 
     return GridView.builder(
+      // shrinkWrap + NeverScrollableScrollPhysics — grid faqat kerakli
+      // balandlikni egallaydi. SingleChildScrollView ichida nested skroll
+      // bo'lmaydi. Cells aniq kvadrat (1:1) chiqadi.
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         mainAxisSpacing: 6,
@@ -480,50 +485,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
       onTap: isTappable
           ? () => _showDayDetails(cellDate, record, isRegistrationDate, lang)
           : null,
-      child: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: background,
-              // Kvadrat hujayralar (1:1 aspectRatio) o'rtacha yumshoq
-              // burchaklar bilan (radius 10) — foydalanuvchi ko'rsatgan
-              // dizaynga mos: aniq kvadrat, lekin keskin uchli emas.
-              borderRadius: BorderRadius.circular(10),
-              border: isToday
-                  ? Border.all(color: const Color(0xFF007AFF), width: 2)
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$day',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-                    color: textColor,
+      // AspectRatio — kafolat: cell HAR DOIM kvadrat. Avval Expanded(GridView)
+      // cells'ni vertikal cho'zib pill ko'rinishida chiqarardi. Endi shape
+      // har qanday parent'da kvadrat qoladi.
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: background,
+                // Yumshoq yumaloq burchaklar (radius 10) — birinchi
+                // rasmdagi dizaynga mos: aniq kvadrat, lekin yumshoq.
+                borderRadius: BorderRadius.circular(10),
+                border: isToday
+                    ? Border.all(color: const Color(0xFF007AFF), width: 2)
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$day',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                      color: textColor,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  height: 16,
-                  child: bottomIndicator ?? const SizedBox.shrink(),
-                ),
-              ],
-            ),
-          ),
-          // Registration date — kichik 🎉 belgisi yuqori o'ng burchakda,
-          // har qanday rang ustiga overlay sifatida ko'rinadi.
-          if (isRegistrationDate)
-            const Positioned(
-              top: 2,
-              right: 4,
-              child: Text(
-                '🎉',
-                style: TextStyle(fontSize: 10),
+                  if (bottomIndicator != null) ...[
+                    const SizedBox(height: 2),
+                    bottomIndicator,
+                  ],
+                ],
               ),
             ),
-        ],
+            // Registration date — kichik 🎉 belgisi yuqori o'ng burchakda
+            if (isRegistrationDate)
+              const Positioned(
+                top: 2,
+                right: 4,
+                child: Text(
+                  '🎉',
+                  style: TextStyle(fontSize: 10),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

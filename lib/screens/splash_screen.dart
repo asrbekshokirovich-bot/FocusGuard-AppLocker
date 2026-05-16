@@ -9,6 +9,8 @@ import 'package:app_usage/app_usage.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
 import 'permissions_screen.dart';
+import '../services/cloud_sync_service.dart';
+import '../services/plan_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -41,6 +43,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       final User? user = FirebaseAuth.instance.currentUser;
 
       if (user != null) {
+        // Bulutdan tiklash (bir martalik) — uninstall/reinstall yoki yangi
+        // qurilmada login bo'lganda Firestore'dagi history'ni lokal'ga
+        // tortib oladi. Mavjud lokal yozuvlarning ustidan yozmaydi.
+        // Fire-and-forget — UI'ni bloklamaymiz, dashboard'da chart 1-2
+        // sekundda paydo bo'ladi.
+        CloudSyncService.instance.autoRestoreOnFirstRun();
+        // Plans ham — Firestore'dan tortib qayta sozlash.
+        PlanService.instance.restoreFromFirestore();
+
         // Ruxsatlarni tekshirish (faqat passiv)
         bool hasPermissions = true;
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {

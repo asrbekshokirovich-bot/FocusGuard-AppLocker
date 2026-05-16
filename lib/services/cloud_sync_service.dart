@@ -350,11 +350,20 @@ class CloudSyncService {
 
   /// Login'da chaqiriladi — Firestore'dan history'ni lokal'ga yuklab oladi.
   /// Yangi telefonda yoki qayta o'rnatishdan keyin tarixni tiklaydi.
-  Future<void> restoreFromCloud() async {
+  ///
+  /// `overwrite`:
+  ///   • false (default) — agar lokal'da bu kun uchun yozuv bor bo'lsa, tegmaymiz.
+  ///     Bu xavfsizroq — qurilmada yangi seans bo'lgan bo'lishi mumkin.
+  ///   • true — barcha bulutdagi yozuvlar lokal'ni ustidan yozadi.
+  ///     Foydalanuvchi Cloud Backup ekranidan "Bulutdan tortish" tugmasini bossa.
+  ///
+  /// Returns: necha kun tiklandi.
+  Future<int> restoreFromCloud({bool overwrite = false}) async {
+    int restored = 0;
     try {
       final user = _auth.currentUser;
-      if (user == null) return;
-      if (!await InternetChecker.isOnline()) return;
+      if (user == null) return 0;
+      if (!await InternetChecker.isOnline()) return 0;
       final snapshot = await _firestore
           .collection('users')
           .doc(user.uid)
@@ -362,9 +371,11 @@ class CloudSyncService {
           .get();
       final prefs = await SharedPreferences.getInstance();
       for (final doc in snapshot.docs) {
+        final localKey = 'focus_history_${doc.id}';
+        if (!overwrite && prefs.getString(localKey) != null) {
+          continue; // lokal'da bor — qoldiramiz
+        }
         final data = doc.data();
-        // Eski yozuv yo'q bo'lsa lokal'ga yozamiz; bo'lsa ham qaytadan
-        // yozish xavfli emas (idempotent).
         try {
           final record = DayRecord(
             seconds: (data['seconds'] as num?)?.toInt() ?? 0,
@@ -378,22 +389,47 @@ class CloudSyncService {
                   )
                 : const {},
           );
-          await prefs.setString(
-              'focus_history_${doc.id}', jsonEncode(record.toJson()));
+          await prefs.setString(localKey, jsonEncode(record.toJson()));
+          restored++;
         } catch (e) {
           debugPrint('[CloudSync] restore ${doc.id} failed: $e');
         }
       }
-      // Activities list'ni ham tiklaymiz
+      // Activities list'ni ham tiklaymiz (lokal bo'sh bo'lsa)
       final userDoc =
           await _firestore.collection('users').doc(user.uid).get();
       final cloudActivities = userDoc.data()?['customActivities'];
       if (cloudActivities is List) {
-        await prefs.setStringList(
-            'custom_activities', cloudActivities.cast<String>());
+        final localList = prefs.getStringList('custom_activities');
+        if (overwrite || localList == null || localList.isEmpty) {
+          await prefs.setStringList(
+              'custom_activities', cloudActivities.cast<String>());
+        }
       }
+      debugPrint('[CloudSync] restored $restored days from cloud');
     } catch (e) {
       debugPrint('[CloudSync] restoreFromCloud failed: $e');
+    }
+    return restored;
+  }
+
+  /// App startda bir martalik avtomatik tiklash. Foydalanuvchi qayta o'rnatib,
+  /// login bo'lganda chaqiriladi. `cloud_restored_once` flag yordamida idempotent.
+  Future<void> autoRestoreOnFirstRun() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('cloud_restored_once') ?? false) {
+        return; // allaqachon tortilgan
+      }
+      final user = _auth.currentUser;
+      if (user == null) return;
+      final restored = await restoreFromCloud(overwrite: false);
+      if (restored > 0) {
+        await prefs.setBool('cloud_restored_once', true);
+        debugPrint('[CloudSync] auto-restored $restored days on first run');
+      }
+    } catch (e) {
+      debugPrint('[CloudSync] autoRestoreOnFirstRun failed: $e');
     }
   }
 }

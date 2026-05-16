@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/app_translation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/plan_service.dart';
+import '../services/streak_reminder_service.dart';
 
 class NotificationsSettingsScreen extends StatefulWidget {
   const NotificationsSettingsScreen({super.key});
@@ -45,6 +47,18 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
       if (key == 'notification_plans') _planReminders = value;
       if (key == 'notification_analysis') _dailyAnalysis = value;
     });
+    // Toggle o'zgarganda scheduled notif'larni real-time qayta sozlash.
+    // — Master yoki Plan toggle → PlanService barcha plan notif'larini boshqaradi.
+    // — Master yoki Focus toggle → StreakReminder ham qayta rejalashtiriladi.
+    if (key == 'notification_main' ||
+        key == 'notification_plans') {
+      await PlanService.instance.applyNotificationToggle();
+    }
+    if (key == 'notification_main' || key == 'notification_focus') {
+      // 11:25 streak eslatma — toggle on bo'lsa schedule, off bo'lsa cancel.
+      // scheduleDailyReminder ichida toggle tekshiriladi va cancel ham qiladi.
+      await StreakReminderService().scheduleDailyReminder();
+    }
   }
   Widget build(BuildContext context) {
     final lang = AppTranslationService();

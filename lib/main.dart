@@ -24,6 +24,8 @@ import 'services/crash_logger.dart';
 import 'services/cloud_sync_service.dart';
 import 'services/level_service.dart';
 import 'services/daily_reset_service.dart';
+import 'services/plan_service.dart';
+import 'services/dnd_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -96,6 +98,16 @@ void main() async {
   // migratsiya. Login bo'lmagan bo'lsa metod o'zi ichida hech narsa
   // qilmaydi. Foydalanuvchini bloklamaslik uchun fonida ishlatamiz.
   LevelService().migrateLevelIfNeeded();
+
+  // Rejalar uchun scheduled notif'larni qayta sozlash. Android reboot
+  // yoki ilova yangilashdan keyin alarm'lar tozalanadi — bu yerda
+  // barcha kelajakdagi rejalar qaytadan AlarmManager'ga qo'yiladi.
+  PlanService.instance.rescheduleAllPlans();
+
+  // Stuck DnD'ni tuzatish — agar oldingi seans crash bilan tugab DnD
+  // yoqiq qolgan bo'lsa, app ochilganda darrov avvalgi holatga qaytaramiz.
+  // Toggle holati tegilmaydi (foydalanuvchi tanlovi saqlanadi).
+  DndService.instance.recoverIfStuck();
 
   runApp(
     DevicePreview(
