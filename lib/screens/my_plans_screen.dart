@@ -56,36 +56,64 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         : 'plans.status_past';
   }
 
-  /// Bildirishnoma ruxsatini tekshirish. Agar yo'q bo'lsa — avval native
-  /// Android dialog so'raladi (Android 13+). Foydalanuvchi "rad qilish"
-  /// bossa — bizning custom dialog chiqadi va Sozlamalarga yo'naltiradi.
-  ///
-  /// Plan baribir saqlanadi (foydalanuvchining ishi yo'qolmasin), dialog
-  /// faqat ogohlantirish sifatida. Reja vaqtida notif chiqishi uchun
-  /// foydalanuvchi ruxsatni qo'lda yoqishi kerak.
-  Future<void> _checkNotificationPermission() async {
-    final status = await Permission.notification.status;
-    if (status.isGranted) return; // hammasi yaxshi
+  /// Reja saqlangandan keyin scheduling natijasiga qarab kerakli dialog
+  /// ko'rsatish. Plan baribir saqlangan — dialog faqat ogohlantirish.
+  Future<void> _handleScheduleResult(SchedResult result) async {
+    if (result.scheduled && result.reason == SchedFailReason.none) {
+      return; // hammasi yaxshi
+    }
 
-    // Avval native Android dialog (faqat 1 marta ishlaydi — keyin "denied").
-    final newStatus = await Permission.notification.request();
-    if (newStatus.isGranted) return;
+    if (result.reason == SchedFailReason.notificationDenied) {
+      // POST_NOTIFICATIONS yo'q — avval native dialog so'raymiz
+      final newStatus = await Permission.notification.request();
+      if (newStatus.isGranted) {
+        // Endi qayta rejalashtirish kerak (rejalar ro'yxati orqali)
+        await PlanService.instance.rescheduleAllPlans();
+        return;
+      }
+      // Foydalanuvchi rad qildi — Sozlamalarga yo'naltiramiz
+      if (!mounted) return;
+      _showPermissionDialog(
+        title: lang.translate('plans.notif_perm_title') ??
+            'Bildirishnoma ruxsati kerak',
+        body: lang.translate('plans.notif_perm_body') ??
+            'Reja vaqti kelganda eslatma yuborishimiz uchun bildirishnoma ruxsatini yoqing.',
+        action: () => openAppSettings(),
+      );
+      return;
+    }
 
-    // Foydalanuvchi rad qildi yoki avval rad qilingan — Sozlamalarni ochishga yo'naltiramiz.
-    if (!mounted) return;
+    if (result.reason == SchedFailReason.inexactOnly) {
+      // Exact alarm yo'q — taxminan vaqtda chiqaradi (lekin foydalanuvchi
+      // aniq vaqtda kutishi mumkin). Ruxsat berishni taklif qilamiz.
+      if (!mounted) return;
+      _showPermissionDialog(
+        title: lang.translate('plans.exact_perm_title') ??
+            'Aniq vaqt ruxsati',
+        body: lang.translate('plans.exact_perm_body') ??
+            'Reja aniq belgilangan vaqtda kelishi uchun "Signallar va eslatmalar" ruxsatini bering.',
+        action: () =>
+            PlanService.instance.requestExactAlarmPermission(),
+      );
+      return;
+    }
+
+    // Boshqa xatolar — sukutda log'ga yozildi
+  }
+
+  /// Universal ruxsat so'rash dialogi (iOS-style).
+  void _showPermissionDialog({
+    required String title,
+    required String body,
+    required VoidCallback action,
+  }) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
-        title: Text(
-          lang.translate('plans.notif_perm_title') ??
-              'Bildirishnoma ruxsati kerak',
-        ),
+        title: Text(title),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            lang.translate('plans.notif_perm_body') ??
-                'Reja vaqti kelganda eslatma yuborishimiz uchun bildirishnoma ruxsatini yoqing. Aks holda reja saqlanadi, lekin eslatma kelmaydi.',
-          ),
+          child: Text(body),
         ),
         actions: [
           CupertinoDialogAction(
@@ -99,7 +127,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              openAppSettings();
+              action();
             },
           ),
         ],
@@ -393,9 +421,24 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       transitionBuilder: (context, anim1, anim2, child) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: anim1.value * 10, sigmaY: anim1.value * 10),
+          // Dialog ekran pastida joylashadi (bottomCenter). Klaviya chiqsa
+          // `viewInsets.bottom` yo'q joy egallaydi — biz uni padding bilan
+          // qo'shamiz, dialog avtomatik tepaga ko'tariladi, input maydoni
+          // ko'rinmoq bo'lib qoladi.
           child: SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0, 1), end: const Offset(0, 0.48)).animate(anim1),
-            child: StatefulBuilder(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(anim1),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: StatefulBuilder(
               builder: (context, setDialogState) {
                 String previewText = "";
 
@@ -489,24 +532,26 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                     // O'tib ketgan vaqtga yangi reja qo'shilmasligi kerak
                                     if (editPlan == null && dt.isBefore(DateTime.now())) return;
                                     Navigator.pop(context);
+                                    SchedResult schedResult;
                                     if (editPlan != null) {
-                                      await PlanService.instance.updatePlan(
+                                      schedResult = await PlanService.instance.updatePlan(
                                         id: editPlan.id,
                                         title: titleController.text,
                                         dateTime: dt,
                                       );
                                     } else {
-                                      await PlanService.instance.addPlan(
+                                      final result = await PlanService.instance.addPlan(
                                         title: titleController.text,
                                         dateTime: dt,
                                       );
+                                      schedResult = result.schedResult;
                                     }
                                     await _loadPlans();
-                                    // Reja saqlandi — endi bildirishnoma
-                                    // ruxsatini tekshiramiz. Yo'q bo'lsa
-                                    // dialog chiqib Sozlamalarga yo'naltiradi.
-                                    if (editPlan == null) {
-                                      await _checkNotificationPermission();
+                                    // Rejalashtirish muvaffaqiyatsiz bo'lsa
+                                    // sababiga qarab dialog ko'rsatamiz —
+                                    // foydalanuvchi nima kerakligini biladi.
+                                    if (mounted) {
+                                      await _handleScheduleResult(schedResult);
                                     }
                                   } catch (e) {
                                     debugPrint('Plan save error: $e');
@@ -703,6 +748,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   ),
                 );
               },
+            ),
+              ),
             ),
           ),
         );

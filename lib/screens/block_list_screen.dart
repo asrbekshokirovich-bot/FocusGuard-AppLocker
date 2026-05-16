@@ -467,8 +467,13 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.reload();
                 final isRunning = prefs.getBool('timer_is_running') ?? false;
+                final isPaused = prefs.getBool('timer_is_paused') ?? false;
                 final isStrict = prefs.getBool('timer_is_strict') ?? false;
-                if (isRunning && isStrict) {
+                // Temir Intizom yoqilganda — bloklangan ilovalarni
+                // tugagunga (yoki to'xtatilgunga) qadar ochib bo'lmaydi.
+                // Pauza paytida ham qulf saqlanadi — chunki taymer hali
+                // bekor qilinmagan, foydalanuvchi davom etishi mumkin.
+                if ((isRunning || isPaused) && isStrict) {
                   _showStrictModeBlockedDialog();
                   return;
                 }

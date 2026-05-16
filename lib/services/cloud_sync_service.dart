@@ -415,19 +415,23 @@ class CloudSyncService {
 
   /// App startda bir martalik avtomatik tiklash. Foydalanuvchi qayta o'rnatib,
   /// login bo'lganda chaqiriladi. `cloud_restored_once` flag yordamida idempotent.
+  ///
+  /// MUHIM: flag DOIM belgilanadi (hatto 0 yozuv tortilsa ham). Aks holda
+  /// foydalanuvchi har ochishida bulutga so'rov yuborilib, yangi yozuv
+  /// paydo bo'lsa keyingi marta tortib olardi — bu "data o'zidan paydo
+  /// bo'ldi" muammosini keltirib chiqarardi.
   Future<void> autoRestoreOnFirstRun() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('cloud_restored_once') ?? false) {
-        return; // allaqachon tortilgan
+        return; // allaqachon urinish qilingan
       }
       final user = _auth.currentUser;
       if (user == null) return;
       final restored = await restoreFromCloud(overwrite: false);
-      if (restored > 0) {
-        await prefs.setBool('cloud_restored_once', true);
-        debugPrint('[CloudSync] auto-restored $restored days on first run');
-      }
+      // Flag doim belgilash — urinish qilindi, qaytarish kerak emas.
+      await prefs.setBool('cloud_restored_once', true);
+      debugPrint('[CloudSync] auto-restore done: $restored days');
     } catch (e) {
       debugPrint('[CloudSync] autoRestoreOnFirstRun failed: $e');
     }

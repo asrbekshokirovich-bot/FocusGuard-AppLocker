@@ -102,6 +102,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     DndService.instance.isToggleEnabled().then((enabled) {
       if (mounted) setState(() => _isAntiDistract = enabled);
     });
+    // Xavfsizlik: agar oldingi sessiyadan DnD stuck holatda qolgan bo'lsa
+    // (crash, force stop, fonda timer tugagan), darrov tuzatamiz.
+    // Bu Focus Timer ekran ochilishi bilan ishlaydi — main.dart'dagi check'ga
+    // qo'shimcha qatlam.
+    DndService.instance.recoverIfStuck();
   }
 
   @override
@@ -112,6 +117,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     if (state == AppLifecycleState.resumed && mounted) {
       _refreshTodayProgress();
       _loadDailyProgress();
+      // Fonda timer tugagan bo'lsa (foydalanuvchi app'da yo'q edi) — DnD
+      // hali yoqiq qolgan bo'lishi mumkin. recoverIfStuck darrov tuzatadi:
+      // timer_is_running=false bo'lsa va dnd_active_by_us=true bo'lsa,
+      // DnD avvalgi holatga qaytadi.
+      DndService.instance.recoverIfStuck();
     }
   }
 
@@ -342,17 +352,43 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     if (_selectedMode == 1) {
       SoundscapeService.instance.play(_selectedSound);
     }
+    // Pauza paytida foydalanuvchi Anti-Chalg'itish toggle'ni yoqib qo'ygan
+    // bo'lishi mumkin. Resume bilan birga DnD'ni darrov qo'llaymiz.
+    if (_selectedMode == 0 && _isAntiDistract) {
+      DndService.instance.enableFocusMode();
+    }
   }
 
   /// Anti-Chalg'itish toggle bosilganda — toggle holatini saqlash va
   /// agar ON bo'lsa permission tekshirish. Yo'q bo'lsa dialog ko'rsatamiz.
+  ///
+  /// Agar Chuqur Fokus seansi hozir ishlayotgan/pauzada bo'lsa, toggle
+  /// o'zgarishi darrov qo'llanadi:
+  ///   - ON bosildi → DnD darrov yoqiladi
+  ///   - OFF bosildi → DnD darrov o'chiriladi (avvalgi holatga qaytadi)
   void _onAntiDistractToggle(bool value) async {
     setState(() => _isAntiDistract = value);
     await DndService.instance.setToggleEnabled(value);
-    if (!value) return; // off — permission kerak emas
+
+    // Hozir Chuqur Fokus seansi faolmi? (ishlayapti yoki pauzada)
+    final isActiveDeepSession =
+        (_isRunning || _isPaused) && _selectedMode == 0;
+
+    if (!value) {
+      // Toggle OFF — agar biz DnD yoqgan bo'lsak, darrov o'chiramiz
+      await DndService.instance.disableFocusMode();
+      return;
+    }
+
+    // Toggle ON — permission tekshirish
     final granted = await DndService.instance.isPermissionGranted();
     if (!granted && mounted) {
       _showDndPermissionDialog();
+      return;
+    }
+    // Agar fokus hozir faol bo'lsa, DnD'ni darrov yoqamiz
+    if (isActiveDeepSession) {
+      await DndService.instance.enableFocusMode();
     }
   }
 
@@ -1141,6 +1177,15 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                       child: Column(
                         children: [
                           if (_selectedMode == 0) ...[
+                            // Toggle qulflari:
+                            //   Temir Intizom — seans (running yoki pauza)
+                            //     paytida o'zgartirib bo'lmaydi. Seans
+                            //     boshlangach foydalanuvchi mantiq qoidalarini
+                            //     buzmasligi uchun.
+                            //   Anti-Chalg'itish — faqat ishlayotgan paytda
+                            //     qulflanadi. PAUZADA o'zgartirib bo'ladi
+                            //     (foydalanuvchi keyingi bosqichda DnD'ni
+                            //     yoqishni xohlasa, pauza qilib yoqishi mumkin).
                             _buildOptionRow(
                               CupertinoIcons.shield_fill,
                               const Color(0xFF34C759),
@@ -1148,10 +1193,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                               lang.translate('focus_timer.strict_desc'),
                               true,
                               value: _isStrictMode,
-                              onChanged: (v) => setState(() => _isStrictMode = v),
+                              onChanged: (_isRunning || _isPaused)
+                                  ? null
+                                  : (v) => setState(() => _isStrictMode = v),
                               onTap: () => _showFeatureInfo(
                                 lang.translate('focus_timer.strict_mode'),
-                                lang.translate('focus_timer.strict_mode_info'), // Need to add this to service
+                                lang.translate('focus_timer.strict_mode_info'),
                                 CupertinoIcons.shield_fill,
                                 const Color(0xFF34C759),
                               ),
@@ -1164,10 +1211,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                               lang.translate('focus_timer.anti_distract_desc'),
                               true,
                               value: _isAntiDistract,
-                              onChanged: (v) => _onAntiDistractToggle(v),
+                              onChanged: _isRunning
+                                  ? null
+                                  : (v) => _onAntiDistractToggle(v),
                               onTap: () => _showFeatureInfo(
                                 lang.translate('focus_timer.anti_distract'),
-                                lang.translate('focus_timer.anti_distract_info'), // Need to add this to service
+                                lang.translate('focus_timer.anti_distract_info'),
                                 CupertinoIcons.moon_zzz_fill,
                                 const Color(0xFF5856D6),
                               ),
@@ -1763,8 +1812,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
               _selectedActivityIndex = -1;
             } else {
               _selectedActivityIndex = index;
-              _selectedMinutes = minutes; // taymer vaqti
-              _remainingSeconds = minutes * 60;
+              // Smart pickup — bugun shu faoliyatda sarflangan vaqtni
+              // hisobga olib, faqat QOLGAN vaqtni taymerga qo'yamiz.
+              // Misol: 45 daq maqsad, 1m6s qilingan → 43m54s qoldi → taymer 44 daq.
+              //
+              // Kunlik reset: `_activityProgress` har kuni 0 ga tushadi
+              // (DailyResetService), demak ertaga to'liq 45 daq qaytadan boshlanadi.
+              final completedSec = _activityProgress[activityKey] ?? 0;
+              final targetSec = minutes * 60;
+              final remainingSec = (targetSec - completedSec).clamp(0, targetSec);
+              // Agar deyarli bajarilgan bo'lsa (< 30 sek qoldi), foydalanuvchi
+              // yana ishlamoqchi bo'lsa — to'liq vaqtni qaytadan beramiz.
+              final useSec = remainingSec >= 30 ? remainingSec : targetSec;
+              // Daqiqaga yumalatish (yuqoriga, kam qilmaymiz).
+              _selectedMinutes = (useSec / 60).ceil();
+              _remainingSeconds = _selectedMinutes * 60;
               _isPaused = false;
             }
           });

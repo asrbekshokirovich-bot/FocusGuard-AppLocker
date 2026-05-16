@@ -54,16 +54,18 @@ class FocusHistoryService {
         activities: activities,
       );
       await prefs.setString(_dateKey(date), jsonEncode(record.toJson()));
-      // Cloud Sync uchun pending queue'ga qo'shamiz — main isolate
-      // ishlay boshlaganida CloudSyncService bu kunni Firestore'ga
-      // jo'natadi. Background isolate Firebase'ga to'g'ridan-to'g'ri
-      // kira olmaydi, shuning uchun SharedPreferences orqali.
-      final dateKeyShort =
-          _dateKey(date).replaceFirst(_keyPrefix, '');
-      final pending = prefs.getStringList('cloud_pending_dates') ?? <String>[];
-      if (!pending.contains(dateKeyShort)) {
-        pending.add(dateKeyShort);
-        await prefs.setStringList('cloud_pending_dates', pending);
+      // Cloud Sync uchun pending queue'ga qo'shamiz — faqat haqiqiy
+      // fokus bo'lgan bo'lsa (seconds > 0). 0 sekund yozuvlarini bulutga
+      // yuborish keraksiz — joy egallaydi va "data qaerdan keldi" kabi
+      // chalkash holatlar yuzaga keladi.
+      if (seconds > 0) {
+        final dateKeyShort =
+            _dateKey(date).replaceFirst(_keyPrefix, '');
+        final pending = prefs.getStringList('cloud_pending_dates') ?? <String>[];
+        if (!pending.contains(dateKeyShort)) {
+          pending.add(dateKeyShort);
+          await prefs.setStringList('cloud_pending_dates', pending);
+        }
       }
       debugPrint('[FocusHistory] saved ${_dateKey(date)}: '
           '${record.seconds}s / ${record.goal}s (met=${record.met}, '

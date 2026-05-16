@@ -3,8 +3,24 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/cupertino.dart';
 import '../services/language_service.dart';
 
-class LegalScreen extends StatelessWidget {
-  const LegalScreen({super.key});
+class LegalScreen extends StatefulWidget {
+  /// Til tanlash chiplarini ko'rsatish. Login/register'da false (foydalanuvchi
+  /// onboarding'da til tanlagan), Profil ichidan ochilganda true.
+  final bool showLanguageSwitcher;
+  const LegalScreen({super.key, this.showLanguageSwitcher = false});
+
+  @override
+  State<LegalScreen> createState() => _LegalScreenState();
+}
+
+class _LegalScreenState extends State<LegalScreen> {
+  // Lokal til — faqat shu ekran uchun. Ilova umumiy tiliga tegmaydi.
+  // Initial: ilovaning joriy tili.
+  late String _displayLang = LanguageService().currentLanguage;
+
+  /// Tanlangan tilda tarjima — global tilga ta'sir qilmaydi.
+  dynamic _t(String key) =>
+      LanguageService().translateInLang(key, _displayLang);
 
   @override
   Widget build(BuildContext context) {
@@ -37,28 +53,35 @@ class LegalScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.pop(context),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(CupertinoIcons.back, color: Colors.black, size: 22),
-                      const SizedBox(width: 4),
-                      Text(
-                        LanguageService().translate('legal.close'),
-                        style: GoogleFonts.inter(
-                          color: Colors.black,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(CupertinoIcons.back, color: Colors.black, size: 22),
+                          const SizedBox(width: 4),
+                          Text(
+                            _t('legal.close') ?? 'Close',
+                            style: GoogleFonts.inter(
+                              color: Colors.black,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    // Til tanlash chiplari — faqat Profil orqali ochilganda.
+                    if (widget.showLanguageSwitcher) _buildLanguageChips(),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  LanguageService().translate('legal.title'),
+                  _t('legal.title') ?? 'Legal',
                   style: GoogleFonts.inter(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -81,7 +104,7 @@ class LegalScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ...((LanguageService().translate('legal.sections') as List)
+                  ...(((_t('legal.sections') ?? []) as List)
                       .map((section) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 32),
@@ -122,6 +145,46 @@ class LegalScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// 3 til chiplari — faqat Profil'dan ochilganda ko'rinadi. Bosilsa
+  /// faqat shu ekranda til o'zgaradi. Ilova umumiy tiliga tegmaydi.
+  Widget _buildLanguageChips() {
+    const langs = [
+      {'code': 'uz', 'label': 'O\'z'},
+      {'code': 'ru', 'label': 'Ру'},
+      {'code': 'en', 'label': 'En'},
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: langs.map((l) {
+        final selected = _displayLang == l['code'];
+        return Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: GestureDetector(
+            onTap: () =>
+                setState(() => _displayLang = l['code']!),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF007AFF)
+                    : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                l['label']!,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

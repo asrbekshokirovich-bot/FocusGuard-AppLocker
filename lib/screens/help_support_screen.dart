@@ -3,8 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
-
 import '../services/language_service.dart';
+import 'legal_screen.dart';
 
 class HelpSupportScreen extends StatefulWidget {
   const HelpSupportScreen({super.key});
@@ -90,6 +90,10 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
                       _buildSectionTitle(lang.translate('help.contact_title'), textColor, lang),
                       const SizedBox(height: 16),
                       _buildContactCard(primaryColor, cardColor, textColor, lang),
+                      const SizedBox(height: 24),
+                      _buildSectionTitle(lang.translate('help.legal_title'), textColor, lang),
+                      const SizedBox(height: 16),
+                      _buildLegalCard(primaryColor, cardColor, textColor, lang),
                     ],
                   ),
                 ),
@@ -98,6 +102,80 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// "Foydalanish shartlari va Maxfiylik siyosati" karta — bossa LegalScreen
+  /// til tanlash chiplari bilan ochiladi (faqat shu yerdan kirilganda).
+  Widget _buildLegalCard(Color primaryColor, Color cardColor, Color textColor,
+      AppTranslationService lang) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const LegalScreen(showLanguageSwitcher: true),
+            ),
+          ),
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(CupertinoIcons.doc_text_fill,
+                      color: primaryColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang.translate('help.legal_card_title'),
+                        style: lang.getFont(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        lang.translate('help.legal_card_desc'),
+                        style: lang.getFont(
+                          fontSize: 13,
+                          color: textColor.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(CupertinoIcons.chevron_right,
+                    size: 18, color: textColor.withOpacity(0.2)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

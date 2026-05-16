@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -37,7 +38,68 @@ class PlanService {
     const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const settings = InitializationSettings(android: androidSettings);
     await _plugin.initialize(settings: settings);
+
+    // Notification channel'ni OLDINDAN yaratamiz. Android 8+da channel
+    // birinchi marta `show()` paytida lazy yaratilardi, lekin `zonedSchedule`
+    // alarm sifatida ishlaydi — fire vaqtida channel hali yo'q bo'lsa
+    // bildirishnoma sukutda chiqishi mumkin. Shu sababli channel'ni
+    // BOSHIDAN ro'yxatdan o'tkazib qo'yamiz.
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      const channel = AndroidNotificationChannel(
+        'plan_reminder_channel',
+        'Rejalar eslatmasi',
+        description: 'Foydalanuvchi rejalari haqida eslatma',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+      await android.createNotificationChannel(channel);
+    }
     _initialized = true;
+  }
+
+  /// POST_NOTIFICATIONS runtime ruxsati tekshirish. Android 13+da kerak.
+  /// Yo'q bo'lsa notification jim qoladi.
+  Future<bool> _hasNotificationPermission() async {
+    try {
+      final status = await Permission.notification.status;
+      return status.isGranted;
+    } catch (e) {
+      debugPrint('[PlanService] permission check failed: $e');
+      return false;
+    }
+  }
+
+  /// Android 12+da exact alarm ruxsati tekshirish. Yo'q bo'lsa
+  /// SecurityException yoki silent failure bo'lishi mumkin.
+  Future<bool> _canScheduleExactAlarms() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      final ok = await android?.canScheduleExactNotifications();
+      return ok ?? true; // bilolmasak optimistik
+    } catch (e) {
+      debugPrint('[PlanService] canScheduleExactNotifications failed: $e');
+      return true;
+    }
+  }
+
+  /// Foydalanuvchidan exact alarm ruxsatini so'rash (Android 12-13).
+  /// Android 14+da USE_EXACT_ALARM avtomatik beriladi, bu chaqirilmaydi.
+  Future<void> requestExactAlarmPermission() async {
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await android?.requestExactAlarmsPermission();
+    } catch (e) {
+      debugPrint('[PlanService] requestExactAlarmsPermission failed: $e');
+    }
   }
 
   Future<void> _ensureTimezone() async {
@@ -93,7 +155,11 @@ class PlanService {
   }
 
   /// Yangi reja qo'shish + notification rejalashtirish + Firestore'ga sync.
-  Future<Plan> addPlan({required String title, required DateTime dateTime}) async {
+  /// Returns: `AddPlanResult` — yaratilgan plan + scheduling natijasi.
+  Future<AddPlanResult> addPlan({
+    required String title,
+    required DateTime dateTime,
+  }) async {
     final notifId = await _nextNotifId();
     final plan = Plan(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -104,22 +170,26 @@ class PlanService {
     final plans = await getAllPlans();
     plans.add(plan);
     await _saveAllPlans(plans);
-    await _schedulePlanNotification(plan);
-    _syncPlanToFirestore(plan); // fire-and-forget
+    final schedResult = await _schedulePlanNotification(plan);
+    _syncPlanToFirestore(plan);
     debugPrint('[PlanService] added plan ${plan.id} "${plan.title}" '
-        'at ${plan.dateTime.toIso8601String()}');
-    return plan;
+        'at ${plan.dateTime.toIso8601String()} '
+        '(scheduled=${schedResult.scheduled}, reason=${schedResult.reason})');
+    return AddPlanResult(plan: plan, schedResult: schedResult);
   }
 
-  /// Mavjud rejani yangilash (nom yoki vaqt). Eski notif bekor qilinib yangisi rejalashtiriladi.
-  Future<void> updatePlan({
+  /// Mavjud rejani yangilash. Returns: `SchedResult` — yangi schedulingning natijasi.
+  Future<SchedResult> updatePlan({
     required String id,
     required String title,
     required DateTime dateTime,
   }) async {
     final plans = await getAllPlans();
     final idx = plans.indexWhere((p) => p.id == id);
-    if (idx == -1) return;
+    if (idx == -1) {
+      return SchedResult(
+          scheduled: false, reason: SchedFailReason.scheduleError);
+    }
     final oldPlan = plans[idx];
     await _cancelPlanNotification(oldPlan.notifId);
     final updated = Plan(
@@ -130,9 +200,11 @@ class PlanService {
     );
     plans[idx] = updated;
     await _saveAllPlans(plans);
-    await _schedulePlanNotification(updated);
+    final schedResult = await _schedulePlanNotification(updated);
     _syncPlanToFirestore(updated);
-    debugPrint('[PlanService] updated plan $id');
+    debugPrint('[PlanService] updated plan $id '
+        '(scheduled=${schedResult.scheduled})');
+    return schedResult;
   }
 
   /// Rejani o'chirish — lokal + Firestore + notif bekor qilish.
@@ -150,13 +222,34 @@ class PlanService {
 
   /// Plan uchun notification rejalashtirish. O'tib ketgan rejalar
   /// rejalashtirilmaydi.
-  Future<void> _schedulePlanNotification(Plan plan) async {
-    if (!await _notifAllowed()) return;
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
-    if (plan.dateTime.isBefore(DateTime.now())) return;
+  ///
+  /// Returns: `SchedResult` — rejalashtirish muvaffaqiyatli bo'ldimi va sabab.
+  Future<SchedResult> _schedulePlanNotification(Plan plan) async {
+    if (!await _notifAllowed()) {
+      return SchedResult(scheduled: false, reason: SchedFailReason.toggleOff);
+    }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return SchedResult(scheduled: false, reason: SchedFailReason.notAndroid);
+    }
+    if (plan.dateTime.isBefore(DateTime.now())) {
+      return SchedResult(scheduled: false, reason: SchedFailReason.pastDate);
+    }
+    // POST_NOTIFICATIONS runtime ruxsati shart (Android 13+).
+    if (!await _hasNotificationPermission()) {
+      debugPrint('[PlanService] POST_NOTIFICATIONS denied — cannot schedule');
+      return SchedResult(
+          scheduled: false, reason: SchedFailReason.notificationDenied);
+    }
 
     await _init();
     await _ensureTimezone();
+
+    // Exact alarm ruxsati Android 12+ uchun. Bo'lmasa inexact rejimga tushamiz —
+    // taxminan vaqtda chiqaradi (lekin chiqaradi).
+    final canExact = await _canScheduleExactAlarms();
+    final mode = canExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
 
     final lang = AppTranslationService();
     final title = lang.translate('notifications.plan_reminder_title') ??
@@ -188,11 +281,17 @@ class PlanService {
         body: body,
         scheduledDate: scheduled,
         notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: mode,
       );
-      debugPrint('[PlanService] scheduled notif ${plan.notifId} at $scheduled');
+      debugPrint(
+          '[PlanService] scheduled notif ${plan.notifId} at $scheduled (mode=$mode)');
+      return SchedResult(
+          scheduled: true,
+          reason: canExact ? SchedFailReason.none : SchedFailReason.inexactOnly);
     } catch (e) {
       debugPrint('[PlanService] schedule failed for ${plan.id}: $e');
+      return SchedResult(
+          scheduled: false, reason: SchedFailReason.scheduleError);
     }
   }
 
@@ -336,4 +435,27 @@ class Plan {
         dateTime: DateTime.parse(json['dateTime'] as String),
         notifId: (json['notifId'] as num).toInt(),
       );
+}
+
+/// Notification rejalashtirish natijasi va sababi.
+enum SchedFailReason {
+  none,                  // muvaffaqiyatli
+  toggleOff,             // foydalanuvchi master/plans toggle'ni o'chirgan
+  notAndroid,            // web/iOS
+  pastDate,              // sana o'tib ketgan
+  notificationDenied,    // POST_NOTIFICATIONS ruxsati yo'q
+  inexactOnly,           // exact alarm ruxsati yo'q, inexact rejimda
+  scheduleError,         // zonedSchedule exception
+}
+
+class SchedResult {
+  final bool scheduled;
+  final SchedFailReason reason;
+  const SchedResult({required this.scheduled, required this.reason});
+}
+
+class AddPlanResult {
+  final Plan plan;
+  final SchedResult schedResult;
+  const AddPlanResult({required this.plan, required this.schedResult});
 }

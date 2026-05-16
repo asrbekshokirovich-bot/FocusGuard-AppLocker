@@ -482,6 +482,9 @@ class AppTranslationService {
         'notif_perm_title': 'Bildirishnoma ruxsati kerak',
         'notif_perm_body':
             'Reja vaqti kelganda eslatma yuborishimiz uchun bildirishnoma ruxsatini yoqing. Aks holda reja saqlanadi, lekin eslatma kelmaydi.',
+        'exact_perm_title': 'Aniq vaqt ruxsati',
+        'exact_perm_body':
+            'Reja aniq belgilangan vaqtda kelishi uchun "Signallar va eslatmalar" ruxsatini bering. Aks holda eslatma bir necha daqiqa kechikishi mumkin.',
         'later': 'Keyinroq',
         'open_settings': 'Sozlamalarni ochish',
         'plan_name': 'Reja nomi',
@@ -675,6 +678,9 @@ class AppTranslationService {
         'contact_title': 'BIZ BILAN BOG\'LANING',
         'email_support': 'Email orqali yordam',
         'email_desc': 'Savollaringizga 24 soat ichida javob beramiz',
+        'legal_title': 'HUQUQIY MA\'LUMOTLAR',
+        'legal_card_title': 'Foydalanish shartlari va Maxfiylik siyosati',
+        'legal_card_desc': 'Ilova qoidalari va ma\'lumotlar himoyasi haqida',
         'faqs': [
           {
             'q': 'Ilova qanday ishlaydi?',
@@ -1035,6 +1041,9 @@ class AppTranslationService {
         'notif_perm_title': 'Notification permission needed',
         'notif_perm_body':
             'Please enable notifications so we can remind you when it\'s time for your plan. Otherwise the plan will be saved but no reminder will fire.',
+        'exact_perm_title': 'Exact alarm permission',
+        'exact_perm_body':
+            'To deliver the reminder exactly at the scheduled time, please grant "Alarms & reminders" permission. Otherwise the reminder may be delayed by several minutes.',
         'later': 'Later',
         'open_settings': 'Open settings',
         'plan_name': 'Plan name',
@@ -1223,6 +1232,9 @@ class AppTranslationService {
         'contact_title': 'CONTACT US',
         'email_support': 'Email Support',
         'email_desc': 'We reply within 24 hours',
+        'legal_title': 'LEGAL INFORMATION',
+        'legal_card_title': 'Terms of Use and Privacy Policy',
+        'legal_card_desc': 'App rules and data protection',
         'faqs': [
           {
             'q': 'How does the app work?',
@@ -1581,6 +1593,9 @@ class AppTranslationService {
         'notif_perm_title': 'Нужно разрешение на уведомления',
         'notif_perm_body':
             'Разрешите уведомления, чтобы мы могли напомнить о плане в нужное время. Иначе план сохранится, но напоминание не придёт.',
+        'exact_perm_title': 'Разрешение на точные напоминания',
+        'exact_perm_body':
+            'Чтобы напоминание пришло точно в назначенное время, разрешите "Будильники и напоминания". Иначе напоминание может задержаться на несколько минут.',
         'later': 'Позже',
         'open_settings': 'Открыть настройки',
         'plan_name': 'Название плана',
@@ -1807,6 +1822,9 @@ class AppTranslationService {
         'contact_title': 'СВЯЖИТЕСЬ С НАМИ',
         'email_support': 'Поддержка по Email',
         'email_desc': 'Отвечаем в течение 24 часов',
+        'legal_title': 'ЮРИДИЧЕСКАЯ ИНФОРМАЦИЯ',
+        'legal_card_title': 'Условия использования и Политика конфиденциальности',
+        'legal_card_desc': 'Правила приложения и защита данных',
         'faqs': [
           {
             'q': 'Как работает приложение?',
@@ -2155,6 +2173,8 @@ class AppTranslationService {
         'delete_confirm': '이 계획을 정말 삭제하시겠습니까?',
         'notif_perm_title': '알림 권한이 필요합니다',
         'notif_perm_body': '계획 시간에 알림을 보낼 수 있도록 알림 권한을 허용해주세요. 그렇지 않으면 계획은 저장되지만 알림이 오지 않습니다.',
+        'exact_perm_title': '정확한 알람 권한',
+        'exact_perm_body': '계획 시간에 정확하게 알림이 오도록 "알람 및 알림" 권한을 허용해주세요. 그렇지 않으면 몇 분 지연될 수 있습니다.',
         'later': '나중에',
         'open_settings': '설정 열기',
         'plan_name': '계획 이름',
@@ -2322,6 +2342,9 @@ class AppTranslationService {
         'contact_title': '문의하기',
         'email_support': '이메일 지원',
         'email_desc': '24시간 이내에 답변해 드립니다',
+        'legal_title': '법적 정보',
+        'legal_card_title': '이용약관 및 개인정보 처리방침',
+        'legal_card_desc': '앱 규칙 및 데이터 보호',
         'faqs': [
           {
             'q': '앱 차단이 작동하지 않나요?',
@@ -2672,6 +2695,9 @@ class AppTranslationService {
         'notif_perm_title': 'Benachrichtigungsberechtigung erforderlich',
         'notif_perm_body':
             'Bitte erlauben Sie Benachrichtigungen, damit wir Sie zur Planzeit erinnern können. Sonst wird der Plan gespeichert, aber es kommt keine Erinnerung.',
+        'exact_perm_title': 'Exakter Wecker-Zugriff',
+        'exact_perm_body':
+            'Damit die Erinnerung genau zur geplanten Zeit kommt, erlauben Sie bitte "Wecker und Erinnerungen". Sonst kann sich die Erinnerung um einige Minuten verzögern.',
         'later': 'Später',
         'open_settings': 'Einstellungen öffnen',
         'done': 'Fertig',
@@ -2854,6 +2880,9 @@ class AppTranslationService {
         'contact_title': 'KONTAKTIEREN SIE UNS',
         'email_support': 'E-Mail-Support',
         'email_desc': 'Antwort innerhalb von 24 Stunden',
+        'legal_title': 'RECHTLICHE INFORMATIONEN',
+        'legal_card_title': 'Nutzungsbedingungen und Datenschutz',
+        'legal_card_desc': 'App-Regeln und Datenschutz',
         'faqs': [
           {
             'q': 'Wie funktioniert die App?',
@@ -3210,6 +3239,9 @@ class AppTranslationService {
         'notif_perm_title': 'Autorisation de notification requise',
         'notif_perm_body':
             'Veuillez autoriser les notifications pour que nous puissions vous rappeler à l\'heure du plan. Sinon le plan sera enregistré mais aucun rappel ne sera envoyé.',
+        'exact_perm_title': 'Autorisation d\'alarmes exactes',
+        'exact_perm_body':
+            'Pour que le rappel arrive à l\'heure exacte, veuillez autoriser "Alarmes et rappels". Sinon le rappel peut être retardé de quelques minutes.',
         'later': 'Plus tard',
         'open_settings': 'Ouvrir les réglages',
         'plan_name': 'Nom du plan',
@@ -3387,6 +3419,9 @@ class AppTranslationService {
         'contact_title': 'CONTACTEZ-NOUS',
         'email_support': 'Support par e-mail',
         'email_desc': 'Réponse sous 24 heures',
+        'legal_title': 'INFORMATIONS LÉGALES',
+        'legal_card_title': 'Conditions d\'utilisation et Politique de confidentialité',
+        'legal_card_desc': 'Règles de l\'application et protection des données',
         'faqs': [
           {
             'q': 'Comment fonctionne l\'app ?',

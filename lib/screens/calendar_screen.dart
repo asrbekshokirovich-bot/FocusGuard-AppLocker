@@ -183,17 +183,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return key;
   }
 
-  /// Sekundlarni "5s 45d" yoki "45d" yoki "5s" formatiga aylantirish.
-  /// Calendar bugungi karta va boshqa joylarda foydalanuvchi tushunarli
-  /// formatda ko'rsatish uchun.
+  /// Sekundlarni "5s 45d 30sek" / "45d 30sek" / "45d" / "30sek" formatiga.
+  /// Sekund qismi ham ko'rinadi — qisqa fokuslar (66 sek = 1 daq 6 sek)
+  /// haqiqiy qiymatda chiqsin (avval "0d" yoki "1d" deb noaniq edi).
   String _formatSecondsToHm(int seconds) {
     if (seconds <= 0) return '0d';
-    final totalMinutes = seconds ~/ 60;
-    final h = totalMinutes ~/ 60;
-    final m = totalMinutes % 60;
-    if (h == 0) return '${m}d';
-    if (m == 0) return '${h}s';
-    return '${h}s ${m}d';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    final parts = <String>[];
+    if (h > 0) parts.add('${h}s');
+    if (m > 0) parts.add('${m}d');
+    if (s > 0 && h == 0) parts.add('${s}sek');
+    return parts.isEmpty ? '0d' : parts.join(' ');
   }
 
   /// Bugungi maqsad va progress kartasi. Calendar tepasida turadi,
@@ -383,43 +385,59 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    return GridView.builder(
-      // shrinkWrap + NeverScrollableScrollPhysics — grid faqat kerakli
-      // balandlikni egallaydi. SingleChildScrollView ichida nested skroll
-      // bo'lmaydi. Cells aniq kvadrat (1:1) chiqadi.
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: rows * 7,
-      itemBuilder: (context, index) {
-        if (index < leadingEmpty || index >= leadingEmpty + daysInMonth) {
-          return const SizedBox.shrink();
+    // GridView childAspectRatio'ga ishonish bilan kell pill-shape bo'lib
+    // chiqardi (SingleChildScrollView ichida noaniq constraint). Endi
+    // LayoutBuilder + SizedBox bilan har cell GA ANIQ kvadrat o'lcham
+    // beriladi — Flutter hech qanday layout sehri qila olmaydi.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 6.0;
+        const cols = 7;
+        final cellSize = ((constraints.maxWidth - spacing * (cols - 1)) / cols)
+            .floorToDouble();
+        final rowsList = <Widget>[];
+        for (int r = 0; r < rows; r++) {
+          final cells = <Widget>[];
+          for (int c = 0; c < cols; c++) {
+            final index = r * cols + c;
+            final dayNum = index - leadingEmpty + 1;
+            Widget cell;
+            if (dayNum < 1 || dayNum > daysInMonth) {
+              cell = const SizedBox.shrink();
+            } else {
+              final cellDate = DateTime(
+                  _displayedMonth.year, _displayedMonth.month, dayNum);
+              final isToday = cellDate == today;
+              final isFuture = cellDate.isAfter(today);
+              final record = _records[dayNum];
+              final isRegistrationDate = _registrationDate != null &&
+                  cellDate.year == _registrationDate!.year &&
+                  cellDate.month == _registrationDate!.month &&
+                  cellDate.day == _registrationDate!.day;
+              final isBeforeRegistration = _registrationDate != null &&
+                  cellDate.isBefore(DateTime(
+                    _registrationDate!.year,
+                    _registrationDate!.month,
+                    _registrationDate!.day,
+                  ));
+              cell = _buildDayCell(dayNum, record, isToday, isFuture,
+                  isRegistrationDate, isBeforeRegistration, cellDate, lang);
+            }
+            cells.add(
+              SizedBox(width: cellSize, height: cellSize, child: cell),
+            );
+            if (c < cols - 1) cells.add(const SizedBox(width: spacing));
+          }
+          rowsList.add(Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: cells,
+          ));
+          if (r < rows - 1) rowsList.add(const SizedBox(height: spacing));
         }
-        final day = index - leadingEmpty + 1;
-        final cellDate = DateTime(_displayedMonth.year, _displayedMonth.month, day);
-        final isToday = cellDate == today;
-        final isFuture = cellDate.isAfter(today);
-        final record = _records[day];
-        final isRegistrationDate = _registrationDate != null &&
-            cellDate.year == _registrationDate!.year &&
-            cellDate.month == _registrationDate!.month &&
-            cellDate.day == _registrationDate!.day;
-        // Foydalanuvchi ro'yxatdan o'tgunga qadar bo'lgan kunlar uchun
-        // hech qanday ma'lumot mavjud emas — ularni xira ko'rsatamiz va
-        // bosilganda hech narsa qilmaymiz.
-        final isBeforeRegistration = _registrationDate != null &&
-            cellDate.isBefore(DateTime(
-              _registrationDate!.year,
-              _registrationDate!.month,
-              _registrationDate!.day,
-            ));
-        return _buildDayCell(day, record, isToday, isFuture, isRegistrationDate,
-            isBeforeRegistration, cellDate, lang);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: rowsList,
+        );
       },
     );
   }
@@ -481,57 +499,52 @@ class _CalendarScreenState extends State<CalendarScreen> {
     // chunki ularda ko'rsatishga ma'lumot yo'q.
     final bool isTappable = !isFuture && !isBeforeRegistration;
 
+    // Parent (LayoutBuilder) cell'ga aniq kvadrat SizedBox bergan.
+    // Bu yerda faqat ichki kontent — Container backgroundi cellni butunlay
+    // qoplaydi va kvadrat ko'rinishni saqlaydi.
     return GestureDetector(
       onTap: isTappable
           ? () => _showDayDetails(cellDate, record, isRegistrationDate, lang)
           : null,
-      // AspectRatio — kafolat: cell HAR DOIM kvadrat. Avval Expanded(GridView)
-      // cells'ni vertikal cho'zib pill ko'rinishida chiqarardi. Endi shape
-      // har qanday parent'da kvadrat qoladi.
-      child: AspectRatio(
-        aspectRatio: 1.0,
-        child: Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: background,
-                // Yumshoq yumaloq burchaklar (radius 10) — birinchi
-                // rasmdagi dizaynga mos: aniq kvadrat, lekin yumshoq.
-                borderRadius: BorderRadius.circular(10),
-                border: isToday
-                    ? Border.all(color: const Color(0xFF007AFF), width: 2)
-                    : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$day',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-                      color: textColor,
-                    ),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(10),
+              border: isToday
+                  ? Border.all(color: const Color(0xFF007AFF), width: 2)
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$day',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                    color: textColor,
                   ),
-                  if (bottomIndicator != null) ...[
-                    const SizedBox(height: 2),
-                    bottomIndicator,
-                  ],
+                ),
+                if (bottomIndicator != null) ...[
+                  const SizedBox(height: 2),
+                  bottomIndicator,
                 ],
+              ],
+            ),
+          ),
+          // Registration date — kichik 🎉 belgisi yuqori o'ng burchakda
+          if (isRegistrationDate)
+            const Positioned(
+              top: 2,
+              right: 4,
+              child: Text(
+                '🎉',
+                style: TextStyle(fontSize: 10),
               ),
             ),
-            // Registration date — kichik 🎉 belgisi yuqori o'ng burchakda
-            if (isRegistrationDate)
-              const Positioned(
-                top: 2,
-                right: 4,
-                child: Text(
-                  '🎉',
-                  style: TextStyle(fontSize: 10),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -645,7 +658,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ),
                             ),
                             Text(
-                              '${e.value} ${lang.translate('focus_timer.min') ?? 'daq'}',
+                              // `e.value` SEKUNDDA saqlanadi (avval daqiqa edi
+                              // — yangi sekund-aniqligi). Doimiy formatda:
+                              // 66 sek → "1d 6sek", 3600 sek → "1s".
+                              _formatSecondsToHm(e.value),
                               style: lang.getFont(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,

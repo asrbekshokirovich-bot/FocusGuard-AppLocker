@@ -265,14 +265,16 @@ class _DashboardScreenState extends State<DashboardScreen>
 
               if (snapshot.hasData && snapshot.data!.exists) {
                 final data = snapshot.data!.data() as Map<String, dynamic>;
-                level = data['level'] ?? 1;
-                xp = data['xp'] ?? 0;
-                streak = data['streak'] ?? 0;
+                xp = (data['xp'] as num?)?.toInt() ?? 0;
+                streak = (data['streak'] as num?)?.toInt() ?? 0;
+                // Yagona haqiqat manbai: LevelService.levelInfoFromXp.
+                // Avval `xp % 1000` ishlatardi — eski 1000-XP-per-level
+                // formulasi edi, yangi 16 darajali threshold tizimiga
+                // mos kelmasdi (Dashboard va Level screen turli foiz ko'rsatardi).
+                final info = LevelService.levelInfoFromXp(xp);
+                level = info.level;
+                progress = info.progress;
                 rankTitle = LevelService().getRankTitle(level, lang);
-                
-                // XP progress bar uchun (1000 XP per level)
-                int currentLevelXP = xp % 1000;
-                progress = currentLevelXP / 1000.0;
               }
 
               return Container(

@@ -79,14 +79,23 @@ class DndService {
   /// Taymer boshlanganda chaqiriladi — DnD'ni PRIORITY rejimiga o'tkazadi.
   /// Avvalgi holatni SharedPreferences'ga saqlaydi (taymer tugaganda qaytarish uchun).
   ///
-  /// Returns: true agar muvaffaqiyatli yoqilgan bo'lsa.
+  /// Idempotent: agar allaqachon biz yoqgan bo'lsa, prev'ni qayta yozmaydi
+  /// (aks holda 2-chi chaqiriqda prev = Priority bo'lib disable'da DnD o'chmasdi).
   Future<bool> enableFocusMode() async {
     if (!await isPermissionGranted()) {
       debugPrint('[DndService] permission not granted — cannot enable');
       return false;
     }
-    final prev = await _getCurrentFilter();
     final prefs = await SharedPreferences.getInstance();
+    final alreadyActive = prefs.getBool(_activeKey) ?? false;
+    if (alreadyActive) {
+      // Allaqachon biz yoqib qo'yganmiz — prev'ga tegmaymiz, faqat filter'ni
+      // qayta tasdiqlaymiz (har holda kimdir o'zgartirgan bo'lishi mumkin).
+      final ok = await _setFilter(filterPriority);
+      debugPrint('[DndService] already active — re-applied Priority (ok=$ok)');
+      return ok;
+    }
+    final prev = await _getCurrentFilter();
     await prefs.setInt(_prevFilterKey, prev);
     await prefs.setBool(_activeKey, true);
     final ok = await _setFilter(filterPriority);

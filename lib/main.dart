@@ -107,7 +107,8 @@ void main() async {
   // Stuck DnD'ni tuzatish — agar oldingi seans crash bilan tugab DnD
   // yoqiq qolgan bo'lsa, app ochilganda darrov avvalgi holatga qaytaramiz.
   // Toggle holati tegilmaydi (foydalanuvchi tanlovi saqlanadi).
-  DndService.instance.recoverIfStuck();
+  // AWAIT — UI ochilgunga qadar tugashi kerak (DnD jonsiz tursin).
+  await DndService.instance.recoverIfStuck();
 
   runApp(
     DevicePreview(

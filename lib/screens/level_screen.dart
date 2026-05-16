@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/app_translation_service.dart';
 import '../services/level_service.dart';
+import '../services/pending_results_processor.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LevelScreen extends StatefulWidget {
@@ -13,7 +14,8 @@ class LevelScreen extends StatefulWidget {
   State<LevelScreen> createState() => _LevelScreenState();
 }
 
-class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStateMixin {
+class _LevelScreenState extends State<LevelScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
 
   // Real data variables will be used from StreamBuilder
@@ -26,10 +28,26 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
       duration: const Duration(milliseconds: 1500),
     );
     _animationController.forward();
+    // Ekran ochilganda pending XP'ni darrov Firestore'ga yozamiz —
+    // foydalanuvchi taymerni tugatib darrov bu ekranga kirsa, eski
+    // qiymatni ko'rmaydi. StreamBuilder esa Firestore yangilanishini
+    // avtomatik tutadi.
+    WidgetsBinding.instance.addObserver(this);
+    PendingResultsProcessor.instance.processOnAppOpen();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App fondan qaytsa ham — fonda taymer tugagan bo'lishi mumkin,
+    // darhol Firestore'ni yangilab beramiz.
+    if (state == AppLifecycleState.resumed && mounted) {
+      PendingResultsProcessor.instance.processOnAppOpen();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
     super.dispose();
   }
@@ -154,7 +172,11 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
     // 1 daqiqa fokus = 10 XP. Daraja chegaralari level_service.dart'da.
     final info = LevelService.levelInfoFromXp(xp);
     final currentLevelXp = info.currentLevelXp;
-    final currentLevelMinutes = currentLevelXp ~/ 10;
+    // 1 XP = 6 sekund (1 daq = 10 XP teskari). Daqiqa + sekund aniqligida
+    // ko'rsatish — foydalanuvchi qisqa fokuslarini ham ko'radi.
+    final currentLevelSeconds = currentLevelXp * 6;
+    final currentLevelMinutes = currentLevelSeconds ~/ 60;
+    final currentLevelExtraSec = currentLevelSeconds % 60;
     final remainingMinutes = info.remainingXp ~/ 10;
     final minLabel = lang.translate('focus_timer.min') ?? 'daq';
     final hourLabel = lang.translate('levels.hour_suffix') ?? 's';
@@ -309,7 +331,21 @@ class _LevelScreenState extends State<LevelScreen> with SingleTickerProviderStat
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$currentLevelMinutes $minLabel',
+                    // Sekund qismi ham ko'rinadi — qisqa fokuslar (66 sek = 1d 6s)
+                    // haqiqiy qiymatda chiqsin. Daqiqa 0 bo'lsa faqat sek, 1+
+                    // daqiqa va sekund > 0 bo'lsa ikkalasi.
+                    () {
+                      if (currentLevelMinutes == 0 && currentLevelExtraSec == 0) {
+                        return '0 $minLabel';
+                      }
+                      if (currentLevelMinutes == 0) {
+                        return '$currentLevelExtraSec sek';
+                      }
+                      if (currentLevelExtraSec == 0) {
+                        return '$currentLevelMinutes $minLabel';
+                      }
+                      return '$currentLevelMinutes $minLabel $currentLevelExtraSec sek';
+                    }(),
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
