@@ -7,6 +7,7 @@ import 'package:app_usage/app_usage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
 import '../services/service_starter.dart';
+import '../services/timer_notification_service.dart';
 import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {
@@ -82,6 +83,12 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         _isBatteryIgnored = battery;
         _isLoading = false;
       });
+    }
+
+    // Asosiy ruxsatlar (overlay + usage) berilgan bo'lsa, rejalashtirilgan
+    // "ruxsat bering" eslatmasini bekor qilamiz — endi kerak emas.
+    if (overlay && usage) {
+      TimerNotificationService().cancelPermissionNudge();
     }
   }
 

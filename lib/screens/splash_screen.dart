@@ -8,9 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
-import 'permissions_screen.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/plan_service.dart';
+import '../services/timer_notification_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -70,12 +70,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         }
 
         if (mounted) {
-          if (hasPermissions) {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
-          } else {
-            // Agar ruxsatlar yetishmasa, PermissionsScreen ga yuboramiz
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PermissionsScreen(isFromOnboarding: true)));
-          }
+          // Endi ruxsatlar yetishmasa ham ilovaga to'g'ridan-to'g'ri
+          // kiritamiz — majburlamaymiz. Ruxsatlar Sozlamalar/Permissions
+          // ekranida turaveradi va taymer boshlanishida so'raladi.
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+        }
+        // Ruxsat yetishmasa — ~30 daqiqadan keyin yumshoq eslatma
+        // rejalashtiramiz ("Diqqatingizni jamlang..."). Ruxsat bo'lsa, ehtimol
+        // ilgari rejalashtirilgan eslatmani bekor qilamiz.
+        if (!hasPermissions) {
+          TimerNotificationService().schedulePermissionNudge();
+        } else {
+          TimerNotificationService().cancelPermissionNudge();
         }
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));

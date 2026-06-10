@@ -408,6 +408,68 @@ class TimerNotificationService {
     );
   }
 
+  /// Ruxsatlar berilmaganda ~30 daqiqadan keyin chiqadigan yumshoq,
+  /// motivatsion eslatma. Foydalanuvchini ilovani ochib ruxsat berishga
+  /// undaydi. Ruxsat berilgach cancelPermissionNudge() bilan bekor qilinadi.
+  Future<void> schedulePermissionNudge() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await init();
+      await _ensureTimezone();
+      String title;
+      String body;
+      switch (AppTranslationService().currentLanguage) {
+        case 'ru':
+          title = 'Сосредоточьтесь 🎯';
+          body = 'Откройте приложение и выдайте разрешения, чтобы блокировка '
+              'заработала. Держитесь подальше от вредных привычек.';
+          break;
+        case 'en':
+          title = 'Stay focused 🎯';
+          body = 'Open the app and grant the permissions so blocking can work. '
+              'Keep away from bad habits.';
+          break;
+        case 'uz':
+        default:
+          title = 'Diqqatingizni jamlang 🎯';
+          body = 'Bloklash ishlashi uchun ilovani ochib ruxsatlarni bering. '
+              'Yomon odatlardan yiroqlaning.';
+      }
+      final AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+        'permission_nudge',
+        'Eslatma',
+        channelDescription: 'Ruxsatlar berilmaganda yumshoq eslatma',
+        importance: Importance.high,
+        priority: Priority.high,
+        styleInformation: BigTextStyleInformation(body, contentTitle: title),
+      );
+      final NotificationDetails details =
+          NotificationDetails(android: androidDetails);
+      final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 30));
+      await _plugin.zonedSchedule(
+        id: 901,
+        title: title,
+        body: body,
+        scheduledDate: when,
+        notificationDetails: details,
+        // Inexact — SCHEDULE_EXACT_ALARM talab qilmaydi, Play uchun xavfsizroq.
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: 'open_permissions',
+      );
+      debugPrint('[TimerNotif] permission nudge scheduled at $when');
+    } catch (e) {
+      debugPrint('[TimerNotif] schedulePermissionNudge failed: $e');
+    }
+  }
+
+  /// Ruxsat berilgach rejalashtirilgan eslatmani bekor qilish.
+  Future<void> cancelPermissionNudge() async {
+    try {
+      await _plugin.cancel(id: 901);
+    } catch (_) {}
+  }
+
   /// Bugungi yakunni darrov (real-time) yuborish — fired-time'da agar
   /// service tirik bo'lsa background_service.dart shu metodni chaqiradi.
   /// SharedPreferences'dan today_focus_seconds o'qib aniq Missed/Achieved

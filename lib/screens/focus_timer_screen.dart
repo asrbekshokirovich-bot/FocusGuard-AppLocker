@@ -16,6 +16,10 @@ import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
 import '../services/soundscape_service.dart';
 import '../services/dnd_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_usage/app_usage.dart';
+import 'permissions_screen.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
@@ -280,7 +284,45 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
+  /// Bloklash ishlashi uchun overlay + usage ruxsatlari kerak. Taymer
+  /// boshlashdan oldin tekshiramiz; yetishmasa, PermissionsScreen'ni
+  /// ochamiz (u yerdagi tugmalar to'g'ridan-to'g'ri kerakli sahifaga
+  /// olib boradi). Foydalanuvchi qaytib kelgach qayta tekshiramiz.
+  Future<bool> _hasBlockingPermissions() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+    bool overlayOk = await Permission.systemAlertWindow.isGranted;
+    bool usageOk = false;
+    try {
+      final now = DateTime.now();
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+          .timeout(const Duration(milliseconds: 700));
+      usageOk = true;
+    } catch (_) {
+      usageOk = false;
+    }
+    return overlayOk && usageOk;
+  }
+
+  Future<bool> _ensurePermissionsForTimer() async {
+    if (await _hasBlockingPermissions()) return true;
+    if (!mounted) return false;
+    // Ruxsat yetishmaydi — PermissionsScreen'ga olib boramiz.
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const PermissionsScreen(isFromOnboarding: false),
+      ),
+    );
+    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor qilamiz.
+    final ok = await _hasBlockingPermissions();
+    if (ok) TimerNotificationService().cancelPermissionNudge();
+    return ok;
+  }
+
   void _startTimer() async {
+    // Taymer boshlashdan oldin bloklash uchun ruxsatlarni talab qilamiz.
+    if (!await _ensurePermissionsForTimer()) return;
     final lang = AppTranslationService();
     
     int level = 1;
