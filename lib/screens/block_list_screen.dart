@@ -293,6 +293,122 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
+  // #Ommabop: eng ko'p chalg'ituvchi mashhur ilovalarning paket nomlari.
+  static const List<String> _popularPackages = [
+    'com.instagram.android',
+    'com.google.android.youtube',
+    'com.zhiliaoapp.musically',
+    'com.ss.android.ugc.trill',
+    'org.telegram.messenger',
+    'com.facebook.katana',
+    'com.snapchat.android',
+    'com.twitter.android',
+  ];
+
+  // "Ommabop" tugmasi: o'rnatilgan mashhur ilovalarni bir bosishda bloklaydi.
+  // Mavjud toggle naqshini takrorlaydi: ruxsat tekshiruvi → prefs saqlash →
+  // service'ni yangilash. Hech qanday mavjud qism o'chmaydi.
+  Future<void> _blockPopularApps() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final overlayOk = await Permission.systemAlertWindow.isGranted;
+      if (!overlayOk) {
+        _showPermissionPromptDialog();
+        return;
+      }
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final blocked = (prefs.getStringList('blocked_apps') ?? []).toSet();
+    final installed = _appsList
+        .map((a) => a['package'] as String?)
+        .whereType<String>()
+        .toSet();
+    final cacheRaw = prefs.getString('app_name_cache');
+    final Map<String, dynamic> cache = cacheRaw != null
+        ? (jsonDecode(cacheRaw) as Map<String, dynamic>)
+        : <String, dynamic>{};
+    int added = 0;
+    for (final pkg in _popularPackages) {
+      if (installed.contains(pkg) && !blocked.contains(pkg)) {
+        blocked.add(pkg);
+        added++;
+        final entry =
+            _appsList.firstWhere((a) => a['package'] == pkg, orElse: () => null);
+        if (entry != null) cache[pkg] = entry['name'];
+      }
+    }
+    await prefs.setStringList('blocked_apps', blocked.toList());
+    await prefs.setString('app_name_cache', jsonEncode(cache));
+    if (mounted) {
+      setState(() {
+        for (final a in _appsList) {
+          if (_popularPackages.contains(a['package'])) {
+            a['blocked'] = blocked.contains(a['package']);
+          }
+        }
+      });
+    }
+    if (!kIsWeb) FlutterBackgroundService().invoke('updateBlockedApps');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(added > 0
+            ? '$added ta ommabop ilova bloklandi'
+            : 'Ommabop ilovalar allaqachon bloklangan yoki o\'rnatilmagan'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Widget _buildPopularCard() {
+    return GestureDetector(
+      onTap: _blockPopularApps,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.15)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(CupertinoIcons.flame_fill,
+                  color: Theme.of(context).primaryColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ommabop ilovalar',
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 2),
+                  Text('Eng ko\'p chalg\'ituvchilarni bir bosishda bloklang',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          color: const Color(0xFF8E8E93),
+                          height: 1.3)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(CupertinoIcons.add_circled_solid,
+                color: Theme.of(context).primaryColor, size: 26),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<dynamic> get _displayList {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return _appsList;
@@ -379,6 +495,10 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     ),
                     const SizedBox(height: 24),
                     
+                    // Ommabop (mashhur ilovalar) — bir bosishda bloklash
+                    if (!_isLoading) _buildPopularCard(),
+                    if (!_isLoading) const SizedBox(height: 16),
+
                     // App List
                     if (_isLoading)
                       const Center(child: Padding(padding: EdgeInsets.only(top: 40), child: CupertinoActivityIndicator()))
