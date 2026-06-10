@@ -33,19 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isRefreshing = false;
   DateTime? _lastVerifySent; // #3: qayta yuborishga cooldown uchun
 
-  /// #3: "Havola yuborildi — Spam papkasini ham tekshiring" xabari (til bo'yicha).
-  String _verifySentMessage() {
-    switch (AppTranslationService().currentLanguage) {
-      case 'ru':
-        return 'Ссылка отправлена на вашу почту. Проверьте также папку «Спам».';
-      case 'en':
-        return 'Verification link sent. Please also check your Spam folder.';
-      case 'uz':
-      default:
-        return 'Tasdiqlash havolasi emailingizga yuborildi. Spam papkasini ham tekshiring.';
-    }
-  }
-
   Future<void> _refreshUser() async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -86,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(_verifySentMessage()),
+              content: Text(AppTranslationService().translate('profile.verify_sent')),
               backgroundColor: const Color(0xFF34C759),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
