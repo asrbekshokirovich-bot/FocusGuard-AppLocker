@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,7 @@ class SoundscapeService {
 
   final AudioPlayer _player = AudioPlayer();
   String? _currentSound;
+  Timer? _previewTimer;
 
   static const String _kSelectedSound = 'selected_sound';
 
@@ -58,6 +60,46 @@ class SoundscapeService {
       // Foydalanuvchi `Hech qanday` deb qo'yganga teng tajriba oladi.
       debugPrint('[Soundscape] play failed for $sound: $e');
       _currentSound = null;
+    }
+  }
+
+  /// Ovoz tanlanganda qisqa namuna (preview) chalish. Faqat hozir biror
+  /// seans ovozi chalinmayotgan bo'lsa ishlaydi (aks holda jonli seansni
+  /// buzmaymiz — u allaqachon setSelectedSound orqali almashtirilgan).
+  /// Taxminan 6 soniyadan keyin avtomatik to'xtaydi.
+  Future<void> preview(String sound) async {
+    if (_currentSound != null) return; // seans ovozi chalinyapti — tegmaymiz
+    if (sound == 'none' || sound.isEmpty) {
+      await stopPreview();
+      return;
+    }
+    try {
+      _previewTimer?.cancel();
+      await _player.stop();
+      await _player.setReleaseMode(ReleaseMode.loop);
+      await _player.setVolume(0.6);
+      await _player.play(AssetSource('sounds/$sound.mp3'));
+      debugPrint('[Soundscape] preview $sound');
+      _previewTimer = Timer(const Duration(seconds: 6), () async {
+        // Faqat hali ham preview bo'lsa to'xtatamiz (seans boshlanmagan bo'lsa)
+        if (_currentSound == null) {
+          try {
+            await _player.stop();
+          } catch (_) {}
+        }
+      });
+    } catch (e) {
+      debugPrint('[Soundscape] preview failed for $sound: $e');
+    }
+  }
+
+  /// Preview'ni darrov to'xtatish.
+  Future<void> stopPreview() async {
+    _previewTimer?.cancel();
+    if (_currentSound == null) {
+      try {
+        await _player.stop();
+      } catch (_) {}
     }
   }
 

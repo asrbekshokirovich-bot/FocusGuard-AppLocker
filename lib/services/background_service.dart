@@ -80,7 +80,23 @@ Future<void> initializeBackgroundService() async {
       ),
     );
 
-    // kIsWeb ni import qilishimiz kerak yoki Platform.isAndroid ni tekshirishimiz kerak
+    // #6/#7: Yangi YUMSHOQ taymer-tugadi kanali. Eski 'timer_completed_channel'
+    // Importance.max + alarm uslubida edi (qo'pol). Bu kanal yumshoqroq:
+    // heads-up bo'ladi, tizimning standart (yumshoq) bildirishnoma ovozi bilan,
+    // delikat vibratsiya. Kanal ID yangi — shunda eski qattiq sozlama
+    // (Android kanal sozlamasini bir marta yaratgach saqlab qoladi) ta'sir
+    // qilmaydi.
+    await androidNotifications?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'timer_done_soft',
+        'Taymer tugadi',
+        description: 'Fokus taymer tugaganda yumshoq, motivatsion bildirishnoma',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
     // Lekin eng xavfsizi pluginni chaqirishdan oldin tekshirish
     final service = FlutterBackgroundService();
 
@@ -772,23 +788,14 @@ void onStart(ServiceInstance service) async {
           } catch (e) {
             debugPrint('[BackgroundTimer] completion notif failed: $e');
           }
-          try {
-            // looping=true: foydalanuvchi dismiss qilguncha chaladi.
-            // stopAlarm event kelganda FlutterRingtonePlayer().stop()
-            // chaqiriladi va rington o'chadi.
-            FlutterRingtonePlayer().playAlarm(
-              looping: true,
-              volume: 1.0,
-              asAlarm: true,
-            );
-          } catch (e) {
-            debugPrint('[BackgroundTimer] ringtone failed: $e');
-          }
-          // Vibratsiya — alarm + ringtone bilan birga aniqroq diqqat
-          // tortish uchun (3 marta uzun pulse).
+          // #6: Endi loop'li, to'liq ovozli alarm chalmaymiz. Yumshoq bitta
+          // "ding" ovozi taymer tugash bildirishnomasining yumshoq kanalidan
+          // (timer_done_soft) keladi. Shuning uchun FlutterRingtonePlayer()
+          // .playAlarm(...) olib tashlandi.
+          // Vibratsiya ham yumshatildi: uzun 3 pulse o'rniga bitta qisqa puls.
           try {
             if ((await Vibration.hasVibrator()) ?? false) {
-              Vibration.vibrate(pattern: [0, 500, 250, 500, 250, 500]);
+              Vibration.vibrate(duration: 300);
             }
           } catch (_) {}
 

@@ -12,6 +12,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.app.PendingIntent;
+import android.content.pm.ServiceInfo;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Handler;
@@ -458,7 +459,17 @@ public class OverlayService extends Service implements View.OnTouchListener {
         // crashes the moment it starts and the user sees "Focus
         // Guard yana ishdan chiqdi" without an overlay.
         try {
-            startForeground(OverlayConstants.NOTIFICATION_ID, notification);
+            // Android 14+ (API 34) da foreground service'ni turi (type)
+            // bilan ishga tushirish SHART, aks holda
+            // MissingForegroundServiceTypeException tashlanadi va overlay
+            // ko'rinmaydi. App manifestида OverlayService "specialUse" deb
+            // e'lon qilingan — shu turni uzatamiz.
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(OverlayConstants.NOTIFICATION_ID, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(OverlayConstants.NOTIFICATION_ID, notification);
+            }
         } catch (Exception e) {
             String reason = e.getClass().getSimpleName() + ": " + e.getMessage();
             Log.e("OverlayService", "startForeground crashed — " + reason);

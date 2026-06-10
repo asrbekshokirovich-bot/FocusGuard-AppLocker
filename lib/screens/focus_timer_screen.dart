@@ -778,6 +778,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                   // Tanlovni saqlaymiz va agar seans hozir ishlayotgan
                   // bo'lsa, ovoz darrov yangisiga almashtiriladi.
                   await SoundscapeService.instance.setSelectedSound(newSound);
+                  // Qisqa namuna chalamiz — foydalanuvchi ovozni darrov
+                  // eshitadi (seans boshlanmagan bo'lsa ~6s keyin to'xtaydi).
+                  SoundscapeService.instance.preview(newSound);
                   if (mounted) Navigator.pop(context);
                 },
               )),
@@ -1742,7 +1745,10 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     final accentColor = _selectedMode == 0
         ? Theme.of(context).primaryColor
         : const Color(0xFF34C759);
-    return Container(
+    return GestureDetector(
+      onTap: _showActivityEditor,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: BoxDecoration(
@@ -1790,6 +1796,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

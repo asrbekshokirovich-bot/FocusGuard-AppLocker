@@ -65,10 +65,19 @@
                 android:value="monitorDeviceState"/>
         </service>
 
-        <!-- Overlay Window Service for app blocking -->
+        <!-- Overlay Window Service for app blocking.
+             Android 14+ (API 34) talab qiladi: foreground service turi
+             ko'rsatilishi shart. Bloklash qoplamasiga mos standart tur
+             bo'lmagani uchun "specialUse" ishlatamiz (Play Console'da
+             asoslash kerak bo'ladi). -->
         <service
             android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
-            android:exported="false" />
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="appBlockingOverlay"/>
+        </service>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -31,6 +31,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isSendingVerification = false;
   bool _isRefreshing = false;
+  DateTime? _lastVerifySent; // #3: qayta yuborishga cooldown uchun
+
+  /// #3: "Havola yuborildi — Spam papkasini ham tekshiring" xabari (til bo'yicha).
+  String _verifySentMessage() {
+    switch (AppTranslationService().currentLanguage) {
+      case 'ru':
+        return 'Ссылка отправлена на вашу почту. Проверьте также папку «Спам».';
+      case 'en':
+        return 'Verification link sent. Please also check your Spam folder.';
+      case 'uz':
+      default:
+        return 'Tasdiqlash havolasi emailingizga yuborildi. Spam papkasini ham tekshiring.';
+    }
+  }
 
   Future<void> _refreshUser() async {
     final user = _auth.currentUser;
@@ -49,13 +63,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _sendVerificationEmail() async {
     final user = _auth.currentUser;
     if (user != null && !user.emailVerified) {
-      setState(() => _isSendingVerification = true);
-      try {
-        await user.sendEmailVerification();
+      // #3: cooldown — 60 soniya ichida qayta yuborishni bloklaymiz, aks holda
+      // Firebase "too-many-requests" bilan qurilmani vaqtincha bloklaydi.
+      final now = DateTime.now();
+      if (_lastVerifySent != null &&
+          now.difference(_lastVerifySent!).inSeconds < 60) {
+        final wait = 60 - now.difference(_lastVerifySent!).inSeconds;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppTranslationService().translate('profile.verify_sent')),
+              content: Text('${wait}s — biroz kuting, keyin qayta urinib ko\'ring.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+      setState(() => _isSendingVerification = true);
+      try {
+        await user.sendEmailVerification();
+        _lastVerifySent = DateTime.now();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_verifySentMessage()),
               backgroundColor: const Color(0xFF34C759),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

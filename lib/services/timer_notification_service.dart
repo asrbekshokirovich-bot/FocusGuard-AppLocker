@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -298,42 +299,99 @@ class TimerNotificationService {
   ///   • BigTextStyle — matn to'liq ko'rinadi (kichik shriftda)
   ///
   /// Tugma matnida XP miqdori ham ko'rsatilib, motivatsiya beradi.
+  // #7: Har safar boshqacha chiqadigan motivatsion sarlavhalar (til bo'yicha).
+  static const Map<String, List<String>> _motivationalTitles = {
+    'uz': [
+      'Sabringizga tasanno 🌿',
+      'Diqqatingiz — kuchingiz 💪',
+      'Sabringiz sizdek kuchli ✨',
+      'Bir qadam oldinga 🎯',
+      'Aql tinchligi — chinakam g\'alaba 🧠',
+      'Mana bu — haqiqiy iroda 🔥',
+      'Har daqiqa — o\'zingizga sarmoya 🌱',
+      'Fokusingiz bilan faxrlaning 🌟',
+      'Zo\'r! Diqqatni jamladingiz 🎉',
+      'Bugun yana bir g\'alaba 🏆',
+    ],
+    'ru': [
+      'Браво вашему терпению 🌿',
+      'Ваш фокус — ваша сила 💪',
+      'Ваша воля крепка ✨',
+      'Ещё один шаг вперёд 🎯',
+      'Спокойствие ума — настоящая победа 🧠',
+      'Вот это сила воли 🔥',
+      'Каждая минута — вклад в себя 🌱',
+      'Гордитесь своим фокусом 🌟',
+      'Отлично! Вы сосредоточились 🎉',
+      'Сегодня ещё одна победа 🏆',
+    ],
+    'en': [
+      'Bravo to your patience 🌿',
+      'Your focus is your strength 💪',
+      'Your willpower is strong ✨',
+      'One step forward 🎯',
+      'A calm mind is a true victory 🧠',
+      'That is real discipline 🔥',
+      'Every minute is an investment in you 🌱',
+      'Be proud of your focus 🌟',
+      'Great! You stayed focused 🎉',
+      'Another win today 🏆',
+    ],
+  };
+
+  /// Joriy tilga mos, tasodifiy (ketma-ket takrorlanmaydigan) motivatsion
+  /// sarlavha tanlaydi.
+  Future<String> _pickMotivationalTitle() async {
+    final code = AppTranslationService().currentLanguage;
+    final list = _motivationalTitles[code] ?? _motivationalTitles['en']!;
+    final prefs = await SharedPreferences.getInstance();
+    final lastIdx = prefs.getInt('last_motiv_idx') ?? -1;
+    int idx = Random().nextInt(list.length);
+    if (list.length > 1 && idx == lastIdx) {
+      idx = (idx + 1) % list.length; // bir xili ketma-ket chiqmasin
+    }
+    await prefs.setInt('last_motiv_idx', idx);
+    return list[idx];
+  }
+
+  /// Tagidagi qisqa matn — daqiqa va XP, til bo'yicha.
+  String _timerDoneBody(int minutes) {
+    final xp = minutes * 10;
+    switch (AppTranslationService().currentLanguage) {
+      case 'ru':
+        return '$minutes мин фокуса · +$xp XP';
+      case 'en':
+        return '$minutes min focus · +$xp XP';
+      case 'uz':
+      default:
+        return '$minutes daqiqa diqqat · +$xp XP';
+    }
+  }
+
   Future<void> showTimerCompletedNotification({required int minutes}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     // `notification_focus` toggle — taymer tugash xabarini boshqaradi.
     if (!await _shouldShow('notification_focus')) return;
     await init();
 
-    final lang = AppTranslationService();
-    final title = lang.translate('notifications.timer_done_title') ??
-        'Diqqat vaqti tugadi! 🎯';
-    String body = lang.translate('notifications.timer_done_body') ??
-        'Ajoyib! {minutes} daqiqa fokus qildingiz. +{xp} XP olasiz.';
-    body = body
-        .replaceAll('{minutes}', minutes.toString())
-        .replaceAll('{xp}', (minutes * 10).toString());
+    // #7: motivatsion sarlavha (har safar boshqacha), #6: yumshoq matn.
+    final String title = await _pickMotivationalTitle();
+    final String body = _timerDoneBody(minutes);
 
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'timer_completed_channel',
-      'Taymer Tugadi',
+      // #6: yumshoq kanal — alarm uslubi emas.
+      'timer_done_soft',
+      'Taymer tugadi',
       channelDescription:
-          'Fokus taymer tugaganda chiqadigan asosiy bildirishnoma',
-      importance: Importance.max,
-      priority: Priority.max,
+          'Fokus taymer tugaganda yumshoq, motivatsion bildirishnoma',
+      importance: Importance.high,
+      priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      // fullScreenIntent: telefon bloklangan bo'lsa to'liq ekran chiqaradi.
-      // Bu — incoming call tipidagi UX. USE_FULL_SCREEN_INTENT permission
-      // talab qiladi (manifest'da deklaratsiya), aks holda bu silently
-      // heads-up notification'ga tushadi.
-      fullScreenIntent: true,
-      // Alarm kategoriyasi — Android tizimga "bu alarm" deydi, DnD
-      // (Do Not Disturb) rejimida ham chiqishi mumkin (foydalanuvchi
-      // ruxsat bersa).
-      category: AndroidNotificationCategory.alarm,
-      // Foydalanuvchi notifikatsiyani avtomatik o'chmasligi uchun
-      // (autoCancel: false), foydalanuvchi qo'l bilan o'chirsin.
+      // fullScreenIntent va alarm kategoriyasi olib tashlandi — endi
+      // "qo'ng'iroq" kabi bosib kelmaydi, yumshoq heads-up bo'ladi.
+      category: AndroidNotificationCategory.reminder,
       autoCancel: true,
       styleInformation:
           BigTextStyleInformation(body, contentTitle: title),
