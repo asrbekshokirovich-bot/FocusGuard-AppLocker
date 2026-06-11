@@ -1,5 +1,4 @@
 import 'dart:ui';
-import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -110,12 +109,7 @@ void main() async {
   // AWAIT — UI ochilgunga qadar tugashi kerak (DnD jonsiz tursin).
   await DndService.instance.recoverIfStuck();
 
-  runApp(
-    DevicePreview(
-      enabled: false,
-      builder: (context) => const FocusGuardApp(),
-    ),
-  );
+  runApp(const FocusGuardApp());
 }
 
 class FocusGuardApp extends StatefulWidget {
@@ -174,8 +168,6 @@ class _FocusGuardAppState extends State<FocusGuardApp>
               builder: (_, String langCode, __) {
                 return MaterialApp(
                   scrollBehavior: const MyCustomScrollBehavior(),
-                  locale: DevicePreview.locale(context),
-                  builder: DevicePreview.appBuilder,
                   navigatorKey: navigatorKey,
                   title: 'FocusGuard',
                   debugShowCheckedModeBanner: false,
