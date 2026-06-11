@@ -142,6 +142,49 @@ Future<void> initializeBackgroundService() async {
 }
 
 @pragma('vm:entry-point')
+/// Faol jadval(lar) bo'yicha hozir bloklanishi kerak bo'lgan ilovalar to'plami.
+/// `focus_schedules` (ScheduleScreen saqlaydi) JSON ro'yxatini o'qiydi; joriy
+/// vaqt va kun biror yoqilgan jadval oynasiga tushsa, o'sha jadvalning
+/// ilovalarini qaytaradi. Tungi oyna (masalan 23:00–07:00) ham qo'llab-
+/// quvvatlanadi. Bu doimiy `blocked_apps`ga QO'SHIMCHA — uni o'zgartirmaydi.
+Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
+  try {
+    final raw = prefs.getString('focus_schedules');
+    if (raw == null || raw.isEmpty) return <String>{};
+    final list = jsonDecode(raw) as List<dynamic>;
+    final now = DateTime.now();
+    final nowMin = now.hour * 60 + now.minute;
+    final weekday = now.weekday; // 1=Mon .. 7=Sun
+    final Set<String> result = <String>{};
+    for (final item in list) {
+      final m = item as Map<String, dynamic>;
+      if (m['enabled'] != true) continue;
+      final days = ((m['days'] as List?) ?? const [])
+          .map((e) => (e as num).toInt())
+          .toList();
+      if (days.isNotEmpty && !days.contains(weekday)) continue;
+      final start = (m['start'] as num?)?.toInt() ?? 0;
+      final end = (m['end'] as num?)?.toInt() ?? 0;
+      bool inWindow;
+      if (start == end) {
+        inWindow = false;
+      } else if (start < end) {
+        inWindow = nowMin >= start && nowMin < end;
+      } else {
+        // Tungi oyna: masalan 23:00–07:00 (yarim tundan o'tadi).
+        inWindow = nowMin >= start || nowMin < end;
+      }
+      if (!inWindow) continue;
+      for (final a in ((m['apps'] as List?) ?? const [])) {
+        result.add(a.toString());
+      }
+    }
+    return result;
+  } catch (_) {
+    return <String>{};
+  }
+}
+
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
@@ -980,7 +1023,12 @@ void onStart(ServiceInstance service) async {
     // "queryEvents bir-ikki tickda bo'sh qaytdi" kabi shovqinli
     // hodisalardan ta'sirlanmaydi.
     try {
-      if (blockedApps.isEmpty) return;
+      // Doimiy bloklangan ilovalar + faol jadval oynasidagi ilovalar.
+      final Set<String> effectiveBlocked = {
+        ...blockedApps,
+        ...activeScheduleBlockedApps(prefs),
+      };
+      if (effectiveBlocked.isEmpty) return;
 
       DateTime now = DateTime.now();
 
@@ -1034,7 +1082,7 @@ void onStart(ServiceInstance service) async {
         return;
       }
 
-      if (blockedApps.contains(currentApp)) {
+      if (effectiveBlocked.contains(currentApp)) {
         // Bloklangan ilova foreground'da. Cover ko'rsatish (kerak bo'lsa)
         // va yangi seans bo'lsa bitta vibratsiya berish.
         notBlockedTicks = 0;

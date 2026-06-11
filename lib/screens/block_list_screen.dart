@@ -17,6 +17,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
 import 'permissions_screen.dart';
+import 'schedule_screen.dart';
 
 class BlockListScreen extends StatefulWidget {
   const BlockListScreen({super.key});
@@ -358,6 +359,60 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
+  Widget _buildScheduleEntryCard() {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ScheduleScreen()),
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.grey.withOpacity(0.12)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF5856D6).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(CupertinoIcons.moon_stars_fill,
+                  color: Color(0xFF5856D6), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Kengaytirilgan jadval',
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface)),
+                  const SizedBox(height: 2),
+                  Text('Ma\'lum vaqtda (masalan 23:00–07:00) avtomatik bloklash',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          color: const Color(0xFF8E8E93),
+                          height: 1.3)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(CupertinoIcons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3), size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPopularCard() {
     return GestureDetector(
       onTap: _blockPopularApps,
@@ -497,6 +552,8 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     
                     // Ommabop (mashhur ilovalar) — bir bosishda bloklash
                     if (!_isLoading) _buildPopularCard(),
+                    if (!_isLoading) const SizedBox(height: 12),
+                    if (!_isLoading) _buildScheduleEntryCard(),
                     if (!_isLoading) const SizedBox(height: 16),
 
                     // App List
