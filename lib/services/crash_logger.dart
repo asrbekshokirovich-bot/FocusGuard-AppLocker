@@ -43,6 +43,23 @@ class CrashLogger {
     if (s.contains('unable to resolve host')) return true;
     // Firebase Auth network errors
     if (s.contains('network-request-failed')) return true;
+    // Google Fonts runtime fetch — internet sekin/yo'q bo'lsa shriftni
+    // yuklab ololmaydi. Bu ZARARSIZ: google_fonts standart shriftga
+    // qaytadi va ilova normal ishlaydi. Banner'da ko'rsatish foydalanuvchini
+    // keraksiz qo'rqitadi.
+    if (s.contains('failed to load font') ||
+        s.contains('fonts.gstatic.com') ||
+        s.contains('google_fonts') ||
+        (s.contains('clientexception') && s.contains('font'))) {
+      return true;
+    }
+    // Connection closed/timeout — tarmoq xatolari, crash emas
+    if (s.contains('connection closed') ||
+        s.contains('connection reset') ||
+        s.contains('connection refused') ||
+        s.contains('timeoutexception')) {
+      return true;
+    }
     return false;
   }
 
