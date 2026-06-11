@@ -332,9 +332,12 @@ class _BlockListScreenState extends State<BlockListScreen> {
       if (installed.contains(pkg) && !blocked.contains(pkg)) {
         blocked.add(pkg);
         added++;
-        final entry =
-            _appsList.firstWhere((a) => a['package'] == pkg, orElse: () => null);
-        if (entry != null) cache[pkg] = entry['name'];
+        for (final a in _appsList) {
+          if (a['package'] == pkg) {
+            cache[pkg] = a['name'];
+            break;
+          }
+        }
       }
     }
     await prefs.setStringList('blocked_apps', blocked.toList());

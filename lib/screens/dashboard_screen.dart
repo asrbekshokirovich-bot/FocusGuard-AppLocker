@@ -38,6 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   // ko'rsatiladi — null bo'lsa banner umuman chiqmaydi.
   CrashRecord? _crashRecord;
 
+  // Kerakli ruxsatlar (overlay/usage) berilmaganda asosiy menyu tepasida
+  // banner ko'rsatamiz — avto-yo'naltirish o'rniga foydalanuvchi o'zi kiradi.
+  bool _permissionsMissing = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     // bo'lsa, qaytganida XP/streak avtomatik yangilanadi.
     if (state == AppLifecycleState.resumed) {
       PendingResultsProcessor.instance.processOnAppOpen();
+      // Ruxsatlar berilgan bo'lsa banner avtomatik yo'qoladi.
+      _checkCriticalPermissions();
     }
   }
 
@@ -163,16 +169,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     // orqali avtomatik qaytarib qo'yishi mumkin). Faqat overlay/usage
     // bo'lmasa redirect qilamiz; battery yo'q bo'lsa banner ko'rsatamiz
     // (kelajakda) yoki ohirgi ehtimol — dashboard ichida xabar.
-    if (!hasOverlay || !hasUsage || !hasBattery) {
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PermissionsScreen()),
-        );
-      }
-      return true;
+    // Avto-yo'naltirmaymiz. Kerakli ruxsat (overlay yoki usage) yo'q bo'lsa
+    // asosiy menyu tepasida banner ko'rsatamiz; foydalanuvchi o'zi bosib
+    // Ruxsatlar bo'limiga kiradi va har birini birma-bir beradi.
+    final bool missing = !hasOverlay || !hasUsage;
+    if (mounted) {
+      setState(() => _permissionsMissing = missing);
     }
-    return false;
+    return missing;
   }
 
   Future<void> _checkNotificationPermission() async {
@@ -237,6 +241,63 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Text(lang.translate('profile.btn_redirect') ?? 'Sozlamalar', style: lang.getFont(fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionBanner() {
+    final lang = AppTranslationService();
+    final topPad = _currentIndex == 0 ? 0.0 : MediaQuery.of(context).padding.top;
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+        );
+        // Qaytgach qayta tekshiramiz — ruxsat berilgan bo'lsa banner yo'qoladi.
+        _checkCriticalPermissions();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: EdgeInsets.fromLTRB(16, topPad + 12, 16, 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF9500).withOpacity(0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            const Icon(CupertinoIcons.exclamationmark_shield_fill,
+                color: Color(0xFFFF9500), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lang.translate('permissions.banner_title') ?? 'Ruxsatlar kerak',
+                    style: lang.getFont(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFB35A00)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    lang.translate('permissions.banner_desc') ??
+                        'Bloklash to\'liq ishlashi uchun kerakli ruxsatlarni bering. Bu yerni bosing.',
+                    style: lang.getFont(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        color: const Color(0xFFB35A00)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(CupertinoIcons.chevron_right,
+                color: Color(0xFFFF9500), size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -386,6 +447,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Crash banner — faqat oxirgi 24 soat ichida crash bo'lsa.
           // Foydalanuvchi yopgandan keyin SharedPreferences'dan o'chadi.
           if (_crashRecord != null) _buildCrashBanner(),
+          if (_permissionsMissing) _buildPermissionBanner(),
           Expanded(
             child: IndexedStack(
               index: _currentIndex,
