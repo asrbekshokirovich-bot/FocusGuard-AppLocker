@@ -32,6 +32,10 @@ class _BlockListScreenState extends State<BlockListScreen> {
   List<dynamic> _appsList = [];
   bool _isLoading = true;
 
+  // Ommabop bo'limi uchun tavsiya etilgan ilovalar (kategoriya + ishlatilgan
+  // vaqt bo'yicha). _computeRecommendations() to'ldiradi.
+  List<Map<String, dynamic>> _recommendations = [];
+
   final List<Map<String, dynamic>> _mockApps = [
     {'name': 'Instagram', 'icon': FontAwesomeIcons.instagram, 'color': const Color(0xFFE1306C), 'category': 'social', 'blocked': true},
     {'name': 'TikTok', 'icon': FontAwesomeIcons.tiktok, 'color': Colors.black, 'category': 'social', 'blocked': true},
@@ -82,6 +86,9 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
         // 2-qadam: Ikonkalarni orqa fonda yukla
         _loadIconsInBackground(apps);
+
+        // Ommabop tavsiyalarini (kategoriya + ishlatilgan vaqt) hisoblash
+        _computeRecommendations();
 
       } catch (e) {
         if (!mounted) return;
@@ -416,6 +423,213 @@ class _BlockListScreenState extends State<BlockListScreen> {
     );
   }
 
+  // Ijtimoiy/video + mashhur o'yin paketlari — tavsiyada eng tepada turadi.
+  static const Set<String> _recommendCategory = {
+    'com.instagram.android', 'com.google.android.youtube',
+    'com.zhiliaoapp.musically', 'com.ss.android.ugc.trill',
+    'org.telegram.messenger', 'com.facebook.katana',
+    'com.snapchat.android', 'com.twitter.android',
+    'com.tencent.ig', 'com.dts.freefireth', 'com.dts.freefiremax',
+    'com.supercell.clashofclans', 'com.supercell.clashroyale',
+    'com.supercell.brawlstars', 'com.mojang.minecraftpe', 'com.roblox.client',
+    'com.activision.callofduty.shooter', 'com.miHoYo.GenshinImpact',
+    'com.ea.gp.fifamobile', 'com.king.candycrushsaga', 'com.pubg.imobile',
+  };
+
+  Future<void> _computeRecommendations() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final blocked = (prefs.getStringList('blocked_apps') ?? []).toSet();
+
+      final Map<String, Duration> usage = {};
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final now = DateTime.now();
+          final infos = await AppUsage()
+              .getAppUsage(now.subtract(const Duration(days: 30)), now);
+          for (final i in infos) {
+            usage[i.packageName] =
+                (usage[i.packageName] ?? Duration.zero) + i.usage;
+          }
+        } catch (_) {}
+      }
+
+      final List<Map<String, dynamic>> cands = [];
+      for (final a in _appsList) {
+        if (a['isReal'] != true) continue;
+        final pkg = a['package'] as String?;
+        if (pkg == null || pkg == 'com.focusguard.app') continue;
+        if (blocked.contains(pkg)) continue;
+        final isCat = _recommendCategory.contains(pkg);
+        final mins = (usage[pkg] ?? Duration.zero).inMinutes;
+        if (!isCat && mins < 5) continue; // faqat kategoriya yoki sezilarli
+        cands.add({
+          'package': pkg,
+          'name': a['name'],
+          'minutes': mins,
+          'cat': isCat ? 0 : 1,
+        });
+      }
+      cands.sort((a, b) {
+        if (a['cat'] != b['cat']) return (a['cat'] as int) - (b['cat'] as int);
+        return (b['minutes'] as int).compareTo(a['minutes'] as int);
+      });
+      if (mounted) {
+        setState(() => _recommendations = cands.take(6).toList());
+      }
+    } catch (_) {}
+  }
+
+  String _fmtMins(int mins) {
+    final h = mins ~/ 60;
+    final m = mins % 60;
+    if (h > 0) return '${h}s ${m}m';
+    return '${m}m';
+  }
+
+  Future<void> _blockSingleApp(String pkg, String name) async {
+    final bool overlayOk = await Permission.systemAlertWindow.isGranted;
+    if (!overlayOk) {
+      _showPermissionPromptDialog();
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final blocked = prefs.getStringList('blocked_apps') ?? [];
+    if (!blocked.contains(pkg)) blocked.add(pkg);
+    await prefs.setStringList('blocked_apps', blocked);
+
+    try {
+      final cacheRaw = prefs.getString('app_name_cache');
+      final Map<String, dynamic> cache =
+          cacheRaw != null ? jsonDecode(cacheRaw) as Map<String, dynamic> : {};
+      cache[pkg] = name;
+      await prefs.setString('app_name_cache', jsonEncode(cache));
+    } catch (_) {}
+
+    for (final a in _appsList) {
+      if (a['package'] == pkg) {
+        a['blocked'] = true;
+        break;
+      }
+    }
+    if (!kIsWeb) FlutterBackgroundService().invoke('updateBlockedApps');
+    await _computeRecommendations();
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildRecommendationsCard() {
+    final primary = Theme.of(context).primaryColor;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: primary.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(CupertinoIcons.flame_fill, color: primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ommabop / Tavsiya',
+                        style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface)),
+                    const SizedBox(height: 2),
+                    Text('Eng ko\'p chalg\'ituvchi ilovalarni bloklang',
+                        style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            color: const Color(0xFF8E8E93),
+                            height: 1.3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_recommendations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ..._recommendations.map((r) {
+              final pkg = r['package'] as String;
+              final name = (r['name'] as String?) ?? pkg;
+              final mins = r['minutes'] as int;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name,
+                              style: GoogleFonts.inter(
+                                  fontSize: 14, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis),
+                          if (mins > 0)
+                            Text('So\'nggi 30 kun: ${_fmtMins(mins)}',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    color: const Color(0xFF8E8E93))),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _blockSingleApp(pkg, name),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                            color: primary,
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text('Blokla',
+                            style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _blockPopularApps,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text('Mashhur ilovalarni bir bosishda blokla',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: primary)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPopularCard() {
     return GestureDetector(
       onTap: _blockPopularApps,
@@ -554,7 +768,7 @@ class _BlockListScreenState extends State<BlockListScreen> {
                     const SizedBox(height: 24),
                     
                     // Ommabop (mashhur ilovalar) — bir bosishda bloklash
-                    if (!_isLoading) _buildPopularCard(),
+                    if (!_isLoading) _buildRecommendationsCard(),
                     if (!_isLoading) const SizedBox(height: 12),
                     if (!_isLoading) _buildScheduleEntryCard(),
                     if (!_isLoading) const SizedBox(height: 16),
