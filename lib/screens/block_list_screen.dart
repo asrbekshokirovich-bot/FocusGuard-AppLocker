@@ -596,8 +596,12 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<bool> _checkUsagePermission() async {
     try {
+      // 30 daqiqalik oyna — 1 soniyalik oyna ba'zi qurilmalarda permission
+      // berilgan bo'lsa ham xato tashlardi va bloklash service'i umuman
+      // ishga tushmay qolardi ("ilova tanladim, lekin bloklanmadi" bug).
       DateTime now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(minutes: 30)), now);
       return true;
     } catch (_) {
       return false;

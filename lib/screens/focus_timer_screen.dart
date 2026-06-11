@@ -38,6 +38,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   bool _isPaused = false;
   final _timerService = FocusTimerService();
   StreamSubscription? _timerSubscription;
+  // Lokal fallback ticker — background service tick'lari kechiksa yoki
+  // umuman kelmasa ham UI sanog'i to'xtamasligi uchun. Service tick'i
+  // kelganda u ustuvor (authoritative) — lokal ticker faqat so'nggi
+  // 1.5 soniyada service'dan signal kelmagan bo'lsa o'zi sanaydi.
+  Timer? _uiTicker;
+  DateTime _lastServiceTick = DateTime.fromMillisecondsSinceEpoch(0);
   
   bool _isStrictMode = true;
   bool _isAntiDistract = true;
@@ -87,6 +93,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
           return;
         }
 
+        _lastServiceTick = DateTime.now();
         setState(() {
           _remainingSeconds = event['seconds'] ?? _remainingSeconds;
           _isRunning = event['isRunning'] ?? _isRunning;
@@ -95,6 +102,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         // Har stream tick — bugungi progress'ni jonli yangilab turamiz
         // (today_focus_seconds background'da o'sib boryapti).
         _refreshTodayProgress();
+      }
+    });
+
+    // Lokal fallback ticker — har soniyada tekshiradi: taymer ishlayapti-yu,
+    // service'dan 1.5+ soniya tick kelmagan bo'lsa, sanoqni o'zi davom
+    // ettiradi. Service tick'i kelishi bilan u qiymati ustun bo'ladi
+    // (stream listener `_remainingSeconds`ni qayta yozadi).
+    _uiTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isRunning || _isPaused || _remainingSeconds <= 0) {
+        return;
+      }
+      final sinceService =
+          DateTime.now().difference(_lastServiceTick).inMilliseconds;
+      if (sinceService > 1500) {
+        setState(() => _remainingSeconds--);
       }
     });
 
@@ -268,6 +290,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _uiTicker?.cancel();
     _timerSubscription?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
@@ -357,6 +380,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     // Taymer ENDI ruxsat probe'siga bog'liq EMAS — doim ishga tushadi.
     // Bloklash uchun ruxsat yetishmasa, taymer boshlangach non-blocking
     // eslatma ko'rsatamiz (pastda).
+    //
+    // UI darhol sanay boshlaydi — Firebase fetch (1s gacha) va background
+    // service start (sovuq startda bir necha soniya) kutilmaydi. Lokal
+    // fallback ticker shu zahoti ishlaydi; service tayyor bo'lgach uning
+    // tick'lari avtomatik ustun bo'ladi.
+    setState(() {
+      _isRunning = true;
+      _isPaused = false;
+      _remainingSeconds = _selectedMinutes * 60;
+    });
     final lang = AppTranslationService();
     
     int level = 1;
@@ -422,12 +455,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   }
 
   void _pauseTimer() {
+    // Lokal holat darhol — service javobini kutmasdan UI to'xtaydi
+    // (fallback ticker ham shu bayroqlarga qaraydi).
+    setState(() {
+      _isRunning = false;
+      _isPaused = true;
+    });
     _timerService.pauseTimer();
     // Pauza paytida ovozni ham to'xtatamiz. Resume'da qaytadan boshlanadi.
     SoundscapeService.instance.stop();
   }
 
   void _resumeTimer() {
+    setState(() {
+      _isRunning = true;
+      _isPaused = false;
+    });
     _timerService.resumeTimer();
     // Pauza qaytarilganda ovozni qayta yoqamiz — faqat Yengil Fokus'da.
     if (_selectedMode == 1) {
@@ -528,6 +571,12 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       if (elapsedSeconds >= 1 && _selectedActivityIndex >= 0) {
         _updateProgress(elapsedSeconds);
       }
+      // Lokal holat darhol — service javobini kutmasdan UI to'xtaydi.
+      setState(() {
+        _isRunning = false;
+        _isPaused = false;
+        _remainingSeconds = _selectedMinutes * 60;
+      });
       _timerService.stopTimer();
       SoundscapeService.instance.stop();
       // DnD'ni avvalgi holatga qaytarish (agar biz yoqgan bo'lsak).

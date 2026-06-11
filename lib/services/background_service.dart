@@ -141,7 +141,6 @@ Future<void> initializeBackgroundService() async {
   }
 }
 
-@pragma('vm:entry-point')
 /// Faol jadval(lar) bo'yicha hozir bloklanishi kerak bo'lgan ilovalar to'plami.
 /// `focus_schedules` (ScheduleScreen saqlaydi) JSON ro'yxatini o'qiydi; joriy
 /// vaqt va kun biror yoqilgan jadval oynasiga tushsa, o'sha jadvalning
@@ -185,6 +184,15 @@ Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
   }
 }
 
+// ⚠️ KRITIK: @pragma('vm:entry-point') onStart'dan HECH QACHON ajratilmasligi
+// kerak. Release (AOT) buildda flutter_background_service native kod orqali
+// onStart'ni callback handle bilan chaqiradi — pragma bo'lmasa background
+// isolate UMUMAN ishga tushmaydi: taymer sanamaydi, bloklash ishlamaydi,
+// overlay chiqmaydi (debug buildda esa hammasi ishlayveradi, JIT pragma
+// talab qilmaydi). Bir marta shu xato yuz bergan: pragma bilan onStart
+// orasiga yangi funksiya qo'shilib, pragma o'sha funksiyaga "yopishib"
+// qolgan va release APK'da butun fokus tizimi o'lik edi.
+@pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
@@ -631,6 +639,14 @@ void onStart(ServiceInstance service) async {
       modeName = prefs.getString('timer_mode_name') ?? "";
       modeIcon = prefs.getString('timer_mode_icon') ?? "";
       levelTitle = prefs.getString('timer_level_title') ?? "";
+      isStrict = prefs.getBool('timer_is_strict') ?? false;
+      isLightMode = prefs.getBool('timer_is_light') ?? false;
+      // Mustahkam start protokoli: UI holatni avval prefs'ga yozib, keyin
+      // xizmatni ishga tushiradi. Sovuq startda `startTimer` invoke hali
+      // yetib kelmagan bo'lishi mumkin — streak'ni shu yerda ham navbatga
+      // qo'yamiz (idempotent: bugungi sana allaqachon yozilgan bo'lsa skip).
+      await queueStreakForToday();
+      syncTimer();
     } else {
       // Taymer service uxlab turganida tabiiy ravishda tugagan.
       // Saqlangan session uchun pending XP yozamiz va history'ga

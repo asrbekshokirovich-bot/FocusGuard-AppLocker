@@ -29,8 +29,12 @@ Future<bool> startBackgroundServiceIfReady() async {
 
     bool usageOk = false;
     try {
+      // 30 daqiqalik oyna — 1 soniyalik oyna ba'zi qurilmalarda permission
+      // berilgan bo'lsa ham xato tashlardi (bo'sh diapazon) va service
+      // bekorga ishga tushmasdi.
       final now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(minutes: 30)), now);
       usageOk = true;
     } catch (_) {
       usageOk = false;
