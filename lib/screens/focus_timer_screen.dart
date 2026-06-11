@@ -331,8 +331,14 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   }
 
   void _startTimer() async {
-    // Taymer boshlashdan oldin bloklash uchun ruxsatlarni talab qilamiz.
-    if (!await _ensurePermissionsForTimer()) return;
+    // Bloklash uchun ruxsatlar FAQAT Chuqur Fokus (mode 0)'da talab qilinadi —
+    // o'sha rejim ilovalarni bloklaydi. Yengil Fokus (mode 1) shunchaki
+    // taymer + tabiat ovozi; u overlay/usage ruxsatisiz ham ishlashi kerak.
+    // Avval ikkala rejim ham gate ortida edi — shuning uchun Yengil Fokus ham
+    // ruxsatsiz qurilmada "ishlamayotgandek" ko'rinardi.
+    if (_selectedMode == 0) {
+      if (!await _ensurePermissionsForTimer()) return;
+    }
     final lang = AppTranslationService();
     
     int level = 1;

@@ -151,32 +151,46 @@ Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
   try {
     final raw = prefs.getString('focus_schedules');
     if (raw == null || raw.isEmpty) return <String>{};
-    final list = jsonDecode(raw) as List<dynamic>;
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <String>{};
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;
     final weekday = now.weekday; // 1=Mon .. 7=Sun
     final Set<String> result = <String>{};
-    for (final item in list) {
-      final m = item as Map<String, dynamic>;
-      if (m['enabled'] != true) continue;
-      final days = ((m['days'] as List?) ?? const [])
-          .map((e) => (e as num).toInt())
-          .toList();
-      if (days.isNotEmpty && !days.contains(weekday)) continue;
-      final start = (m['start'] as num?)?.toInt() ?? 0;
-      final end = (m['end'] as num?)?.toInt() ?? 0;
-      bool inWindow;
-      if (start == end) {
-        inWindow = false;
-      } else if (start < end) {
-        inWindow = nowMin >= start && nowMin < end;
-      } else {
-        // Tungi oyna: masalan 23:00–07:00 (yarim tundan o'tadi).
-        inWindow = nowMin >= start || nowMin < end;
-      }
-      if (!inWindow) continue;
-      for (final a in ((m['apps'] as List?) ?? const [])) {
-        result.add(a.toString());
+    for (final item in decoded) {
+      // Har bir jadval elementini ALOHIDA himoyalaymiz — bitta buzuq
+      // yozuv butun ro'yxatni bekor qilmasin (boshqa jadvallar ishlasin).
+      try {
+        if (item is! Map) continue;
+        if (item['enabled'] != true) continue;
+        final daysRaw = item['days'];
+        final List<int> days = [];
+        if (daysRaw is List) {
+          for (final e in daysRaw) {
+            if (e is num) days.add(e.toInt());
+          }
+        }
+        if (days.isNotEmpty && !days.contains(weekday)) continue;
+        final start = (item['start'] as num?)?.toInt() ?? 0;
+        final end = (item['end'] as num?)?.toInt() ?? 0;
+        bool inWindow;
+        if (start == end) {
+          inWindow = false;
+        } else if (start < end) {
+          inWindow = nowMin >= start && nowMin < end;
+        } else {
+          // Tungi oyna: masalan 23:00–07:00 (yarim tundan o'tadi).
+          inWindow = nowMin >= start || nowMin < end;
+        }
+        if (!inWindow) continue;
+        final appsRaw = item['apps'];
+        if (appsRaw is List) {
+          for (final a in appsRaw) {
+            if (a != null) result.add(a.toString());
+          }
+        }
+      } catch (_) {
+        continue;
       }
     }
     return result;
@@ -488,16 +502,24 @@ void onStart(ServiceInstance service) async {
 
   service.on('startTimer').listen((event) async {
     if (event == null) return;
-    remainingSeconds = (event['minutes'] as int) * 60;
+    // Null-safe parsing — noto'g'ri/null qiymat kelsa ham listener crash
+    // bo'lmasin (avval `as int` hard cast edi, null kelsa exception berardi
+    // va isTimerRunning=true qo'yilmasdan timer boshlanmasdi).
+    final minutes = (event['minutes'] as num?)?.toInt() ?? 0;
+    if (minutes <= 0) {
+      debugPrint('[BackgroundTimer] startTimer: invalid minutes=$minutes');
+      return;
+    }
+    remainingSeconds = minutes * 60;
     sessionInitialSeconds = remainingSeconds; // partial XP uchun saqlash
-    modeName = event['modeName'];
-    modeIcon = event['modeIcon'];
-    levelTitle = event['levelTitle'];
-    isStrict = event['isStrict'] ?? false;
+    modeName = (event['modeName'] as String?) ?? "";
+    modeIcon = (event['modeIcon'] as String?) ?? "";
+    levelTitle = (event['levelTitle'] as String?) ?? "";
+    isStrict = (event['isStrict'] as bool?) ?? false;
     // Yengil Fokus rejimini UI explicit uzatadi (mode==1). Avval `!isStrict`
     // proxy ishlatardik — Deep Focus + Strict OFF holatida noto'g'ri "Light"
     // deb yozardi. Endi flag aniq UI'dan keladi.
-    isLightMode = event['isLight'] ?? false;
+    isLightMode = (event['isLight'] as bool?) ?? false;
     lightFocusBuffer = 0; // yangi seans — buffer reset
     await prefs.setBool('timer_is_light', isLightMode);
     isTimerRunning = true;
@@ -600,7 +622,9 @@ void onStart(ServiceInstance service) async {
 
   service.on('updateDailyGoal').listen((event) async {
     if (event == null) return;
-    dailyGoalSeconds = (event['seconds'] as int);
+    final secs = (event['seconds'] as num?)?.toInt();
+    if (secs == null || secs <= 0) return;
+    dailyGoalSeconds = secs;
     await prefs.setInt('daily_goal_seconds', dailyGoalSeconds);
   });
 
@@ -616,6 +640,13 @@ void onStart(ServiceInstance service) async {
   //      isTimerRunning=false bo'lib turadi (foydalanuvchi "Davom
   //      etish"ni bossagina ishga tushadi).
   //   3. Hech narsa yo'q — odatdagi yangi sessiya.
+  //
+  // MUHIM: butun restore + day-check bloki try/catch ichida. Aks holda
+  // bu yerdagi biror await (masalan recordDay) throw qilsa, onStart shu
+  // yerda to'xtab qoladi va PASTDAGI Timer.periodic HECH QACHON
+  // ro'yxatdan o'tmaydi → taymer sanamaydi VA bloklash ishlamaydi.
+  // Bu eng kritik himoya.
+  try {
   final savedIsPaused = prefs.getBool('timer_is_paused') ?? false;
   final savedIsRunning = prefs.getBool('timer_is_running') ?? false;
   final savedEndTime = prefs.getInt('timer_end_timestamp');
@@ -700,6 +731,15 @@ void onStart(ServiceInstance service) async {
     await prefs.setInt('today_focus_seconds', 0);
     await prefs.setInt('last_tracked_day', DateTime.now().day);
   }
+  } catch (e, st) {
+    // Restore/init bosqichida xato — log qilamiz, lekin DAVOM etamiz.
+    // Timer.periodic baribir ro'yxatdan o'tishi shart.
+    debugPrint('[BackgroundService] restore/init error: $e');
+    try {
+      await CrashLogger.instance
+          .recordError(e, st, source: 'onStart-restore');
+    } catch (_) {}
+  }
 
   service.on('stopService').listen((event) {
     service.stopSelf();
@@ -764,6 +804,7 @@ void onStart(ServiceInstance service) async {
 
   // Loop har 1 soniya da
   Timer.periodic(const Duration(seconds: 1), (timer) async {
+   try {
     // 1. Taymer logikasi
     if (isTimerRunning) {
       if (remainingSeconds > 0) {
@@ -1186,5 +1227,14 @@ void onStart(ServiceInstance service) async {
     } catch (e) {
       debugPrint('[FocusGuard] Block detection error: $e');
     }
+   } catch (e, st) {
+     // Tick callback'da kutilmagan xato — log qilamiz va keyingi tickda
+     // davom etamiz. Timer.periodic bitta tick fail bo'lsa ham to'xtamaydi,
+     // bu faqat unhandled-error shovqinini oldini oladi.
+     debugPrint('[BackgroundService] tick error: $e');
+     try {
+       await CrashLogger.instance.recordError(e, st, source: 'timer-tick');
+     } catch (_) {}
+   }
   });
 }

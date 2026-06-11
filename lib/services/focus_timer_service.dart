@@ -3,6 +3,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'streak_reminder_service.dart';
+import 'background_service.dart';
 
 class FocusTimerService {
   static final FocusTimerService _instance = FocusTimerService._internal();
@@ -56,18 +57,32 @@ class FocusTimerService {
     required bool isLight,
   }) async {
     // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz.
-    // startService() async bo'lsa ham, service isolate'ning haqiqatda
-    // tayyor bo'lishi biroz vaqt oladi. Shuning uchun tayyor bo'lguncha
-    // polling qilamiz (maks 3 sekund, har 100ms).
-    bool isRunning = await _service.isRunning();
-    if (!isRunning) {
-      await _service.startService();
-      for (int i = 0; i < 30; i++) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (await _service.isRunning()) break;
+    // BARCHA bosqichlar himoyalangan — bironta exception ham timer
+    // boshlanishini to'xtatmasligi kerak. Avval xizmat to'g'ri
+    // sozlanganini kafolatlaymiz (configure), keyin start qilamiz va
+    // tayyor bo'lguncha polling qilamiz (maks 3 sekund).
+    bool running = false;
+    try {
+      // Xizmat sozlangani kafolati — main.dart'da configure fail bo'lsa ham
+      // bu yerda qayta urinadi (_isServiceInitialized flag bilan idempotent).
+      await initializeBackgroundService();
+      running = await _service.isRunning();
+      if (!running) {
+        await _service.startService();
+        for (int i = 0; i < 30; i++) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          running = await _service.isRunning();
+          if (running) break;
+        }
       }
+    } catch (e) {
+      debugPrint('[FocusTimerService] startService error: $e');
     }
 
+    // Xizmat tayyor bo'lmasa ham invoke yuboramiz — ba'zi qurilmalarda
+    // isRunning() kech true qaytaradi, lekin event navbatga tushib
+    // qabul qilinadi. Agar xizmat haqiqatan ko'tarilmagan bo'lsa, keyingi
+    // app resume'da startBackgroundServiceIfReady qayta urinadi.
     _service.invoke('startTimer', {
       'minutes': minutes,
       'modeName': modeName,
