@@ -596,6 +596,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Bloklangan Ilovalar',
         'search_hint': 'Ilovani qidirish...',
+        'filter_all': 'Hammasi',
+        'filter_recommended': 'Tavsiya',
         'info_banner':
             'Vaqtingizni tejang! Tanlangan ilovalar seans tugaguncha bloklanadi va ular sizni chalg\'itmaydi.',
         'not_found': 'Ilova topilmadi',
@@ -1153,6 +1155,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Blocked Apps',
         'search_hint': 'Search app...',
+        'filter_all': 'All',
+        'filter_recommended': 'Recommended',
         'info_banner':
             'Save your time! Selected apps will be blocked until the session ends and won\'t distract you.',
         'not_found': 'App not found',
@@ -1741,6 +1745,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Заблокированные приложения',
         'search_hint': 'Поиск приложения...',
+        'filter_all': 'Все',
+        'filter_recommended': 'Рекомендуемые',
         'info_banner':
             'Экономьте время! Выбранные приложения будут заблокированы до окончания сеанса и не будут вас отвлекать.',
         'not_found': 'Приложение не найдено',
@@ -2278,6 +2284,8 @@ class AppTranslationService {
       'block_list': {
         'title': '차단된 앱',
         'search_hint': '앱 검색...',
+        'filter_all': '전체',
+        'filter_recommended': '추천',
         'info_banner': '시간을 아끼세요! 선택한 앱은 세션이 끝날 때까지 차단되어 방해받지 않습니다.',
         'not_found': '앱을 찾을 수 없음',
         'categories': {
@@ -2806,6 +2814,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Blockierte Apps',
         'search_hint': 'App suchen...',
+        'filter_all': 'Alle',
+        'filter_recommended': 'Empfohlen',
         'info_banner': 'Sparen Sie Zeit! Ausgewählte Apps werden blockiert.',
         'not_found': 'App nicht gefunden',
         'categories': {
@@ -3351,6 +3361,8 @@ class AppTranslationService {
       'block_list': {
         'title': 'Apps bloquées',
         'search_hint': 'Chercher une app...',
+        'filter_all': 'Toutes',
+        'filter_recommended': 'Recommandé',
         'info_banner':
             'Gagnez du temps ! Les apps sélectionnées seront bloquées.',
         'not_found': 'App non trouvée',

@@ -11,14 +11,12 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'premium_screen.dart';
 import '../services/app_translation_service.dart';
-import '../services/timer_notification_service.dart';
 import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
 import '../services/soundscape_service.dart';
 import '../services/dnd_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:app_usage/app_usage.dart';
 import 'permissions_screen.dart';
 
 class FocusTimerScreen extends StatefulWidget {
@@ -284,45 +282,66 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Bloklash ishlashi uchun overlay + usage ruxsatlari kerak. Taymer
-  /// boshlashdan oldin tekshiramiz; yetishmasa, PermissionsScreen'ni
-  /// ochamiz (u yerdagi tugmalar to'g'ridan-to'g'ri kerakli sahifaga
-  /// olib boradi). Foydalanuvchi qaytib kelgach qayta tekshiramiz.
-  Future<bool> _hasBlockingPermissions() async {
+  /// Bloklash uchun overlay ruxsatini tekshiradi — ARZON va ISHONCHLI
+  /// (sun'iy timeout yoki AppUsage probe'siz). Bu FAQAT bloklash funksiyasi
+  /// uchun; taymerning o'zi bu ruxsatga bog'liq EMAS.
+  ///
+  /// MUHIM: avval bu yerda `AppUsage().getAppUsage()` ni 700ms timeout bilan
+  /// gate sifatida ishlatardik. U juda mo'rt edi — ruxsat berilgan bo'lsa ham
+  /// bo'sh qaytib yoki timeout bo'lib `usageOk=false` qaytarardi va butun
+  /// taymer seansi jimgina bekor bo'lardi ("tugma bosilsa hech narsa
+  /// ishlamaydi" bug). Endi taymer hech qachon ruxsat probe'siga bog'lanmaydi.
+  Future<bool> _hasOverlayPermission() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    bool overlayOk = await Permission.systemAlertWindow.isGranted;
-    bool usageOk = false;
-    try {
-      final now = DateTime.now();
-      await AppUsage()
-          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
-          .timeout(const Duration(milliseconds: 700));
-      usageOk = true;
-    } catch (_) {
-      usageOk = false;
-    }
-    return overlayOk && usageOk;
+    return await Permission.systemAlertWindow.isGranted;
   }
 
-  Future<bool> _ensurePermissionsForTimer() async {
-    if (await _hasBlockingPermissions()) return true;
-    if (!mounted) return false;
-    // Ruxsat yetishmaydi — PermissionsScreen'ga olib boramiz.
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const PermissionsScreen(isFromOnboarding: false),
+  /// Chuqur Fokus + bloklangan ilovalar bor, lekin overlay ruxsati yo'q
+  /// bo'lsa — taymerni TO'XTATMASDAN, bloklamaydigan (non-blocking) eslatma
+  /// ko'rsatamiz. Foydalanuvchi xohlasa ruxsat sahifasiga o'tadi; xohlamasa
+  /// taymer baribir ishlayveradi (bloklashsiz).
+  void _nudgeBlockingPermissionIfNeeded() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (_selectedMode != 0) return; // faqat Chuqur Fokus bloklaydi
+    if (await _hasOverlayPermission()) return;
+    if (!mounted) return;
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(lang.translate('profile.permission_dialog_title')),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(lang.translate('profile.permission_dialog_desc')),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('focus_timer.later') ?? 'Keyinroq'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(lang.translate('profile.btn_redirect')),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const PermissionsScreen(isFromOnboarding: false),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
-    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor qilamiz.
-    final ok = await _hasBlockingPermissions();
-    if (ok) TimerNotificationService().cancelPermissionNudge();
-    return ok;
   }
 
   void _startTimer() async {
-    // Taymer boshlashdan oldin bloklash uchun ruxsatlarni talab qilamiz.
-    if (!await _ensurePermissionsForTimer()) return;
+    // Taymer ENDI ruxsat probe'siga bog'liq EMAS — doim ishga tushadi.
+    // Bloklash uchun ruxsat yetishmasa, taymer boshlangach non-blocking
+    // eslatma ko'rsatamiz (pastda).
     final lang = AppTranslationService();
     
     int level = 1;
@@ -380,6 +399,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     if (_selectedMode == 0 && _isAntiDistract) {
       DndService.instance.enableFocusMode();
     }
+
+    // Taymer allaqachon ishga tushdi. Endi (faqat Chuqur Fokus'da) bloklash
+    // uchun overlay ruxsati borligini tekshiramiz — yo'q bo'lsa non-blocking
+    // eslatma. Taymerni hech qachon to'xtatmaymiz.
+    _nudgeBlockingPermissionIfNeeded();
   }
 
   void _pauseTimer() {
