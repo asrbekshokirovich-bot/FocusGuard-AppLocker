@@ -19,6 +19,7 @@ import '../services/dnd_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'permissions_screen.dart';
 
 class FocusTimerScreen extends StatefulWidget {
@@ -284,24 +285,33 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Bloklash ishlashi uchun overlay + usage ruxsatlari kerak. Taymer
-  /// boshlashdan oldin tekshiramiz; yetishmasa, PermissionsScreen'ni
-  /// ochamiz (u yerdagi tugmalar to'g'ridan-to'g'ri kerakli sahifaga
-  /// olib boradi). Foydalanuvchi qaytib kelgach qayta tekshiramiz.
+  /// Bloklash ishlashi uchun overlay ruxsati kerak.
+  /// Usage stats ruxsatini ham tekshiramiz — lekin sekin qurilmalarda
+  /// AppUsage query 700ms'dan ko'p vaqt olishi mumkin. Shuning uchun
+  /// timeout'ni 2 sekundga ko'tardik va UsageStats permission API'ga
+  /// ham fallback qo'shdik (query qilmasdan faqat ruxsat holatini tekshiradi).
   Future<bool> _hasBlockingPermissions() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
     bool overlayOk = await Permission.systemAlertWindow.isGranted;
+    if (!overlayOk) return false;
+    // Usage stats — avval tez yo'l (UsageStats.checkUsagePermission),
+    // keyin AppUsage query fallback.
     bool usageOk = false;
     try {
-      final now = DateTime.now();
-      await AppUsage()
-          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
-          .timeout(const Duration(milliseconds: 700));
-      usageOk = true;
-    } catch (_) {
-      usageOk = false;
+      usageOk = await UsageStats.checkUsagePermission() ?? false;
+    } catch (_) {}
+    if (!usageOk) {
+      try {
+        final now = DateTime.now();
+        await AppUsage()
+            .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+            .timeout(const Duration(milliseconds: 2000));
+        usageOk = true;
+      } catch (_) {
+        usageOk = false;
+      }
     }
-    return overlayOk && usageOk;
+    return usageOk;
   }
 
   Future<bool> _ensurePermissionsForTimer() async {

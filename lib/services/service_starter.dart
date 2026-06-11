@@ -4,6 +4,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'background_service.dart';
 
 /// Background xizmatini ishga tushiradi (agar barcha shartlar bajarilgan bo'lsa).
@@ -19,11 +20,22 @@ Future<bool> hasBlockingPermissions() async {
   try {
     final overlayOk = await Permission.systemAlertWindow.isGranted;
     if (!overlayOk) return false;
-    final now = DateTime.now();
-    await AppUsage()
-        .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
-        .timeout(const Duration(milliseconds: 800));
-    return true;
+    // Avval tez yo'l: UsageStats.checkUsagePermission()
+    bool usageOk = false;
+    try {
+      usageOk = await UsageStats.checkUsagePermission() ?? false;
+    } catch (_) {}
+    if (!usageOk) {
+      // Fallback: AppUsage query (agar checkUsagePermission ishlamasa)
+      try {
+        final now = DateTime.now();
+        await AppUsage()
+            .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+            .timeout(const Duration(milliseconds: 2000));
+        usageOk = true;
+      } catch (_) {}
+    }
+    return usageOk;
   } catch (_) {
     return false;
   }
@@ -48,11 +60,16 @@ Future<bool> startBackgroundServiceIfReady() async {
 
     bool usageOk = false;
     try {
-      final now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
-      usageOk = true;
-    } catch (_) {
-      usageOk = false;
+      usageOk = await UsageStats.checkUsagePermission() ?? false;
+    } catch (_) {}
+    if (!usageOk) {
+      try {
+        final now = DateTime.now();
+        await AppUsage()
+            .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+            .timeout(const Duration(milliseconds: 2000));
+        usageOk = true;
+      } catch (_) {}
     }
     if (!usageOk) {
       debugPrint('Service not started: usage stats permission missing');

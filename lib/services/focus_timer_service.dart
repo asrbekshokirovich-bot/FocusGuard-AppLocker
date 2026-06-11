@@ -55,12 +55,17 @@ class FocusTimerService {
     required bool isStrict,
     required bool isLight,
   }) async {
-    // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz
+    // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz.
+    // startService() async bo'lsa ham, service isolate'ning haqiqatda
+    // tayyor bo'lishi biroz vaqt oladi. Shuning uchun tayyor bo'lguncha
+    // polling qilamiz (maks 3 sekund, har 100ms).
     bool isRunning = await _service.isRunning();
     if (!isRunning) {
       await _service.startService();
-      // Xizmat boshlanishi uchun biroz kutamiz
-      await Future.delayed(const Duration(milliseconds: 500));
+      for (int i = 0; i < 30; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (await _service.isRunning()) break;
+      }
     }
 
     _service.invoke('startTimer', {

@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
 import '../services/service_starter.dart';
@@ -110,13 +111,20 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   }
 
   Future<bool> _checkUsagePermission() async {
+    // Avval tez yo'l: UsageStats.checkUsagePermission() — query qilmaydi,
+    // faqat ruxsat flagini o'qiydi. Sekin qurilmalarda AppUsage query
+    // timeout bo'lib false qaytarar edi va foydalanuvchi "ruxsat berilmagan"
+    // xabarini ko'rar edi — holbuki ruxsat berilgan edi.
     try {
-      // Shunchaki tekshirish uchun qisqa vaqt oralig'ini olamiz.
-      // Agar PACKAGE_USAGE_STATS berilmagan bo'lsa SecurityException
-      // beradi va catch bloki false qaytaradi. Hech qanday UI/dialog
-      // ochilmaydi — to'liq passive operatsiya.
-      DateTime now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      final ok = await UsageStats.checkUsagePermission() ?? false;
+      if (ok) return true;
+    } catch (_) {}
+    // Fallback: AppUsage query
+    try {
+      final now = DateTime.now();
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+          .timeout(const Duration(milliseconds: 2000));
       return true;
     } catch (_) {
       return false;

@@ -12,10 +12,10 @@ import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import '../services/background_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'permissions_screen.dart';
 import 'schedule_screen.dart';
 
@@ -808,8 +808,14 @@ class _BlockListScreenState extends State<BlockListScreen> {
 
   Future<bool> _checkUsagePermission() async {
     try {
-      DateTime now = DateTime.now();
-      await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now);
+      final ok = await UsageStats.checkUsagePermission() ?? false;
+      if (ok) return true;
+    } catch (_) {}
+    try {
+      final now = DateTime.now();
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+          .timeout(const Duration(milliseconds: 2000));
       return true;
     } catch (_) {
       return false;
