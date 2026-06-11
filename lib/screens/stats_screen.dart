@@ -12,6 +12,8 @@ import 'dart:math' as math;
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_usage/app_usage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../services/language_service.dart';
 import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
@@ -162,6 +164,7 @@ class _StatsScreenState extends State<StatsScreen>
       // Ikonkasi yo'q ilovalar uchun fonda yuklab cache'ga qo'yamiz.
       final topAttempts = _computeTopBlockedAttempts(prefs);
       _fetchMissingIcons(prefs, topAttempts);
+      await _attachUsageTimes(topAttempts);
 
       if (mounted) {
         setState(() {
@@ -189,6 +192,34 @@ class _StatsScreenState extends State<StatsScreen>
   /// So'nggi 30 kun ichidagi `block_attempts_YYYY-MM-DD` kalitlarini
   /// o'qib, har bir ilova uchun jami urinishlar sonini hisoblaydi va
   /// top 5 ni qaytaradi.
+  /// Har bir ilova uchun so'nggi 30 kunda sarflangan vaqtni (AppUsage)
+  /// item['time'] (Duration) sifatida biriktiradi. Ruxsat yo'q yoki xato
+  /// bo'lsa jim o'tadi — count baribir ko'rsatiladi.
+  Future<void> _attachUsageTimes(List<Map<String, dynamic>> items) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (items.isEmpty) return;
+    try {
+      final now = DateTime.now();
+      final infos = await AppUsage()
+          .getAppUsage(now.subtract(const Duration(days: 30)), now);
+      final Map<String, Duration> usage = {};
+      for (final info in infos) {
+        usage[info.packageName] =
+            (usage[info.packageName] ?? Duration.zero) + info.usage;
+      }
+      for (final item in items) {
+        item['time'] = usage[item['package'] as String] ?? Duration.zero;
+      }
+    } catch (_) {}
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    if (h > 0) return '${h}s ${m}m';
+    return '${m}m';
+  }
+
   List<Map<String, dynamic>> _computeTopBlockedAttempts(SharedPreferences prefs) {
     try {
       final Map<String, int> aggregated = {};
@@ -501,6 +532,7 @@ class _StatsScreenState extends State<StatsScreen>
     final topAttempts = _computeTopBlockedAttempts(prefs);
     // Yo'q ikonkalarni fonda yuklash
     _fetchMissingIcons(prefs, topAttempts);
+    await _attachUsageTimes(topAttempts);
 
     if (mounted) {
       setState(() {
@@ -1374,13 +1406,31 @@ class _StatsScreenState extends State<StatsScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      '$count ${lang.translate('stats.unit_attempt')}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xFFFF3B30),
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (d['time'] != null &&
+                            (d['time'] as Duration).inMinutes > 0)
+                          Text(
+                            _formatDuration(d['time'] as Duration),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.7),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        Text(
+                          '$count ${lang.translate('stats.unit_attempt')}',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: const Color(0xFFFF3B30),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
