@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 
 /// Chuqur Fokus → Kengaytirilgan: kundalik tartib uchun vaqt oynasi
 /// jadvallari. Har bir jadval belgilangan vaqt oynasida (masalan
@@ -277,6 +279,24 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
   Set<int> _days = {1, 2, 3, 4, 5};
   Set<String> _apps = {};
 
+  List<Map<String, String>> _allApps = [];
+  bool _appsLoading = true;
+  String _search = '';
+
+  // Tavsiya etiladigan chalg'ituvchi ilovalar (ijtimoiy/video + mashhur
+  // o'yinlar) — ro'yxatda eng tepada "Tavsiya" yorlig'i bilan chiqadi.
+  static const Set<String> _recommended = {
+    'com.instagram.android', 'com.google.android.youtube',
+    'com.zhiliaoapp.musically', 'com.ss.android.ugc.trill',
+    'org.telegram.messenger', 'com.facebook.katana',
+    'com.snapchat.android', 'com.twitter.android',
+    'com.tencent.ig', 'com.dts.freefireth', 'com.dts.freefiremax',
+    'com.supercell.clashofclans', 'com.supercell.clashroyale',
+    'com.supercell.brawlstars', 'com.mojang.minecraftpe', 'com.roblox.client',
+    'com.activision.callofduty.shooter', 'com.miHoYo.GenshinImpact',
+    'com.ea.gp.fifamobile', 'com.king.candycrushsaga', 'com.pubg.imobile',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -288,9 +308,47 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
       _days = ((e['days'] as List?) ?? []).map((x) => (x as num).toInt()).toSet();
       _apps = ((e['apps'] as List?) ?? []).map((x) => x.toString()).toSet();
     } else {
-      // Standart: barcha mashhur ilovalar tanlangan.
+      // Standart: mashhur ilovalar tanlangan.
       _apps = widget.popularApps.map((a) => a['pkg']!).toSet();
     }
+    _loadApps();
+  }
+
+  Future<void> _loadApps() async {
+    try {
+      final apps = await InstalledApps.getInstalledApps(
+          excludeSystemApps: false, withIcon: false);
+      final list = apps
+          .where((a) =>
+              a.packageName != 'com.focusguard.app' && (a.name ?? '').isNotEmpty)
+          .map((a) => {
+                'pkg': a.packageName,
+                'name': (a.name ?? a.packageName),
+              })
+          .toList();
+      // Tavsiya qilinganlar tepada, qolgani alifbo bo'yicha.
+      list.sort((a, b) {
+        final ra = _recommended.contains(a['pkg']) ? 0 : 1;
+        final rb = _recommended.contains(b['pkg']) ? 0 : 1;
+        if (ra != rb) return ra - rb;
+        return (a['name'] ?? '').toLowerCase().compareTo((b['name'] ?? '').toLowerCase());
+      });
+      if (mounted) {
+        setState(() {
+          _allApps = list;
+          _appsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _appsLoading = false);
+    }
+  }
+
+  List<Map<String, String>> _filteredApps() {
+    if (_search.isEmpty) return _allApps;
+    return _allApps
+        .where((a) => (a['name'] ?? '').toLowerCase().contains(_search))
+        .toList();
   }
 
   @override
@@ -300,18 +358,59 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
   }
 
   Future<void> _pickTime(bool isStart) async {
-    final initial = TimeOfDay(hour: (isStart ? _start : _end) ~/ 60, minute: (isStart ? _start : _end) % 60);
-    final picked = await showTimePicker(context: context, initialTime: initial);
-    if (picked != null) {
-      setState(() {
-        final mins = picked.hour * 60 + picked.minute;
-        if (isStart) {
-          _start = mins;
-        } else {
-          _end = mins;
-        }
-      });
-    }
+    final currentMin = isStart ? _start : _end;
+    DateTime temp = DateTime(2024, 1, 1, currentMin ~/ 60, currentMin % 60);
+    final primary = Theme.of(context).primaryColor;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SizedBox(
+          height: 300,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('Bekor', style: GoogleFonts.inter(color: Colors.grey)),
+                  ),
+                  Text(isStart ? 'Boshlanish' : 'Tugash',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  CupertinoButton(
+                    onPressed: () {
+                      setState(() {
+                        final mins = temp.hour * 60 + temp.minute;
+                        if (isStart) {
+                          _start = mins;
+                        } else {
+                          _end = mins;
+                        }
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: Text('Tayyor',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: primary)),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  use24hFormat: true,
+                  minuteInterval: 1,
+                  initialDateTime: temp,
+                  onDateTimeChanged: (dt) => temp = dt,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   String _fmt(int minutes) {
@@ -393,31 +492,86 @@ class _ScheduleEditorState extends State<_ScheduleEditor> {
               }),
             ),
             const SizedBox(height: 16),
-            Text('Bloklanadigan ilovalar', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+            Row(
+              children: [
+                Text('Bloklanadigan ilovalar',
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+                const Spacer(),
+                Text('${_apps.length} tanlandi',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: primary)),
+              ],
+            ),
             const SizedBox(height: 8),
-            ...widget.popularApps.map((a) {
-              final pkg = a['pkg']!;
-              final on = _apps.contains(pkg);
-              return GestureDetector(
-                onTap: () => setState(() => on ? _apps.remove(pkg) : _apps.add(pkg)),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: on ? primary.withOpacity(0.4) : Colors.transparent),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(a['name']!, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500))),
-                      Icon(on ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-                          color: on ? primary : Colors.grey.withOpacity(0.4), size: 22),
-                    ],
-                  ),
+            TextField(
+              onChanged: (v) => setState(() => _search = v.toLowerCase()),
+              style: GoogleFonts.inter(fontSize: 14),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(CupertinoIcons.search, size: 18),
+                hintText: 'Ilova qidirish',
+                hintStyle: GoogleFonts.inter(fontSize: 13),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_appsLoading)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CupertinoActivityIndicator()),
+              )
+            else
+              Container(
+                height: 280,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withOpacity(0.15)),
                 ),
-              );
-            }),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  children: _filteredApps().map((a) {
+                    final pkg = a['pkg']!;
+                    final name = a['name']!;
+                    final on = _apps.contains(pkg);
+                    final rec = _recommended.contains(pkg);
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => on ? _apps.remove(pkg) : _apps.add(pkg)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(name,
+                                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  if (rec) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                          color: primary.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(6)),
+                                      child: Text('Tavsiya',
+                                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: primary)),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(on ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+                                color: on ? primary : Colors.grey.withOpacity(0.4), size: 22),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             const SizedBox(height: 16),
             GestureDetector(
               onTap: () {
