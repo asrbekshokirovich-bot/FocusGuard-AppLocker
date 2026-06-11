@@ -222,6 +222,59 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                       ),
                       const SizedBox(height: 32),
 
+                      // APK orqali o'rnatilgan ilovalarda Android ba'zi
+                      // ruxsatlarni (masalan "Usage access") cheklab, kulrang
+                      // qiladi. Foydalanuvchi avval "Allow restricted settings"
+                      // ni yoqishi kerak — shu yerda ko'rsatma va tugma beramiz.
+                      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9500).withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFFF9500).withOpacity(0.25)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.lock_open_rounded, color: Color(0xFFFF9500), size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Ruxsat kulrang (cheklangan) bo\'lsa',
+                                      style: lang.getFont(fontSize: 14, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Ilova do\'kondan emas, APK orqali o\'rnatilgani uchun ba\'zi telefonlarda "Usage access" kulrang bo\'ladi. Quyidagi tugmani bosing → o\'ng yuqoridagi ⋮ (uch nuqta) → "Allow restricted settings" (cheklangan sozlamalarga ruxsat) ni yoqing. Shundan keyin ruxsatni bera olasiz.',
+                                style: lang.getFont(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), height: 1.4),
+                              ),
+                              const SizedBox(height: 12),
+                              GestureDetector(
+                                onTap: () => AppSettings.openAppSettings(type: AppSettingsType.settings),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9500),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    'Ilova ma\'lumotlarini ochish',
+                                    style: lang.getFont(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
                       _buildPermissionCard(
                         title: lang.translate('permissions.overlay.title'),
                         description: lang.translate('permissions.overlay.desc'),
