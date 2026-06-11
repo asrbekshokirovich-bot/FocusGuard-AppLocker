@@ -1,0 +1,12 @@
+# Release imzolash uchun namuna. Buni `key.properties` deb nusxalang va
+# o'z keystore ma'lumotlaringiz bilan to'ldiring. ASL `key.properties`ni
+# HECH QACHON repoga qo'shmang (u .gitignore'da).
+#
+# Keystore yaratish (Java/keytool kerak):
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA \
+#           -keysize 2048 -validity 10000 -alias upload
+#
+storePassword=STORE_PAROL
+keyPassword=KALIT_PAROL
+keyAlias=upload
+storeFile=/absolute/path/to/upload-keystore.jks
