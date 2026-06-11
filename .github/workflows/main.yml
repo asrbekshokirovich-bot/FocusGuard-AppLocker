@@ -1,41 +1,48 @@
-name: Flutter Build APK
-
+name: Flutter CI (Analyze + Build APK)
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - "main"
+      - "claude/**"
   pull_request:
-    branches: [ "main" ]
-
+  workflow_dispatch:   # Actions tab'idan qo'lda ham ishga tushirish mumkin
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-        
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: 'any'
-        channel: 'stable'
-        
-    - name: Get dependencies
-      run: flutter pub get
-      
-    - name: Build APK
-      run: flutter build apk --release
-      
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'any'
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Statik analiz — kod xatolari va ogohlantirishlarini ko'rsatadi.
+      # continue-on-error: true — analyze qizil bo'lsa ham APK build davom
+      # etadi, shunda har push'da ham analyze natijasini, ham APK'ni olasiz.
+      # Logni ko'rish uchun bu step'ni Actions tab'ida oching.
+      - name: Analyze (flutter analyze)
+        continue-on-error: true
+        run: flutter analyze
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
