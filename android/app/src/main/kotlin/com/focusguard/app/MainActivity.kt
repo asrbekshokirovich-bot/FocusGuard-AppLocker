@@ -1,6 +1,7 @@
 package com.focusguard.app
 
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -30,9 +31,42 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "focusguard/dnd"
+    private val DEVICE_CHANNEL = "focusguard/device"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // ── Qurilma / OEM bridge ──────────────────────────────────────
+        // Brendni aniqlash va OEM "Autostart" (avtoishga tushish)
+        // sahifasini ochish uchun. Xiaomi/Oppo/Vivo/Huawei kabi
+        // qurilmalarda background service busiz uxlab qoladi va bloklash
+        // to'xtaydi. Har brendning autostart sahifasi alohida component
+        // nomida — biz ma'lum bo'lganlarini ketma-ket sinab ko'ramiz.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getManufacturer" -> {
+                        result.success((Build.MANUFACTURER ?: "").lowercase())
+                    }
+                    "isAutoStartSupported" -> {
+                        result.success(autoStartIntents().any { canResolve(it) })
+                    }
+                    "openAutoStartSettings" -> {
+                        val opened = autoStartIntents().firstOrNull { canResolve(it) }?.let {
+                            try {
+                                it.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                startActivity(it)
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                        } ?: false
+                        result.success(opened)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -86,5 +120,39 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /**
+     * Ma'lum OEM "Autostart / Background app management" sahifalari.
+     * Component nomlari brend versiyalariga qarab farq qiladi — shuning
+     * uchun bir nechta variantni ro'yxatga olamiz va birinchi
+     * resolve bo'ladiganini ochamiz.
+     */
+    private fun autoStartIntents(): List<Intent> {
+        val components = listOf(
+            // Xiaomi / Redmi / POCO (MIUI / HyperOS)
+            "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            // Oppo (ColorOS)
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+            "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            // Vivo / iQOO (Funtouch / OriginOS)
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+            // Huawei / Honor (EMUI / MagicOS)
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            // Letv
+            "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity",
+            // Asus
+            "com.asus.mobilemanager" to "com.asus.mobilemanager.MainActivity"
+        )
+        return components.map { (pkg, cls) ->
+            Intent().setComponent(ComponentName(pkg, cls))
+        }
+    }
+
+    private fun canResolve(intent: Intent): Boolean {
+        return packageManager.resolveActivity(intent, 0) != null
     }
 }

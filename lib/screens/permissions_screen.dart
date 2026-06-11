@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/app_translation_service.dart';
 import '../services/service_starter.dart';
 import '../services/timer_notification_service.dart';
+import '../services/device_oem_service.dart';
 import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {
@@ -27,17 +28,33 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   // to'xtatadi.
   bool _isBatteryIgnored = false;
   bool _isLoading = true;
+  // Agressiv OEM (Xiaomi/Oppo/Vivo/Huawei...) — autostart kartasini
+  // shu qurilmalarda ko'rsatamiz. Samsung va toza Android'da yashiramiz.
+  bool _isAggressiveOem = false;
+  bool _autoStartSupported = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _detectOem();
     // Darhol tekshirmasdan, oyna yuklanishini kutamiz
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
         _checkPermissions(isPassive: true);
       }
     });
+  }
+
+  Future<void> _detectOem() async {
+    final aggressive = await DeviceOemService.instance.isAggressiveOem();
+    final autoStart = await DeviceOemService.instance.isAutoStartSupported();
+    if (mounted) {
+      setState(() {
+        _isAggressiveOem = aggressive;
+        _autoStartSupported = autoStart;
+      });
+    }
   }
 
   @override
@@ -140,6 +157,17 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   // to'g'ridan-to'g'ri olib boruvchi tugma. Standart ignoreBattery-
   // Optimizations Samsung'ning ichki "Sleeping apps" ro'yxatini hech
   // tegmaydi — alohida sozlash kerak.
+  // Xiaomi/Oppo/Vivo/Huawei kabi qurilmalar uchun "Autostart"
+  // (avtoishga tushish) sahifasini ochadi. Busiz OEM background
+  // service'ni o'ldiradi va bloklash to'xtaydi.
+  Future<void> _openAutoStart() async {
+    final ok = await DeviceOemService.instance.openAutoStartSettings();
+    if (!ok && mounted) {
+      // Topilmasa — umumiy ilova sozlamalariga tashlaymiz (fallback).
+      await openAppSettings();
+    }
+  }
+
   Future<void> _openSamsungSleepingApps() async {
     try {
       // Samsung Device Care → Battery → Background usage limits sahifasi.
@@ -243,7 +271,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Ruxsat kulrang (cheklangan) bo\'lsa',
+                                      '1-QADAM · Ruxsat kulrang (cheklangan) bo\'lsa',
                                       style: lang.getFont(fontSize: 14, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
                                     ),
                                   ),
@@ -251,12 +279,25 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Ilova do\'kondan emas, APK orqali o\'rnatilgani uchun ba\'zi telefonlarda "Usage access" kulrang bo\'ladi. Quyidagi tugmani bosing → o\'ng yuqoridagi ⋮ (uch nuqta) → "Allow restricted settings" (cheklangan sozlamalarga ruxsat) ni yoqing. Shundan keyin ruxsatni bera olasiz.',
-                                style: lang.getFont(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), height: 1.4),
+                                'Ilova Play Market\'dan emas, APK orqali o\'rnatilgani uchun ba\'zi telefonlarda "Usage access" kulrang (bosib bo\'lmaydigan) bo\'ladi. Avval shuni yoqing:\n\n'
+                                '1. Pastdagi tugmani bosing — ilova ma\'lumotlari (App info) ochiladi.\n'
+                                '2. O\'ng yuqoridagi ⋮ (uch nuqta) menyusini bosing.\n'
+                                '3. "Allow restricted settings" (Cheklangan sozlamalarga ruxsat) ni tanlang.\n'
+                                '4. Orqaga qaytib, pastdagi "Usage access" ruxsatini bering.\n\n'
+                                'Eslatma: Agar ilova Play Market\'dan o\'rnatilgan bo\'lsa, bu qadam kerak emas.',
+                                style: lang.getFont(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), height: 1.5),
                               ),
                               const SizedBox(height: 12),
                               GestureDetector(
-                                onTap: () => AppSettings.openAppSettings(type: AppSettingsType.settings),
+                                // MUHIM: "Allow restricted settings" opsiyasi
+                                // ilovaning O'Z "App info" sahifasidagi ⋮ (uch
+                                // nuqta) menyusida turadi — umumiy Sozlamalarda
+                                // emas. openAppSettings() aynan shu sahifani
+                                // ochadi. Avval AppSettingsType.settings
+                                // ishlatilardi va foydalanuvchini umumiy
+                                // sozlamalarga tashlardi — u yerda kerakli
+                                // menyu yo'q edi.
+                                onTap: () => openAppSettings(),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                                   decoration: BoxDecoration(
@@ -352,6 +393,28 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           ),
                         ),
 
+                      // Autostart (Avtoishga tushish) — faqat agressiv OEM'da.
+                      // Xiaomi/Oppo/Vivo/Huawei... uchun bu ENG muhim qadam:
+                      // ushbu ruxsatsiz qurilma ilovani fonida o'ldiradi va
+                      // bloklash bir necha daqiqadan keyin to'xtaydi.
+                      if (_isAggressiveOem && _autoStartSupported) ...[
+                        const SizedBox(height: 16),
+                        _buildPermissionCard(
+                          title: 'Avtoishga tushish (Autostart)',
+                          description: 'Telefon ilovani fonida o\'chirmasligi '
+                              'uchun. Ushbu brend uchun ZARUR — busiz bloklash '
+                              'bir necha daqiqada to\'xtaydi. Ro\'yxatdan '
+                              '"Focus Guard"ni yoqing.',
+                          icon: Icons.rocket_launch_rounded,
+                          color: const Color(0xFF5856D6),
+                          // Autostart holatini dasturiy o'qib bo'lmaydi —
+                          // doim "ochish" tugmasi ko'rinadi.
+                          isGranted: false,
+                          onTap: _openAutoStart,
+                          lang: lang,
+                        ),
+                      ],
+
                       const SizedBox(height: 16),
                             ],
                           ),
@@ -365,10 +428,13 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
-                            if (_isOverlayGranted &&
-                                _isUsageGranted &&
-                                _isNotificationsGranted &&
-                                _isBatteryIgnored)
+                            // Bloklash uchun YETARLI ruxsatlar: overlay + usage.
+                            // Bildirishnoma + batareya + autostart kuchli
+                            // tavsiya etiladi, lekin "Tayyor" tugmasini
+                            // bloklamaydi — aks holda foydalanuvchi
+                            // batareya dialogini rad etsa ekrandan chiqa
+                            // olmay qolardi.
+                            if (_isOverlayGranted && _isUsageGranted)
                               BoxShadow(
                                 color: Theme.of(context)
                                     .primaryColor
@@ -379,10 +445,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: (_isOverlayGranted &&
-                                  _isUsageGranted &&
-                                  _isNotificationsGranted &&
-                                  _isBatteryIgnored)
+                          onPressed: (_isOverlayGranted && _isUsageGranted)
                               ? () async {
                                   // Ruxsatlar berildi — agar bloklangan ilovalar bo'lsa, xizmatni boshlaymiz
                                   await startBackgroundServiceIfReady();

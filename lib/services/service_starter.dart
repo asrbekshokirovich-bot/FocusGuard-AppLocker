@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,24 @@ import 'background_service.dart';
 ///
 /// Bu fayl faqat asosiy isolate ichida ishlatiladi. Shuning uchun
 /// permission_handler import background_service.dart ga qo'shilmaydi.
+/// Bloklash ishlashi uchun yetarli ruxsatlar bormi (overlay + usage stats).
+/// Login/onboarding'dan keyin foydalanuvchini PermissionsScreen'ga
+/// yo'naltirish kerakmi yo'qmi — shuni hal qilish uchun ishlatiladi.
+Future<bool> hasBlockingPermissions() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+  try {
+    final overlayOk = await Permission.systemAlertWindow.isGranted;
+    if (!overlayOk) return false;
+    final now = DateTime.now();
+    await AppUsage()
+        .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
+        .timeout(const Duration(milliseconds: 800));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<bool> startBackgroundServiceIfReady() async {
   if (kIsWeb) return false;
 

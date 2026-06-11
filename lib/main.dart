@@ -149,6 +149,11 @@ class _FocusGuardAppState extends State<FocusGuardApp>
       // Foydalanuvchi telefon ekranini yarim tunda yopib qo'yib, ertaga
       // ochsa — kechagi 4 daq ko'rinmasdan, 0d / 4d ko'rinishi uchun.
       DailyResetService.instance.checkAndResetIfNewDay();
+      // OEM (Xiaomi/Oppo/Vivo...) fon xizmatini o'ldirgan bo'lishi mumkin.
+      // App ochilganda — agar bloklangan ilovalar + ruxsatlar bo'lsa —
+      // xizmatni jimgina qayta tiklaymiz. isRunning() tekshiriladi, shuning
+      // uchun ortiqcha start bo'lmaydi.
+      startBackgroundServiceIfReady();
     }
     SharedPreferences.getInstance().then((p) {
       if (state == AppLifecycleState.resumed) {
