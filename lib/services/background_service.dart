@@ -202,13 +202,13 @@ Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  // Background isolate'da AppTranslationService alohida nusxa —
-  // tilni SharedPreferences'dan o'qib initialize qilamiz. Aks holda
-  // notifikatsiya matnlari va overlay sarlavhasi har doim o'zbekcha
-  // ko'rinardi (default _currentLanguage = 'uz').
-  try {
-    await AppTranslationService().init();
-  } catch (_) {}
+  // MUHIM: AppTranslationService().init() avval shu yerda (eng tepada)
+  // chaqirilardi — lekin u `await` bo'lgani uchun, agar UI startService()
+  // dan keyin darrov invoke('startTimer') yuborsa, event 'startTimer'
+  // listeneri (pastda) hali RO'YXATDAN O'TMAGAN paytda kelib YO'QOLARDI.
+  // Natijada taymer sanamasdi va bloklash ishlamasdi (Light Focus ham).
+  // Yechim: barcha service.on(...) listenerlarni AVVAL ro'yxatdan
+  // o'tkazamiz (sinxron, await yo'q), keyin init() ni chaqiramiz.
 
   if (service is AndroidServiceInstance) {
     // Android 12+ uchun xizmatni darhol foreground qilish shart
@@ -668,6 +668,14 @@ void onStart(ServiceInstance service) async {
     syncTimer();
   });
 
+  // Endi barcha listener'lar ro'yxatdan o'tdi — til faylini init qilamiz.
+  // (Bu await yuqorida edi; listener'lardan oldin bo'lgani uchun invoke
+  // eventi yo'qolardi. Endi listener'lardan keyin.) Notif/overlay matnlari
+  // foydalanuvchi tilida chiqsin.
+  try {
+    await AppTranslationService().init();
+  } catch (_) {}
+
   // Avvalgi holatni tiklash. Uchta ssenariy:
   //   1. Taymer ishlayotgan edi (running=true, paused=false) — qolgan
   //      vaqtni endTime'dan hisoblab davom ettiramiz.
@@ -698,6 +706,12 @@ void onStart(ServiceInstance service) async {
       modeName = prefs.getString('timer_mode_name') ?? "";
       modeIcon = prefs.getString('timer_mode_icon') ?? "";
       levelTitle = prefs.getString('timer_level_title') ?? "";
+      isStrict = prefs.getBool('timer_is_strict') ?? false;
+      isLightMode = prefs.getBool('timer_is_light') ?? false;
+      // Pauza budjeti — focus_timer_service start paytida prefs'ga yozadi.
+      // Cold start'da invoke yo'qolsa ham shu yerdan tiklanadi.
+      pauseRemainingSeconds = prefs.getInt('focus_pause_remaining_seconds') ?? 0;
+      pauseUnlimited = prefs.getBool('focus_pause_unlimited') ?? false;
     } else {
       // Taymer service uxlab turganida tabiiy ravishda tugagan.
       // Saqlangan session uchun pending XP yozamiz va history'ga

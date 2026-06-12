@@ -57,6 +57,47 @@ class FocusTimerService {
     required bool isLight,
     bool isPremium = false,
   }) async {
+    // ROBUST START: taymer holatini AVVAL SharedPreferences'ga yozamiz.
+    // Sabab: cold start'da background isolate hali to'liq ko'tarilmagan
+    // bo'lsa, invoke('startTimer') eventi yo'qolishi mumkin (listener hali
+    // ulanmagan). Lekin onStart restore fazasi prefs'dan timer_is_running +
+    // timer_end_timestamp'ni o'qiydi — shu sababli bu yozuv kafolat beradi:
+    // event yo'qolsa ham taymer baribir sanaydi va bloklash ishga tushadi.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final endTime = DateTime.now().add(Duration(seconds: minutes * 60));
+      // Pauza budjeti — background startTimer listener bilan bir xil mantiq.
+      int pauseRemaining;
+      bool pauseUnlimited;
+      if (isPremium || isLight) {
+        pauseUnlimited = true;
+        pauseRemaining = 0;
+      } else {
+        pauseUnlimited = false;
+        if (minutes <= 30) {
+          pauseRemaining = 0;
+        } else if (minutes <= 60) {
+          pauseRemaining = 300;
+        } else {
+          pauseRemaining = 600;
+        }
+      }
+      await prefs.setBool('timer_is_running', true);
+      await prefs.setBool('timer_is_paused', false);
+      await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
+      await prefs.setInt('session_initial_seconds', minutes * 60);
+      await prefs.setBool('timer_is_strict', isStrict);
+      await prefs.setBool('timer_is_light', isLight);
+      await prefs.setBool('timer_is_premium', isPremium);
+      await prefs.setString('timer_mode_name', modeName);
+      await prefs.setString('timer_mode_icon', modeIcon);
+      await prefs.setString('timer_level_title', levelTitle);
+      await prefs.setInt('focus_pause_remaining_seconds', pauseRemaining);
+      await prefs.setBool('focus_pause_unlimited', pauseUnlimited);
+    } catch (e) {
+      debugPrint('[FocusTimerService] prefs pre-write error: $e');
+    }
+
     // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz.
     // BARCHA bosqichlar himoyalangan — bironta exception ham timer
     // boshlanishini to'xtatmasligi kerak. Avval xizmat to'g'ri
