@@ -570,6 +570,8 @@ class AppTranslationService {
         'pause_over_msg': 'Pauza vaqti tugadi — fokus davom etmoqda',
         'blocking_disabled_warn':
             'Ruxsat berilmadi — bloklash ishlamaydi, lekin fokus taymeri davom etadi.',
+        'service_start_failed':
+            'Fon xizmati ishga tushmadi — bir necha soniyadan keyin qayta urinib ko\'ring.',
         'tips_fallback': 'Sevimli faoliyatingizni bajaring yoki dam oling',
         'tips': [
           'Sevimli faoliyatingizni bajaring yoki bir oz dam oling 🌿',
@@ -1165,6 +1167,8 @@ class AppTranslationService {
         'pause_over_msg': 'Pause time is over — focus continues',
         'blocking_disabled_warn':
             'Permission not granted — blocking won\'t work, but the focus timer continues.',
+        'service_start_failed':
+            'Background service failed to start — please try again in a few seconds.',
         'tips_fallback': 'Do your favorite activity or take a break',
         'tips': [
           'Do your favorite activity or take a short break 🌿',

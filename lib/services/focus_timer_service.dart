@@ -47,8 +47,9 @@ class FocusTimerService {
     _service.invoke('stopAlarm');
   }
 
-  /// Taymerni boshlash
-  Future<void> startTimer({
+  /// Taymerni boshlash. `true` — xizmat ishga tushdi va taymer haqiqatan
+  /// boshlandi; `false` — xizmat ko'tarilmadi (UI foydalanuvchiga aytadi).
+  Future<bool> startTimer({
     required int minutes,
     required String modeName,
     required String modeIcon,
@@ -66,34 +67,26 @@ class FocusTimerService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final endTime = DateTime.now().add(Duration(seconds: minutes * 60));
-      // Pauza budjeti — background startTimer listener bilan bir xil mantiq.
-      int pauseRemaining;
-      bool pauseUnlimited;
-      if (isPremium || isLight) {
-        pauseUnlimited = true;
-        pauseRemaining = 0;
-      } else {
-        pauseUnlimited = false;
-        if (minutes <= 30) {
-          pauseRemaining = 0;
-        } else if (minutes <= 60) {
-          pauseRemaining = 300;
-        } else {
-          pauseRemaining = 600;
-        }
-      }
-      await prefs.setBool('timer_is_running', true);
-      await prefs.setBool('timer_is_paused', false);
-      await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
-      await prefs.setInt('session_initial_seconds', minutes * 60);
-      await prefs.setBool('timer_is_strict', isStrict);
-      await prefs.setBool('timer_is_light', isLight);
-      await prefs.setBool('timer_is_premium', isPremium);
-      await prefs.setString('timer_mode_name', modeName);
-      await prefs.setString('timer_mode_icon', modeIcon);
-      await prefs.setString('timer_level_title', levelTitle);
-      await prefs.setInt('focus_pause_remaining_seconds', pauseRemaining);
-      await prefs.setBool('focus_pause_unlimited', pauseUnlimited);
+      // Pauza budjeti — yagona manba: computePauseBudget (background
+      // listener va UI dialogi ham aynan shu funksiyani chaqiradi).
+      final budget = computePauseBudget(
+          minutes: minutes, isPremium: isPremium, isLight: isLight);
+      // Yozuvlar bir-biriga bog'liq emas — parallel yozamiz (12 ta
+      // ketma-ket platform round-trip o'rniga bitta kutish).
+      await Future.wait([
+        prefs.setBool('timer_is_running', true),
+        prefs.setBool('timer_is_paused', false),
+        prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch),
+        prefs.setInt('session_initial_seconds', minutes * 60),
+        prefs.setInt('session_credited_seconds', 0),
+        prefs.setBool('timer_is_strict', isStrict),
+        prefs.setBool('timer_is_light', isLight),
+        prefs.setString('timer_mode_name', modeName),
+        prefs.setString('timer_mode_icon', modeIcon),
+        prefs.setString('timer_level_title', levelTitle),
+        prefs.setInt('focus_pause_remaining_seconds', budget.seconds),
+        prefs.setBool('focus_pause_unlimited', budget.unlimited),
+      ]);
     } catch (e) {
       debugPrint('[FocusTimerService] prefs pre-write error: $e');
     }
@@ -121,10 +114,26 @@ class FocusTimerService {
       debugPrint('[FocusTimerService] startService error: $e');
     }
 
-    // Xizmat tayyor bo'lmasa ham invoke yuboramiz — ba'zi qurilmalarda
-    // isRunning() kech true qaytaradi, lekin event navbatga tushib
-    // qabul qilinadi. Agar xizmat haqiqatan ko'tarilmagan bo'lsa, keyingi
-    // app resume'da startBackgroundServiceIfReady qayta urinadi.
+    if (!running) {
+      // Xizmat 3 sekundda ham ko'tarilmadi — pre-write'ni QAYTARAMIZ.
+      // Aks holda prefs'da "strict seans ishlayapti" degan soxta holat
+      // qoladi: block_list toggle'lari qulflanadi, DnD recovery o'tkazib
+      // yuboriladi, keyinroq xizmat ko'tarilsa arvoh seans uchun XP
+      // yoziladi. Rollback'dan keyin foydalanuvchi qayta urinadi.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await Future.wait([
+          prefs.setBool('timer_is_running', false),
+          prefs.setBool('timer_is_strict', false),
+          prefs.remove('timer_end_timestamp'),
+          prefs.remove('session_initial_seconds'),
+          prefs.remove('session_credited_seconds'),
+        ]);
+      } catch (_) {}
+      debugPrint('[FocusTimerService] service failed to start — rolled back');
+      return false;
+    }
+
     _service.invoke('startTimer', {
       'minutes': minutes,
       'modeName': modeName,
@@ -140,6 +149,7 @@ class FocusTimerService {
     // "siz hali boshlamadingiz" eslatma keraksiz. Bekor qilamiz va
     // ertangi kunga qayta rejalashtiramiz.
     StreakReminderService().cancelTodayReminderIfFocused();
+    return true;
   }
 
   /// Taymerni to'xtatish (manuil)

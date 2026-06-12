@@ -61,7 +61,8 @@ bool _hasEnabledSchedule(SharedPreferences prefs) {
 }
 
 Future<bool> startBackgroundServiceIfReady() async {
-  if (kIsWeb) return false;
+  // Xizmat — faqat Android funksiyasi (overlay + usage stats).
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
 
   try {
     final prefs = await SharedPreferences.getInstance();
@@ -76,27 +77,10 @@ Future<bool> startBackgroundServiceIfReady() async {
       return false;
     }
 
-    bool overlayOk = await Permission.systemAlertWindow.isGranted;
-    if (!overlayOk) {
-      debugPrint('Service not started: overlay permission missing');
-      return false;
-    }
-
-    bool usageOk = false;
-    try {
-      usageOk = await UsageStats.checkUsagePermission() ?? false;
-    } catch (_) {}
-    if (!usageOk) {
-      try {
-        final now = DateTime.now();
-        await AppUsage()
-            .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
-            .timeout(const Duration(milliseconds: 2000));
-        usageOk = true;
-      } catch (_) {}
-    }
-    if (!usageOk) {
-      debugPrint('Service not started: usage stats permission missing');
+    // Yagona umumiy probe — yuqoridagi hasBlockingPermissions bilan bir xil
+    // mantiqning ikkinchi nusxasi shu yerda inline turardi; endi bitta.
+    if (!await hasBlockingPermissions()) {
+      debugPrint('Service not started: overlay/usage permission missing');
       return false;
     }
 
