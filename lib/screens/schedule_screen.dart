@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_usage/app_usage.dart';
+import '../services/service_starter.dart';
 
 /// Chuqur Fokus → Kengaytirilgan: kundalik tartib uchun vaqt oynasi
 /// jadvallari. Har bir jadval belgilangan vaqt oynasida (masalan
@@ -66,6 +69,59 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, jsonEncode(_schedules));
+    // Jadval focus taymeridan mustaqil ishlaydi — bloklash uchun background
+    // service ishlab turishi shart. Saqlagandan keyin darrov ishga tushiramiz
+    // (allaqachon ishlayotgan bo'lsa hech narsa qilmaydi). Ishlab turgan
+    // service yangi jadvalni ~5s ichida throttled reload orqali ko'radi.
+    final hasEnabled = _schedules.any((s) => s['enabled'] == true);
+    if (hasEnabled) {
+      await startBackgroundServiceIfReady();
+    }
+  }
+
+  /// Birinchi yoqilgan jadval qo'shilganda kerakli ruxsatlarni tekshirish.
+  /// Bloklash ishlashi uchun overlay (boshqa ilova ustida ko'rsatish) va
+  /// usage access (qaysi ilova ochiqligini bilish) ruxsatlari kerak.
+  Future<void> _ensureBlockingPermissions() async {
+    bool overlayOk = await Permission.systemAlertWindow.isGranted;
+    bool usageOk = false;
+    try {
+      final now = DateTime.now();
+      await AppUsage()
+          .getAppUsage(now.subtract(const Duration(minutes: 30)), now);
+      usageOk = true;
+    } catch (_) {
+      usageOk = false;
+    }
+    if (overlayOk && usageOk) return;
+    if (!mounted) return;
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Ruxsatlar kerak'),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+              'Jadval bo\'yicha ilovalarni bloklash uchun "Boshqa ilova ustida '
+              'ko\'rsatish" va "Foydalanish ma\'lumotlari" ruxsatlarini yoqing. '
+              'Ruxsatlar bo\'limidan yoqishingiz mumkin.'),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Keyinroq'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Sozlamalar'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   String _fmt(int minutes) {
@@ -100,6 +156,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       }
     });
     await _save();
+    // Yoqilgan jadval saqlandi — bloklash uchun ruxsatlar borligini
+    // tekshiramiz, yetishmasa foydalanuvchini yo'naltiramiz.
+    if (result['enabled'] == true) {
+      await _ensureBlockingPermissions();
+    }
   }
 
   Future<void> _toggleEnabled(int index, bool value) async {
@@ -133,24 +194,41 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               children: [
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: primary.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: primary.withOpacity(0.12)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(CupertinoIcons.moon_stars_fill, color: primary, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Kundalik tartib uchun vaqt oynasi belgilang — masalan 23:00–07:00. Shu vaqtda tanlangan ilovalar avtomatik bloklanadi.',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.5,
-                              height: 1.35,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-                        ),
+                      Row(
+                        children: [
+                          Icon(CupertinoIcons.moon_stars_fill, color: primary, size: 20),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Qanday ishlaydi',
+                            style: GoogleFonts.inter(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: Theme.of(context).colorScheme.onSurface),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _howToRow('1.', 'Vaqt oynasi belgilang — masalan 23:00–07:00 (tungi oyna ham bo\'ladi).', primary),
+                      _howToRow('2.', 'Bloklanadigan ilovalarni va kunlarni tanlang.', primary),
+                      _howToRow('3.', 'Shu vaqt oynasida tanlangan ilovalar AVTOMATIK bloklanadi — Chuqur yoki Yengil Fokusni boshlash SHART EMAS.', primary),
+                      _howToRow('4.', 'Bloklashni vaqtincha to\'xtatish uchun jadval yonidagi kalitni o\'chiring yoki jadvalni o\'chirib tashlang.', primary),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Eslatma: ishlashi uchun "Boshqa ilova ustida ko\'rsatish" va "Foydalanish ma\'lumotlari" ruxsatlari yoqilgan bo\'lishi kerak.',
+                        style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            height: 1.35,
+                            fontStyle: FontStyle.italic,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55)),
                       ),
                     ],
                   ),
@@ -186,6 +264,28 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _howToRow(String num, String text, Color primary) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(num,
+              style: GoogleFonts.inter(
+                  fontSize: 12.5, fontWeight: FontWeight.w800, color: primary)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
+          ),
+        ],
+      ),
     );
   }
 

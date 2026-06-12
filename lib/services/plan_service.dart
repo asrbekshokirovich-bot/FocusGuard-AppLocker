@@ -91,6 +91,28 @@ class PlanService {
 
   /// Foydalanuvchidan exact alarm ruxsatini so'rash (Android 12-13).
   /// Android 14+da USE_EXACT_ALARM avtomatik beriladi, bu chaqirilmaydi.
+  /// Reja qo'shishdan OLDIN ruxsatlarni proaktiv ta'minlash. Ko'p
+  /// qurilmalarda (Samsung/Xiaomi) POST_NOTIFICATIONS va "Signallar va
+  /// eslatmalar" (exact alarm) ruxsatlari boshda yo'q — bo'lmasa bildirishnoma
+  /// jimgina rejalashtirilmaydi yoki noaniq vaqtda keladi. Shuni oldini olamiz.
+  ///
+  /// Returns: ikkala ruxsat ham berilgan bo'lsa true.
+  Future<bool> ensurePermissionsForScheduling() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
+    // 1. POST_NOTIFICATIONS (Android 13+) — runtime so'rash.
+    var notif = await Permission.notification.status;
+    if (!notif.isGranted) {
+      notif = await Permission.notification.request();
+    }
+    // 2. Exact alarm (Android 12+) — yo'q bo'lsa so'rash dialogini ochamiz.
+    final canExact = await _canScheduleExactAlarms();
+    if (!canExact) {
+      await requestExactAlarmPermission();
+    }
+    final canExactAfter = await _canScheduleExactAlarms();
+    return notif.isGranted && canExactAfter;
+  }
+
   Future<void> requestExactAlarmPermission() async {
     try {
       final android = _plugin

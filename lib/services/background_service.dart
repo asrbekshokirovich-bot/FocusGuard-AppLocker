@@ -794,16 +794,41 @@ void onStart(ServiceInstance service) async {
   // Shovqinga chidamlilik: "bloklanmagan" signali 3 ta ketma-ket
   // 250ms checkda kelsa overlay yopiladi (750ms — avval 1s tick × 3 = 3s edi).
   int notBlockedFastTicks = 0;
+  // Jadval ma'lumotlari va alarm flagini yangilab turish uchun throttled
+  // reload hisoblagichi. 250ms × 20 = ~5s. SharedPreferences background
+  // isolate'da o'z keshiga ega — UI yangi jadval qo'shsa, reload'siz
+  // ko'rinmaydi. Har tick reload qilish qimmat, shuning uchun ~5s da bir.
+  int fastReloadCounter = 0;
 
   Timer.periodic(const Duration(milliseconds: 250), (fastTimer) async {
-    // Faqat bloklangan ilovalar bo'lsa ishlaydi.
     try {
+      // Jadval/alarm holatini ~5s da bir marotaba diskdan yangilaymiz.
+      fastReloadCounter++;
+      if (fastReloadCounter >= 20) {
+        fastReloadCounter = 0;
+        try {
+          await prefs.reload();
+        } catch (_) {}
+      }
+
+      // BLOKLASH QOIDASI:
+      //  • `blocked_apps` — FAQAT focus taymeri ishlayotganda bloklanadi.
+      //    Taymer to'xtagan/pauza/umuman yo'q bo'lsa — bu ilovalar ochiq.
+      //  • Jadval ilovalari — taymerdan MUSTAQIL, faqat o'z vaqt oynasida
+      //    bloklanadi (focus boshlash shart emas).
       final Set<String> effectiveBlocked = {
-        ...blockedApps,
+        if (isTimerRunning) ...blockedApps,
         ...activeScheduleBlockedApps(prefs),
       };
       if (effectiveBlocked.isEmpty) {
         notBlockedFastTicks = 0;
+        // Hech narsa bloklanmasligi kerak — agar bloklash overlay'i ochiq
+        // qolgan bo'lsa (taymer endigina tugadi yoki jadval oynasi yopildi)
+        // uni yopamiz. Alarm overlay'iga tegmaymiz.
+        final alarmActive = prefs.getBool('timer_alarm_active') ?? false;
+        if (!alarmActive && await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
         return;
       }
 

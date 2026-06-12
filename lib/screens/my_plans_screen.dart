@@ -532,6 +532,10 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                     // O'tib ketgan vaqtga yangi reja qo'shilmasligi kerak
                                     if (editPlan == null && dt.isBefore(DateTime.now())) return;
                                     Navigator.pop(context);
+                                    // Ruxsatlarni OLDINDAN ta'minlaymiz — bildirishnoma
+                                    // belgilangan vaqtda kafolatli kelishi uchun.
+                                    await PlanService.instance
+                                        .ensurePermissionsForScheduling();
                                     SchedResult schedResult;
                                     if (editPlan != null) {
                                       schedResult = await PlanService.instance.updatePlan(
