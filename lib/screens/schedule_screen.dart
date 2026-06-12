@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import '../services/service_starter.dart';
 
 /// Chuqur Fokus → Kengaytirilgan: kundalik tartib uchun vaqt oynasi
 /// jadvallari. Har bir jadval belgilangan vaqt oynasida (masalan
@@ -66,6 +69,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, jsonEncode(_schedules));
+
+    // MUHIM: Jadval o'zgarishi DARROV kuchga kirishi uchun background
+    // xizmatni xabardor qilamiz. Aks holda jadval bloklash service qayta
+    // ishga tushgunча ishlamasdi (background isolate'ning prefs keshi
+    // eskirgan bo'lardi va faqat-jadval foydalanuvchisida xizmat umuman
+    // ishga tushmasdi — start sharti faqat blocked_apps edi).
+    if (kIsWeb) return;
+    try {
+      final hasEnabledSchedule = _schedules.any((s) => s['enabled'] == true);
+      final service = FlutterBackgroundService();
+      final running = await service.isRunning();
+      if (running) {
+        // Ishlayotgan bo'lsa — reload qilishga undaymiz (updateBlockedApps
+        // listener prefs.reload() chaqiradi, focus_schedules ham yangilanadi).
+        service.invoke('updateBlockedApps');
+      } else if (hasEnabledSchedule) {
+        // Ishlamayotgan bo'lsa va faol jadval bo'lsa — ishga tushiramiz.
+        await startBackgroundServiceIfReady();
+      }
+    } catch (_) {}
   }
 
   String _fmt(int minutes) {

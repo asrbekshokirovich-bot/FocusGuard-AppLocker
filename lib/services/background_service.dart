@@ -287,6 +287,10 @@ void onStart(ServiceInstance service) async {
   int notBlockedTicks = 0;
   String? currentBlockedApp;
   DateTime? suppressUntil;
+  // Jadval/bloklash ro'yxati ma'lumotini davriy yangilab turish uchun
+  // hisoblagich. Har 5 tickda prefs.reload() qilamiz — UI'da saqlangan
+  // yangi `focus_schedules`/`blocked_apps` event yo'qolsa ham ko'rinadi.
+  int blockReloadTick = 0;
 
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
@@ -1154,6 +1158,19 @@ void onStart(ServiceInstance service) async {
         }
         currentBlockedApp = null;
         return;
+      }
+
+      // Xavfsizlik to'ri: har 5 tickda prefs'ni reload qilamiz va
+      // blocked_apps'ni qayta o'qiymiz. Shunda UI'da saqlangan yangi
+      // jadval (`focus_schedules`) yoki bloklangan ilovalar — invoke
+      // eventi yo'qolgan/kechikkan bo'lsa ham — ko'rinadi.
+      blockReloadTick++;
+      if (blockReloadTick >= 5) {
+        blockReloadTick = 0;
+        try {
+          await prefs.reload();
+          blockedApps = prefs.getStringList('blocked_apps') ?? blockedApps;
+        } catch (_) {}
       }
 
       // Doimiy bloklangan ilovalar + faol jadval oynasidagi ilovalar.
