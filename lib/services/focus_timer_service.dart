@@ -55,6 +55,7 @@ class FocusTimerService {
     required String levelTitle,
     required bool isStrict,
     required bool isLight,
+    bool isPremium = false,
   }) async {
     // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz.
     // BARCHA bosqichlar himoyalangan — bironta exception ham timer
@@ -90,6 +91,7 @@ class FocusTimerService {
       'levelTitle': levelTitle,
       'isStrict': isStrict,
       'isLight': isLight,
+      'isPremium': isPremium,
     });
     _isRunning = true;
 

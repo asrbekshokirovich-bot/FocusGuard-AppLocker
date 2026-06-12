@@ -255,6 +255,17 @@ void onStart(ServiceInstance service) async {
   // uchun memoryda yig'amiz, stop/pause/complete'da flush qilamiz.
   int lightFocusBuffer = 0;
 
+  // ───────────── Pauza budjeti (Chuqur Fokus) ─────────────
+  // Bepul foydalanuvchida pauza vaqti cheklangan:
+  //   • ≤30 daq seans: 0 (pauza yo'q)
+  //   • 30–60 daq: jami 5 daqiqa (300 sek)
+  //   • 60+ daq: jami 10 daqiqa (600 sek)
+  // Pauza paytida bloklangan ilovalardan foydalanish mumkin — shu vaqt
+  // budjetdan yechiladi. Budjet tugasa taymer avtomatik davom etadi va
+  // bloklash qaytadi. Premium foydalanuvchida pauza cheksiz.
+  int pauseRemainingSeconds = 0;
+  bool pauseUnlimited = false;
+
   // Kunlik maqsad o'zgaruvchilari
   int todayFocusSeconds = 0;
   int dailyGoalSeconds = 7200; // Standart 2 soat (foydalanuvchi o'zgartira oladi)
@@ -454,6 +465,10 @@ void onStart(ServiceInstance service) async {
       'isPaused': isPaused,
       'modeName': modeName,
       'modeIcon': modeIcon,
+      // Pauza budjeti — UI "Pauza: 3:45 qoldi" ko'rsatadi va budjet 0 bo'lsa
+      // pauza tugmasini o'chiradi.
+      'pauseRemaining': pauseRemainingSeconds,
+      'pauseUnlimited': pauseUnlimited,
     });
 
     if (updateNotification && service is AndroidServiceInstance) {
@@ -524,6 +539,27 @@ void onStart(ServiceInstance service) async {
     await prefs.setBool('timer_is_light', isLightMode);
     isTimerRunning = true;
     isPaused = false; // yangi sessiya — paused emas
+
+    // ───────── Pauza budjeti hisoblash ─────────
+    // Premium foydalanuvchi yoki Yengil Fokus → cheksiz pauza.
+    // Bepul + Chuqur Fokus → seans davomiyligiga qarab bosqichli budjet.
+    final bool isPremium = (event['isPremium'] as bool?) ?? false;
+    await prefs.setBool('timer_is_premium', isPremium);
+    if (isPremium || isLightMode) {
+      pauseUnlimited = true;
+      pauseRemainingSeconds = 0;
+    } else {
+      pauseUnlimited = false;
+      if (minutes <= 30) {
+        pauseRemainingSeconds = 0; // qisqa seans — pauza yo'q
+      } else if (minutes <= 60) {
+        pauseRemainingSeconds = 300; // 5 daqiqa
+      } else {
+        pauseRemainingSeconds = 600; // 10 daqiqa
+      }
+    }
+    await prefs.setInt('focus_pause_remaining_seconds', pauseRemainingSeconds);
+    await prefs.setBool('focus_pause_unlimited', pauseUnlimited);
 
     // Tugash vaqtini saqlash
     final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
@@ -706,6 +742,9 @@ void onStart(ServiceInstance service) async {
     modeName = prefs.getString('timer_mode_name') ?? "";
     modeIcon = prefs.getString('timer_mode_icon') ?? "";
     levelTitle = prefs.getString('timer_level_title') ?? "";
+    // Pauza budjetini tiklash (app o'ldirilib qayta ochilgan bo'lsa).
+    pauseRemainingSeconds = prefs.getInt('focus_pause_remaining_seconds') ?? 0;
+    pauseUnlimited = prefs.getBool('focus_pause_unlimited') ?? false;
   }
 
   // Kunlik ma'lumotlarni yuklash
@@ -978,6 +1017,34 @@ void onStart(ServiceInstance service) async {
           await flushLightFocusBuffer();
         }
       }
+    } else if (isPaused && !pauseUnlimited) {
+      // ───────── Pauza budjeti sarflanmoqda ─────────
+      // Foydalanuvchi pauzada — bloklangan ilovalardan foydalanyapti.
+      // Har soniyada budjetdan ayiramiz. Budjet tugasa taymer avtomatik
+      // davom etadi va bloklash qaytadi.
+      if (pauseRemainingSeconds > 0) {
+        pauseRemainingSeconds--;
+        if (pauseRemainingSeconds % 5 == 0 || pauseRemainingSeconds < 10) {
+          await prefs.setInt(
+              'focus_pause_remaining_seconds', pauseRemainingSeconds);
+        }
+      }
+      if (pauseRemainingSeconds <= 0) {
+        // Budjet tugadi — avtomatik davom ettiramiz.
+        isPaused = false;
+        isTimerRunning = true;
+        pauseRemainingSeconds = 0;
+        await prefs.setInt('focus_pause_remaining_seconds', 0);
+        final endTime =
+            DateTime.now().add(Duration(seconds: remainingSeconds));
+        await prefs.setInt(
+            'timer_end_timestamp', endTime.millisecondsSinceEpoch);
+        await prefs.setBool('timer_is_running', true);
+        await prefs.setBool('timer_is_paused', false);
+        service.invoke('pauseEnded', {});
+        debugPrint('[BackgroundTimer] pause budget exhausted → auto-resume');
+      }
+      syncTimer();
     }
 
     // 2. Kunlik tahlil logikasi
@@ -1064,6 +1131,17 @@ void onStart(ServiceInstance service) async {
     // "queryEvents bir-ikki tickda bo'sh qaytdi" kabi shovqinli
     // hodisalardan ta'sirlanmaydi.
     try {
+      // Pauza paytida bloklash to'xtaydi — foydalanuvchi pauza budjeti
+      // doirasida bloklangan ilovalardan foydalana oladi. Ochiq overlay
+      // bo'lsa yopamiz.
+      if (isPaused) {
+        if (await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
+        currentBlockedApp = null;
+        return;
+      }
+
       // Doimiy bloklangan ilovalar + faol jadval oynasidagi ilovalar.
       final Set<String> effectiveBlocked = {
         ...blockedApps,
