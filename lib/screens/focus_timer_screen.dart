@@ -14,12 +14,15 @@ import '../services/app_translation_service.dart';
 import '../services/timer_notification_service.dart';
 import '../services/level_service.dart';
 import '../services/focus_timer_service.dart';
+import '../services/background_service.dart' show computePauseBudget;
 import '../services/soundscape_service.dart';
 import '../services/dnd_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:app_usage/app_usage.dart';
+import '../services/service_starter.dart';
 import 'permissions_screen.dart';
+
+/// Chuqur Fokus boshlash dialogidagi foydalanuvchi tanlovi.
+enum _StartChoice { cancel, blockApps, start }
 
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
@@ -65,6 +68,32 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   late PageController _activityPageController;
   int _currentActivityPage = 0;
 
+  // Premium holati — Chuqur Fokus pauza/to'xtatish cheklovlarini boshqaradi.
+  bool _isPremium = false;
+  // Pauza budjeti (background service'dan timerTick orqali keladi).
+  int _pauseRemaining = 0;
+  bool _pauseUnlimited = false;
+  // Kunlik bajarilgan faoliyatlar (odat checkbox) — `activity_done_$today`.
+  Set<String> _activityDone = {};
+  // Default faoliyatlar birinchi marta qo'shilganini belgilash (saqlash uchun).
+  bool _seedDefaultActivities = false;
+  // Tepadagi shaffof banner — aylanma maslahatlar.
+  int _tipIndex = 0;
+  Timer? _tipTimer;
+
+  /// Mashhur faoliyatlar — yangi foydalanuvchiga tayyor turadi.
+  List<Map<String, dynamic>> _defaultActivities() {
+    final lang = AppTranslationService();
+    return [
+      {'name': lang.translate('focus_timer.preset.reading'), 'minutes': 45},
+      {'name': lang.translate('focus_timer.preset.exercise'), 'minutes': 30},
+      {'name': lang.translate('focus_timer.preset.coding'), 'minutes': 60},
+      {'name': lang.translate('focus_timer.preset.language'), 'minutes': 30},
+      {'name': lang.translate('focus_timer.preset.meditation'), 'minutes': 15},
+      {'name': lang.translate('focus_timer.preset.work'), 'minutes': 60},
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -88,11 +117,32 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
           return;
         }
 
+        // Pauza budjeti tugab avtomatik davom etganini aniqlaymiz —
+        // foydalanuvchini qisqa xabar bilan ogohlantiramiz.
+        final wasPaused = _isPaused;
+        final newPaused = event['isPaused'] ?? _isPaused;
+        final newRunning = event['isRunning'] ?? _isRunning;
         setState(() {
           _remainingSeconds = event['seconds'] ?? _remainingSeconds;
-          _isRunning = event['isRunning'] ?? _isRunning;
-          _isPaused = event['isPaused'] ?? _isPaused;
+          _isRunning = newRunning;
+          _isPaused = newPaused;
+          _pauseRemaining = (event['pauseRemaining'] as num?)?.toInt() ?? _pauseRemaining;
+          _pauseUnlimited = event['pauseUnlimited'] ?? _pauseUnlimited;
+          // Seans faol bo'lsa, tanlangan rejimni SEANS rejimiga sinxronlaymiz.
+          // Stop/pauza qulflari _selectedMode'ga bog'liq — ekran qayta
+          // ochilganda default Deep (0) bo'lib qolsa, Yengil seans egasi
+          // noto'g'ri Premium qulfiga duch kelardi.
+          if ((newRunning || newPaused) && event['isLight'] is bool) {
+            _selectedMode = (event['isLight'] == true) ? 1 : 0;
+          }
         });
+        if (wasPaused && !newPaused && newRunning && !_pauseUnlimited && _pauseRemaining <= 0) {
+          final lang = AppTranslationService();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(lang.translate('focus_timer.pause_over_msg')),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
         // Har stream tick — bugungi progress'ni jonli yangilab turamiz
         // (today_focus_seconds background'da o'sib boryapti).
         _refreshTodayProgress();
@@ -101,6 +151,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
 
     WidgetsBinding.instance.addObserver(this);
     _loadDailyProgress();
+    _loadPremiumStatus();
+    // Tepadagi maslahat bannerini har 6 soniyada aylantiramiz.
+    _tipTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (mounted) setState(() => _tipIndex++);
+    });
     // Anti-Chalg'itish toggle holatini saqlangan qiymatdan yuklash.
     // Foydalanuvchi avval yoqgan/o'chirgan bo'lsa shu qiymat saqlanadi.
     DndService.instance.isToggleEnabled().then((enabled) {
@@ -170,6 +225,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         for (var a in _customActivities) {
           a['minutes'] = int.tryParse(a['minutes'].toString()) ?? 25;
         }
+      } else {
+        // Birinchi ishga tushirish — mashhur faoliyatlarni tayyor qo'yamiz.
+        // Foydalanuvchi o'chirishi yoki o'zinikini qo'shishi mumkin.
+        _customActivities = _defaultActivities();
+        _seedDefaultActivities = true;
       }
 
       // Faoliyat progressini yuklash
@@ -180,7 +240,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       } else {
         _activityProgress = {};
       }
+
+      // Kunlik bajarilgan faoliyatlar (odat checkbox).
+      _activityDone = (prefs.getStringList('activity_done_$today') ?? []).toSet();
     });
+
+    // Default faoliyatlar birinchi marta qo'shildi — saqlaymiz.
+    if (_seedDefaultActivities) {
+      _seedDefaultActivities = false;
+      await _saveActivities();
+    }
 
     // Background servicega maqsadni yuborish
     _timerService.updateDailyGoal((_dailyGoalHours * 3600).toInt());
@@ -213,9 +282,65 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     } catch (_) {}
   }
 
+  /// Premium holatini yuklash — avval lokal kesh (`is_premium`), keyin
+  /// Firestore'dan yangilaymiz. Bu Chuqur Fokus pauza/to'xtatish
+  /// cheklovlarini boshqaradi.
+  Future<void> _loadPremiumStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) setState(() => _isPremium = prefs.getBool('is_premium') ?? false);
+    } catch (_) {}
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(const Duration(seconds: 2));
+        final p = doc.data()?['isPremium'] == true;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_premium', p);
+        if (mounted) setState(() => _isPremium = p);
+      }
+    } catch (_) {}
+  }
+
+  /// Pauza budjeti — yagona manba `computePauseBudget` (background service
+  /// va prewrite ham shuni ishlatadi). -1 = cheksiz, 0 = pauza yo'q.
+  int _pauseBudgetFor(int minutes) {
+    final b = computePauseBudget(
+        minutes: minutes,
+        isPremium: _isPremium,
+        isLight: _selectedMode == 1);
+    if (b.unlimited) return -1;
+    return b.seconds;
+  }
+
+  /// Kunlik bajarilgan faoliyat belgisini almashtirish (odat tracking).
+  Future<void> _toggleActivityDone(String key) async {
+    final today = DateTime.now().toString().split(' ')[0];
+    final prefs = await SharedPreferences.getInstance();
+    final done = (prefs.getStringList('activity_done_$today') ?? []).toSet();
+    if (done.contains(key)) {
+      done.remove(key);
+    } else {
+      done.add(key);
+    }
+    await prefs.setStringList('activity_done_$today', done.toList());
+    if (mounted) setState(() => _activityDone = done);
+  }
+
   Future<void> _saveGoal(double goal) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('daily_goal_hours', goal);
+    // MUHIM: daily_goal_seconds — stats/calendar/notif/history hammasi
+    // o'qiydigan kanonik kalit. Avval u FAQAT background'dagi
+    // updateDailyGoal listener'ida yozilardi; xizmat ishlamayotganda
+    // invoke yo'qolib, maqsad eski qiymatda qolardi (met/calendar/cloud
+    // hammasi noto'g'ri hisoblanardi). Endi UI o'zi to'g'ridan-to'g'ri
+    // yozadi — invoke faqat jonli xizmatga "yangilan" degan signal.
+    await prefs.setInt('daily_goal_seconds', (goal * 3600).round());
     setState(() => _dailyGoalHours = goal);
   }
 
@@ -255,6 +380,14 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     }
   }
 
+  /// Sekundlarni "M:SS" formatiga (pauza budjeti ko'rsatkichi uchun).
+  String _formatMSS(int seconds) {
+    if (seconds < 0) seconds = 0;
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
   /// Sekundlarni "5d 30s" yoki "30s" yoki "5d" formatiga aylantirish.
   /// Activity progress'ni ko'rsatish uchun (kichik vaqtlar uchun aniqlik).
   String _formatActivityProgress(int seconds) {
@@ -270,6 +403,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timerSubscription?.cancel();
+    _tipTimer?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
     _motivationController.dispose();
@@ -284,29 +418,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  /// Bloklash ishlashi uchun overlay + usage ruxsatlari kerak. Taymer
-  /// boshlashdan oldin tekshiramiz; yetishmasa, PermissionsScreen'ni
-  /// ochamiz (u yerdagi tugmalar to'g'ridan-to'g'ri kerakli sahifaga
-  /// olib boradi). Foydalanuvchi qaytib kelgach qayta tekshiramiz.
-  Future<bool> _hasBlockingPermissions() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return true;
-    bool overlayOk = await Permission.systemAlertWindow.isGranted;
-    bool usageOk = false;
-    try {
-      final now = DateTime.now();
-      await AppUsage()
-          .getAppUsage(now.subtract(const Duration(seconds: 1)), now)
-          .timeout(const Duration(milliseconds: 700));
-      usageOk = true;
-    } catch (_) {
-      usageOk = false;
-    }
-    return overlayOk && usageOk;
-  }
+  /// Bloklash ruxsatlari (overlay + usage) — YAGONA umumiy probe.
+  /// service_starter.hasBlockingPermissions: tez UsageStats yo'li + 2s
+  /// AppUsage fallback. Nusxa saqlamaymiz — sozlash (timeout/fallback)
+  /// bitta joyda o'zgaradi va hamma ekran bir xil javob oladi.
+  Future<bool> _hasBlockingPermissions() => hasBlockingPermissions();
 
-  Future<bool> _ensurePermissionsForTimer() async {
-    if (await _hasBlockingPermissions()) return true;
-    if (!mounted) return false;
+  /// Chuqur Fokus uchun bloklash ruxsatlarini ta'minlashga HARAKAT qiladi,
+  /// lekin taymerni HECH QACHON to'sib qo'ymaydi. Ruxsat yetishmasa
+  /// PermissionsScreen'ga yo'naltiradi; qaytib kelganda hali ham yetishmasa —
+  /// foydalanuvchini ogohlantiradi (bloklash ishlamaydi), ammo taymer baribir
+  /// boshlanadi (taymer + DnD + tracking ruxsatga bog'liq emas). Bu — "Focus
+  /// bosilganda hech narsa bo'lmadi" muammosining ildiz yechimi: tugma har
+  /// doim javob beradi.
+  Future<void> _ensurePermissionsForTimer() async {
+    if (await _hasBlockingPermissions()) return;
+    if (!mounted) return;
     // Ruxsat yetishmaydi — PermissionsScreen'ga olib boramiz.
     await Navigator.push(
       context,
@@ -314,15 +441,50 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         builder: (_) => const PermissionsScreen(isFromOnboarding: false),
       ),
     );
-    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor qilamiz.
+    if (!mounted) return;
+    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor
+    // qilamiz; hali ham yo'q bo'lsa — ogohlantirib, baribir davom etamiz.
     final ok = await _hasBlockingPermissions();
-    if (ok) TimerNotificationService().cancelPermissionNudge();
-    return ok;
+    if (ok) {
+      TimerNotificationService().cancelPermissionNudge();
+    } else if (mounted) {
+      final lang = AppTranslationService();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(lang.translate('focus_timer.blocking_disabled_warn')),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   void _startTimer() async {
-    // Taymer boshlashdan oldin bloklash uchun ruxsatlarni talab qilamiz.
-    if (!await _ensurePermissionsForTimer()) return;
+    // Bloklash uchun ruxsatlar FAQAT Chuqur Fokus (mode 0)'da talab qilinadi —
+    // o'sha rejim ilovalarni bloklaydi. Yengil Fokus (mode 1) shunchaki
+    // taymer + tabiat ovozi; u overlay/usage ruxsatisiz ham ishlashi kerak.
+    // Avval ikkala rejim ham gate ortida edi — shuning uchun Yengil Fokus ham
+    // ruxsatsiz qurilmada "ishlamayotgandek" ko'rinardi.
+    if (_selectedMode == 0) {
+      // Ruxsatlarni ta'minlashga harakat qilamiz (lekin taymerni to'smaymiz).
+      await _ensurePermissionsForTimer();
+      if (!mounted) return;
+      // Bloklangan ilova bor-yo'qligini bilib olamiz — eslatma dialogi shu
+      // holatga qarab "Bloklash" tugmasini ham ko'rsatadi (ketma-ket ikkita
+      // dialog o'rniga BITTA tasdiqlash).
+      final prefs = await SharedPreferences.getInstance();
+      final hasBlocked =
+          (prefs.getStringList('blocked_apps') ?? []).isNotEmpty;
+      // Chuqur Fokus boshlashdan oldin eslatma — to'xtatish/pauza cheklovlari
+      // (va bloklangan ilova yo'q bo'lsa ogohlantirish). Tasdiqlamasa
+      // boshlanmaydi.
+      final action = await _showDeepFocusReminder(hasBlockedApps: hasBlocked);
+      if (action == _StartChoice.cancel) return;
+      if (action == _StartChoice.blockApps) {
+        // Foydalanuvchi avval ilova bloklashni tanladi — block list'ga
+        // o'tkazamiz, taymerni boshlamaymiz.
+        widget.onNavigateToBlockList?.call();
+        return;
+      }
+      // action == _StartChoice.start → davom etamiz.
+    }
     final lang = AppTranslationService();
     
     int level = 1;
@@ -350,7 +512,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     final levelLabel = lang.translate('levels.level') ?? 'Daraja';
     final fullLevelTitle = '$levelLabel $level · $rankTitle';
     
-    _timerService.startTimer(
+    final started = await _timerService.startTimer(
       minutes: _selectedMinutes,
       modeName: _selectedMode == 0 ? lang.translate('focus_timer.status_deep') : lang.translate('focus_timer.status_light'),
       modeIcon: _selectedMode == 0 ? '⚡' : '🌿',
@@ -361,7 +523,20 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       // Yengil Fokus rejimi flagini alohida uzatamiz — background service
       // shu qiymat asosida `light_focus_total_seconds` counterni oshiradi.
       isLight: _selectedMode == 1,
+      // Premium foydalanuvchida pauza cheksiz, to'xtatish ham mumkin.
+      isPremium: _isPremium,
     );
+    if (!started) {
+      // Fon xizmati ko'tarilmadi (FocusTimerService rollback qildi).
+      // Jim qolmaymiz — foydalanuvchi nima bo'lganini bilsin va qayta urinsin.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(lang.translate('focus_timer.service_start_failed')),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
 
     // Tabiat ovozi FAQAT Yengil Fokus rejimida chalinadi. Chuqur Fokus —
     // jimgina ishlash kerak (chalg'itmasin). Foydalanuvchi Yengil Fokus'da
@@ -380,6 +555,115 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     if (_selectedMode == 0 && _isAntiDistract) {
       DndService.instance.enableFocusMode();
     }
+  }
+
+  /// Chuqur Fokus boshlashdan oldingi YAGONA tasdiqlash dialogi. Bitta
+  /// joyda hammasini ko'rsatadi:
+  ///   • pauza budjeti (yo'q / N daqiqa / cheksiz)
+  ///   • to'xtatish holati (Premium qulfi yoki ochiq)
+  ///   • bloklangan ilova yo'q bo'lsa — qisqa ogohlantirish + "Bloklash" yo'li
+  /// Ketma-ket ikkita dialog (avvalgi "no blocked apps" + "reminder") o'rniga
+  /// shu bitta dialog ishlatiladi. Foydalanuvchi tanloviga qarab _StartChoice
+  /// qaytaradi.
+  Future<_StartChoice> _showDeepFocusReminder(
+      {required bool hasBlockedApps}) async {
+    final lang = AppTranslationService();
+    final budget = _pauseBudgetFor(_selectedMinutes);
+    String pauseLine;
+    if (budget < 0) {
+      pauseLine = lang.translate('focus_timer.reminder.pause_unlimited');
+    } else if (budget == 0) {
+      pauseLine = lang.translate('focus_timer.reminder.pause_none');
+    } else {
+      pauseLine = lang
+          .translate('focus_timer.reminder.pause_limited')
+          .replaceAll('{min}', (budget ~/ 60).toString());
+    }
+    final stopLine = _isPremium
+        ? lang.translate('focus_timer.reminder.stop_premium')
+        : lang.translate('focus_timer.reminder.stop_locked');
+
+    final result = await showCupertinoDialog<_StartChoice>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(lang.translate('focus_timer.reminder.title')),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('⏸  $pauseLine',
+                  style: GoogleFonts.inter(fontSize: 13.5, height: 1.4)),
+              const SizedBox(height: 8),
+              Text('🛑  $stopLine',
+                  style: GoogleFonts.inter(fontSize: 13.5, height: 1.4)),
+              if (!hasBlockedApps) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '🛡  ${lang.translate('focus_timer.no_blocked_apps_desc')}',
+                  style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      height: 1.4,
+                      color: const Color(0xFFFF9500)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, _StartChoice.cancel),
+            child: Text(lang.translate('focus_timer.cancel')),
+          ),
+          // Bloklangan ilova yo'q bo'lsa — "Bloklash" yo'lini taklif qilamiz.
+          if (!hasBlockedApps)
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx, _StartChoice.blockApps),
+              child: Text(lang.translate('focus_timer.btn_block') ?? 'Bloklash'),
+            ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, _StartChoice.start),
+            child: Text(lang.translate('focus_timer.reminder.confirm')),
+          ),
+        ],
+      ),
+    );
+    return result ?? _StartChoice.cancel;
+  }
+
+  /// Premium taklif dialogi — bepul foydalanuvchi to'xtatish/pauza
+  /// cheklovga urilganda ko'rsatiladi.
+  void _showPremiumUpsell(String body) {
+    final lang = AppTranslationService();
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(lang.translate('focus_timer.upsell.title')),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(body, style: GoogleFonts.inter(fontSize: 13.5, height: 1.4)),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(lang.translate('focus_timer.cancel')),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                CupertinoPageRoute(builder: (_) => const PremiumScreen()),
+              );
+            },
+            child: Text(lang.translate('focus_timer.upsell.cta')),
+          ),
+        ],
+      ),
+    );
   }
 
   void _pauseTimer() {
@@ -583,38 +867,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
             child: Text(
               lang.translate('alarm.dismiss_btn'),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showNoBlockedAppsDialog() {
-    final lang = AppTranslationService();
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(lang.translate('focus_timer.no_blocked_apps_title') ?? "Diqqat! 🛡️"),
-        content: Text(
-          lang.translate('focus_timer.no_blocked_apps_desc') ?? 
-          "Sizni chalg'itadigan ilovalarni hali tanlamadingiz. "
-          "Chuqur diqqat rejimi samarali bo'lishi uchun ilovalarni bloklashni tavsiya qilamiz."
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(lang.translate('focus_timer.btn_block') ?? "Bloklash"),
-            onPressed: () {
-              Navigator.pop(context);
-              widget.onNavigateToBlockList?.call();
-            },
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: Text(lang.translate('focus_timer.btn_start') ?? "Boshlash"),
-            onPressed: () {
-              Navigator.pop(context);
-              _startTimer();
-            },
           ),
         ],
       ),
@@ -908,9 +1160,14 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                   // Background servicega maqsadni yuborish
                   _timerService.updateDailyGoal((_dailyGoalHours * 3600).toInt());
                   
-                  // SharedPreferences ga saqlash
+                  // SharedPreferences ga saqlash. daily_goal_seconds —
+                  // kanonik kalit (stats/calendar/notif o'qiydi); xizmat
+                  // o'chiq bo'lsa invoke yo'qoladi, shuning uchun UI o'zi
+                  // ham yozadi.
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setDouble('daily_goal_hours', _dailyGoalHours);
+                  await prefs.setInt(
+                      'daily_goal_seconds', (_dailyGoalHours * 3600).round());
                   await prefs.setString('motivation_phrase', _motivationPhrase);
                   
                   Navigator.pop(context);
@@ -1077,6 +1334,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
               padding: const EdgeInsets.only(bottom: 120),
               child: Column(
                 children: [
+                  const SizedBox(height: 10),
+                  _buildFocusTipBanner(lang),
                   const SizedBox(height: 10),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1294,20 +1553,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                         //      boshlamaymiz, qolgan vaqtdan davom etamiz)
                         //   3. Hech narsa ishlamayapti → Yangi taymer
                         if (_isRunning) {
+                          // Pauza gating — Chuqur Fokusda budjet bo'lsagina.
+                          // Yengil Fokus va Premium → cheksiz.
+                          final canPause = _selectedMode == 1 ||
+                              _pauseUnlimited ||
+                              _pauseRemaining > 0;
+                          if (!canPause) {
+                            _showPremiumUpsell(lang
+                                .translate('focus_timer.upsell.pause_body'));
+                            return;
+                          }
                           _pauseTimer();
                         } else if (_isPaused) {
                           _resumeTimer();
                         } else {
-                          // Agar Deep Mode bo'lsa va bloklangan ilovalar bo'lmasa, dialog chiqaramiz
-                          if (_selectedMode == 0) {
-                            final prefs = await SharedPreferences.getInstance();
-                            final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-
-                            if (blockedApps.isEmpty) {
-                              _showNoBlockedAppsDialog();
-                              return;
-                            }
-                          }
+                          // Barcha pre-flight (ruxsat + bitta tasdiqlash dialogi)
+                          // _startTimer ichida — ketma-ket ikkita dialog yo'q.
                           _startTimer();
                         }
                       },
@@ -1340,12 +1601,35 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                       ),
                     ),
                   ),
+                  // Pauza budjeti ko'rsatkichi — pauzada va cheklangan bo'lsa.
+                  if (_isPaused && !_pauseUnlimited) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '⏸ ${lang.translate('focus_timer.pause_left')}: ${_formatMSS(_pauseRemaining)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFFF9500),
+                      ),
+                    ),
+                  ],
                   if (_isRunning || _isPaused) ...[
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: _stopTimer,
+                      onPressed: () {
+                        // To'xtatish — bepul foydalanuvchida qulflangan.
+                        // Chuqur Fokusda faqat Premium erta to'xtata oladi.
+                        if (_selectedMode == 0 && !_isPremium) {
+                          _showPremiumUpsell(lang
+                              .translate('focus_timer.upsell.stop_body'));
+                          return;
+                        }
+                        _stopTimer();
+                      },
                       child: Text(
-                        lang.translate('focus_timer.stop') ?? "To'xtatish",
+                        (_selectedMode == 0 && !_isPremium)
+                            ? '🔒 ${lang.translate('focus_timer.stop')}'
+                            : lang.translate('focus_timer.stop'),
                         style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF8E8E93)),
                       ),
                     ),
@@ -1532,6 +1816,55 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       case 'white_noise': return lang.translate('focus_timer.sounds.white_noise');
       default: return lang.translate('focus_timer.sounds.none');
     }
+  }
+
+  /// Tepadagi shaffof (suvdek) maslahat banneri — aylanma takliflar.
+  Widget _buildFocusTipBanner(AppTranslationService lang) {
+    final tips = lang.translateList('focus_timer.tips');
+    final List<String> list = tips.isNotEmpty
+        ? tips.map((e) => e.toString()).toList()
+        : [lang.translate('focus_timer.tips_fallback')];
+    final tip = list[_tipIndex % list.length];
+    final accent = _selectedMode == 0
+        ? Theme.of(context).primaryColor
+        : const Color(0xFF34C759);
+    // Eslatma: BackdropFilter(blur) ataylab ISHLATILMAYDI — fon tekis
+    // gradient bo'lgani uchun shaffof rang bilan ko'rinish bir xil, blur esa
+    // har repaint'da (taymer har soniya yangilanadi) saveLayer + gaussian
+    // hisoblab, kuchsiz GPU'larda jank berardi.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        child: Container(
+          key: ValueKey(tip),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: accent.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: accent.withOpacity(0.18)),
+          ),
+          child: Row(
+            children: [
+              Icon(CupertinoIcons.sparkles, size: 18, color: accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tip,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPremiumBanner(AppTranslationService lang) {
@@ -1907,41 +2240,71 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
             ),
           );
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: active ? color : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: active ? Colors.transparent : Colors.grey.withOpacity(0.1)),
-            boxShadow: active ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 3))] : [],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: active ? Colors.white : Theme.of(context).colorScheme.onSurface,
+        child: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 26, 8),
+              decoration: BoxDecoration(
+                color: active ? color : Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: active ? Colors.transparent : Colors.grey.withOpacity(0.1)),
+                boxShadow: active ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 3))] : [],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: active ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    // `_activityProgress` endi sekundda saqlanadi. "5d 30s / 45 daq"
+                    // ko'rinishida ko'rsatamiz — kichik vaqtlar ham ko'rinadi.
+                    '${_formatActivityProgress(_activityProgress[activityKey] ?? 0)} / $minutes ${lang.translate('focus_timer.min')}',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: active ? Colors.white.withOpacity(0.8) : const Color(0xFF8E8E93),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Kunlik "bajardim" belgisi (odat tracking). Bosilganda card
+            // tanloviga ta'sir qilmaydi — alohida GestureDetector ushlaydi.
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => _toggleActivityDone(activityKey),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: _activityDone.contains(activityKey)
+                        ? const Color(0xFF34C759)
+                        : (active ? Colors.white.withOpacity(0.25) : Colors.grey.withOpacity(0.15)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.checkmark_alt,
+                    size: 12,
+                    color: _activityDone.contains(activityKey)
+                        ? Colors.white
+                        : (active ? Colors.white : const Color(0xFF8E8E93)),
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                // `_activityProgress` endi sekundda saqlanadi. "5d 30s / 45 daq"
-                // ko'rinishida ko'rsatamiz — kichik vaqtlar ham ko'rinadi.
-                '${_formatActivityProgress(_activityProgress[activityKey] ?? 0)} / $minutes ${lang.translate('focus_timer.min')}',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: active ? Colors.white.withOpacity(0.8) : const Color(0xFF8E8E93),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1952,7 +2315,13 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     Color activeColor = index == 0 ? Theme.of(context).primaryColor : const Color(0xFF34C759);
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedMode = index),
+        // Seans faol (ishlayapti/pauzada) paytida rejim almashtirib
+        // bo'lmaydi — stop/pauza qulflari _selectedMode'ga bog'liq, tab
+        // almashtirish Premium qulfini chetlab o'tishga yoki Yengil seansni
+        // noto'g'ri qulflashga olib kelardi.
+        onTap: (_isRunning || _isPaused)
+            ? null
+            : () => setState(() => _selectedMode = index),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(

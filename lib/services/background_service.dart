@@ -141,6 +141,23 @@ Future<void> initializeBackgroundService() async {
   }
 }
 
+/// Pauza budjeti qoidasi — YAGONA manba. UI dialogi, focus_timer_service
+/// prewrite'i va background 'startTimer' listener'i hammasi shu funksiyani
+/// chaqiradi. Qoidani o'zgartirish faqat shu yerda qilinadi, aks holda
+/// dialog va'dasi bilan haqiqiy budjet farq qilib qoladi.
+///   Premium yoki Yengil Fokus → cheksiz.
+///   ≤30 daq → pauza yo'q · 31–60 daq → 5 daq · 60+ daq → 10 daq.
+({int seconds, bool unlimited}) computePauseBudget({
+  required int minutes,
+  required bool isPremium,
+  required bool isLight,
+}) {
+  if (isPremium || isLight) return (seconds: 0, unlimited: true);
+  if (minutes <= 30) return (seconds: 0, unlimited: false);
+  if (minutes <= 60) return (seconds: 300, unlimited: false);
+  return (seconds: 600, unlimited: false);
+}
+
 @pragma('vm:entry-point')
 /// Faol jadval(lar) bo'yicha hozir bloklanishi kerak bo'lgan ilovalar to'plami.
 /// `focus_schedules` (ScheduleScreen saqlaydi) JSON ro'yxatini o'qiydi; joriy
@@ -151,32 +168,46 @@ Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
   try {
     final raw = prefs.getString('focus_schedules');
     if (raw == null || raw.isEmpty) return <String>{};
-    final list = jsonDecode(raw) as List<dynamic>;
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return <String>{};
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;
     final weekday = now.weekday; // 1=Mon .. 7=Sun
     final Set<String> result = <String>{};
-    for (final item in list) {
-      final m = item as Map<String, dynamic>;
-      if (m['enabled'] != true) continue;
-      final days = ((m['days'] as List?) ?? const [])
-          .map((e) => (e as num).toInt())
-          .toList();
-      if (days.isNotEmpty && !days.contains(weekday)) continue;
-      final start = (m['start'] as num?)?.toInt() ?? 0;
-      final end = (m['end'] as num?)?.toInt() ?? 0;
-      bool inWindow;
-      if (start == end) {
-        inWindow = false;
-      } else if (start < end) {
-        inWindow = nowMin >= start && nowMin < end;
-      } else {
-        // Tungi oyna: masalan 23:00–07:00 (yarim tundan o'tadi).
-        inWindow = nowMin >= start || nowMin < end;
-      }
-      if (!inWindow) continue;
-      for (final a in ((m['apps'] as List?) ?? const [])) {
-        result.add(a.toString());
+    for (final item in decoded) {
+      // Har bir jadval elementini ALOHIDA himoyalaymiz — bitta buzuq
+      // yozuv butun ro'yxatni bekor qilmasin (boshqa jadvallar ishlasin).
+      try {
+        if (item is! Map) continue;
+        if (item['enabled'] != true) continue;
+        final daysRaw = item['days'];
+        final List<int> days = [];
+        if (daysRaw is List) {
+          for (final e in daysRaw) {
+            if (e is num) days.add(e.toInt());
+          }
+        }
+        if (days.isNotEmpty && !days.contains(weekday)) continue;
+        final start = (item['start'] as num?)?.toInt() ?? 0;
+        final end = (item['end'] as num?)?.toInt() ?? 0;
+        bool inWindow;
+        if (start == end) {
+          inWindow = false;
+        } else if (start < end) {
+          inWindow = nowMin >= start && nowMin < end;
+        } else {
+          // Tungi oyna: masalan 23:00–07:00 (yarim tundan o'tadi).
+          inWindow = nowMin >= start || nowMin < end;
+        }
+        if (!inWindow) continue;
+        final appsRaw = item['apps'];
+        if (appsRaw is List) {
+          for (final a in appsRaw) {
+            if (a != null) result.add(a.toString());
+          }
+        }
+      } catch (_) {
+        continue;
       }
     }
     return result;
@@ -188,13 +219,13 @@ Set<String> activeScheduleBlockedApps(SharedPreferences prefs) {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
-  // Background isolate'da AppTranslationService alohida nusxa —
-  // tilni SharedPreferences'dan o'qib initialize qilamiz. Aks holda
-  // notifikatsiya matnlari va overlay sarlavhasi har doim o'zbekcha
-  // ko'rinardi (default _currentLanguage = 'uz').
-  try {
-    await AppTranslationService().init();
-  } catch (_) {}
+  // MUHIM: AppTranslationService().init() avval shu yerda (eng tepada)
+  // chaqirilardi — lekin u `await` bo'lgani uchun, agar UI startService()
+  // dan keyin darrov invoke('startTimer') yuborsa, event 'startTimer'
+  // listeneri (pastda) hali RO'YXATDAN O'TMAGAN paytda kelib YO'QOLARDI.
+  // Natijada taymer sanamasdi va bloklash ishlamasdi (Light Focus ham).
+  // Yechim: barcha service.on(...) listenerlarni AVVAL ro'yxatdan
+  // o'tkazamiz (sinxron, await yo'q), keyin init() ni chaqiramiz.
 
   if (service is AndroidServiceInstance) {
     // Android 12+ uchun xizmatni darhol foreground qilish shart
@@ -241,6 +272,17 @@ void onStart(ServiceInstance service) async {
   // uchun memoryda yig'amiz, stop/pause/complete'da flush qilamiz.
   int lightFocusBuffer = 0;
 
+  // ───────────── Pauza budjeti (Chuqur Fokus) ─────────────
+  // Bepul foydalanuvchida pauza vaqti cheklangan:
+  //   • ≤30 daq seans: 0 (pauza yo'q)
+  //   • 30–60 daq: jami 5 daqiqa (300 sek)
+  //   • 60+ daq: jami 10 daqiqa (600 sek)
+  // Pauza paytida bloklangan ilovalardan foydalanish mumkin — shu vaqt
+  // budjetdan yechiladi. Budjet tugasa taymer avtomatik davom etadi va
+  // bloklash qaytadi. Premium foydalanuvchida pauza cheksiz.
+  int pauseRemainingSeconds = 0;
+  bool pauseUnlimited = false;
+
   // Kunlik maqsad o'zgaruvchilari
   int todayFocusSeconds = 0;
   int dailyGoalSeconds = 7200; // Standart 2 soat (foydalanuvchi o'zgartira oladi)
@@ -262,6 +304,10 @@ void onStart(ServiceInstance service) async {
   int notBlockedTicks = 0;
   String? currentBlockedApp;
   DateTime? suppressUntil;
+  // Jadval/bloklash ro'yxati ma'lumotini davriy yangilab turish uchun
+  // hisoblagich. Har 5 tickda prefs.reload() qilamiz — UI'da saqlangan
+  // yangi `focus_schedules`/`blocked_apps` event yo'qolsa ham ko'rinadi.
+  int blockReloadTick = 0;
 
   // Taymerni saqlash va yuklash
   final prefs = await SharedPreferences.getInstance();
@@ -440,6 +486,13 @@ void onStart(ServiceInstance service) async {
       'isPaused': isPaused,
       'modeName': modeName,
       'modeIcon': modeIcon,
+      // Pauza budjeti — UI "Pauza: 3:45 qoldi" ko'rsatadi va budjet 0 bo'lsa
+      // pauza tugmasini o'chiradi.
+      'pauseRemaining': pauseRemainingSeconds,
+      'pauseUnlimited': pauseUnlimited,
+      // Joriy SEANSNING rejimi — UI stop/pauza qulflarini jonli tab emas,
+      // haqiqiy seans rejimiga bog'lashi uchun (ekran qayta ochilsa ham).
+      'isLight': isLightMode,
     });
 
     if (updateNotification && service is AndroidServiceInstance) {
@@ -488,25 +541,47 @@ void onStart(ServiceInstance service) async {
 
   service.on('startTimer').listen((event) async {
     if (event == null) return;
-    remainingSeconds = (event['minutes'] as int) * 60;
+    // Null-safe parsing — noto'g'ri/null qiymat kelsa ham listener crash
+    // bo'lmasin (avval `as int` hard cast edi, null kelsa exception berardi
+    // va isTimerRunning=true qo'yilmasdan timer boshlanmasdi).
+    final minutes = (event['minutes'] as num?)?.toInt() ?? 0;
+    if (minutes <= 0) {
+      debugPrint('[BackgroundTimer] startTimer: invalid minutes=$minutes');
+      return;
+    }
+    remainingSeconds = minutes * 60;
     sessionInitialSeconds = remainingSeconds; // partial XP uchun saqlash
-    modeName = event['modeName'];
-    modeIcon = event['modeIcon'];
-    levelTitle = event['levelTitle'];
-    isStrict = event['isStrict'] ?? false;
+    modeName = (event['modeName'] as String?) ?? "";
+    modeIcon = (event['modeIcon'] as String?) ?? "";
+    levelTitle = (event['levelTitle'] as String?) ?? "";
+    isStrict = (event['isStrict'] as bool?) ?? false;
     // Yengil Fokus rejimini UI explicit uzatadi (mode==1). Avval `!isStrict`
     // proxy ishlatardik — Deep Focus + Strict OFF holatida noto'g'ri "Light"
     // deb yozardi. Endi flag aniq UI'dan keladi.
-    isLightMode = event['isLight'] ?? false;
+    isLightMode = (event['isLight'] as bool?) ?? false;
     lightFocusBuffer = 0; // yangi seans — buffer reset
     await prefs.setBool('timer_is_light', isLightMode);
     isTimerRunning = true;
     isPaused = false; // yangi sessiya — paused emas
 
+    // ───────── Pauza budjeti hisoblash ─────────
+    // Yagona manba — computePauseBudget (UI dialogi va prewrite ham shuni
+    // chaqiradi, qoidalar hech qachon farq qilmaydi).
+    final bool isPremium = (event['isPremium'] as bool?) ?? false;
+    final budget = computePauseBudget(
+        minutes: minutes, isPremium: isPremium, isLight: isLightMode);
+    pauseUnlimited = budget.unlimited;
+    pauseRemainingSeconds = budget.seconds;
+    await prefs.setInt('focus_pause_remaining_seconds', pauseRemainingSeconds);
+    await prefs.setBool('focus_pause_unlimited', pauseUnlimited);
+
     // Tugash vaqtini saqlash
     final endTime = DateTime.now().add(Duration(seconds: remainingSeconds));
     await prefs.setInt('timer_end_timestamp', endTime.millisecondsSinceEpoch);
     await prefs.setInt('session_initial_seconds', sessionInitialSeconds);
+    // Yangi seans — late-detection uchun "qancha sekund allaqachon hisobga
+    // olingan" hisoblagichini nolga tushiramiz (FIX: double-credit).
+    await prefs.setInt('session_credited_seconds', 0);
     await prefs.setBool('timer_is_running', true);
     await prefs.setBool('timer_is_paused', false);
     // Temir Intizom — block_list_screen shu flagni o'qib toggle'larni
@@ -564,6 +639,7 @@ void onStart(ServiceInstance service) async {
     await prefs.remove('timer_end_timestamp');
     await prefs.remove('timer_remaining_seconds');
     await prefs.remove('session_initial_seconds');
+    await prefs.remove('session_credited_seconds');
     await prefs.setBool('timer_is_running', false);
     await prefs.setBool('timer_is_paused', false);
     await prefs.setBool('timer_is_strict', false);
@@ -600,13 +676,23 @@ void onStart(ServiceInstance service) async {
 
   service.on('updateDailyGoal').listen((event) async {
     if (event == null) return;
-    dailyGoalSeconds = (event['seconds'] as int);
+    final secs = (event['seconds'] as num?)?.toInt();
+    if (secs == null || secs <= 0) return;
+    dailyGoalSeconds = secs;
     await prefs.setInt('daily_goal_seconds', dailyGoalSeconds);
   });
 
   service.on('requestTimerSync').listen((event) {
     syncTimer();
   });
+
+  // Endi barcha listener'lar ro'yxatdan o'tdi — til faylini init qilamiz.
+  // (Bu await yuqorida edi; listener'lardan oldin bo'lgani uchun invoke
+  // eventi yo'qolardi. Endi listener'lardan keyin.) Notif/overlay matnlari
+  // foydalanuvchi tilida chiqsin.
+  try {
+    await AppTranslationService().init();
+  } catch (_) {}
 
   // Avvalgi holatni tiklash. Uchta ssenariy:
   //   1. Taymer ishlayotgan edi (running=true, paused=false) — qolgan
@@ -616,6 +702,13 @@ void onStart(ServiceInstance service) async {
   //      isTimerRunning=false bo'lib turadi (foydalanuvchi "Davom
   //      etish"ni bossagina ishga tushadi).
   //   3. Hech narsa yo'q — odatdagi yangi sessiya.
+  //
+  // MUHIM: butun restore + day-check bloki try/catch ichida. Aks holda
+  // bu yerdagi biror await (masalan recordDay) throw qilsa, onStart shu
+  // yerda to'xtab qoladi va PASTDAGI Timer.periodic HECH QACHON
+  // ro'yxatdan o'tmaydi → taymer sanamaydi VA bloklash ishlamaydi.
+  // Bu eng kritik himoya.
+  try {
   final savedIsPaused = prefs.getBool('timer_is_paused') ?? false;
   final savedIsRunning = prefs.getBool('timer_is_running') ?? false;
   final savedEndTime = prefs.getInt('timer_end_timestamp');
@@ -631,6 +724,15 @@ void onStart(ServiceInstance service) async {
       modeName = prefs.getString('timer_mode_name') ?? "";
       modeIcon = prefs.getString('timer_mode_icon') ?? "";
       levelTitle = prefs.getString('timer_level_title') ?? "";
+      isStrict = prefs.getBool('timer_is_strict') ?? false;
+      isLightMode = prefs.getBool('timer_is_light') ?? false;
+      // Pauza budjeti — focus_timer_service start paytida prefs'ga yozadi.
+      // Cold start'da invoke yo'qolsa ham shu yerdan tiklanadi.
+      pauseRemainingSeconds = prefs.getInt('focus_pause_remaining_seconds') ?? 0;
+      pauseUnlimited = prefs.getBool('focus_pause_unlimited') ?? false;
+      // Cold start'da invoke yo'qolgan bo'lsa listener streak'ni queue
+      // qilmagan — bu yerda ham qo'yamiz (sana bo'yicha idempotent).
+      await queueStreakForToday();
     } else {
       // Taymer service uxlab turganida tabiiy ravishda tugagan.
       // Saqlangan session uchun pending XP yozamiz va history'ga
@@ -639,19 +741,28 @@ void onStart(ServiceInstance service) async {
       if (savedInitial > 0) {
         // MUHIM: bu blok service ishga tushishida ishlaydi va tick loop
         // ishlamagan. today_focus_seconds'ni avval prefs'dan o'qib olamiz,
-        // keyin savedInitial'ni qo'shamiz — XP/vaqt sinxron qoladi.
+        // keyin FAQAT hisobga olinmagan qismni qo'shamiz. Jonli tick har
+        // 10 sek'da session_credited_seconds'ni saqlab boradi — service
+        // 20-daqiqada o'lgan bo'lsa, o'sha 20 daqiqa allaqachon
+        // today_focus_seconds ichida; bu yerda faqat qolgan 5 daqiqa
+        // qo'shiladi. Aks holda 25-daqiqalik seans 45 daqiqa bo'lib
+        // yozilardi (double-credit).
         todayFocusSeconds = prefs.getInt('today_focus_seconds') ?? 0;
-        final sessionMinutes = savedInitial ~/ 60;
-        await queuePendingXP(sessionMinutes);
+        final credited = prefs.getInt('session_credited_seconds') ?? 0;
+        final lateSeconds = (savedInitial - credited).clamp(0, savedInitial);
+        await queuePendingXpSeconds(lateSeconds);
         await queueCompletion();
         await incrementTodaySessions();
-        // Late detection: tick loop ishlamagan → focus_seconds'ni manual oshirish
-        await addToFocusSeconds(savedInitial); // XP ham ichida sync bo'ladi
+        // Streak ham — seans haqiqatan yakunlandi (invoke yo'qolgan cold
+        // start'da listener queueStreakForToday'ga yetmagan bo'lishi mumkin).
+        await queueStreakForToday();
+        // Late detection: faqat hisobga olinmagan qoldiq
+        await addToFocusSeconds(lateSeconds); // XP ham ichida sync bo'ladi
         await updateLongestSessionSeconds(savedInitial);
         await flushLightFocusBuffer();
         debugPrint(
-            '[BackgroundTimer] late-detected completion: ${savedInitial}s '
-            '(${sessionMinutes}m) added to focus_seconds');
+            '[BackgroundTimer] late-detected completion: ${lateSeconds}s '
+            'of ${savedInitial}s (credited=$credited) added to focus_seconds');
         await FocusHistoryService.instance.recordDay(
           date: DateTime.now(),
           seconds: todayFocusSeconds,
@@ -663,6 +774,7 @@ void onStart(ServiceInstance service) async {
       }
       await prefs.remove('timer_end_timestamp');
       await prefs.remove('session_initial_seconds');
+      await prefs.remove('session_credited_seconds');
       await prefs.setBool('timer_is_running', false);
       await prefs.setBool('timer_is_strict', false);
     }
@@ -675,6 +787,9 @@ void onStart(ServiceInstance service) async {
     modeName = prefs.getString('timer_mode_name') ?? "";
     modeIcon = prefs.getString('timer_mode_icon') ?? "";
     levelTitle = prefs.getString('timer_level_title') ?? "";
+    // Pauza budjetini tiklash (app o'ldirilib qayta ochilgan bo'lsa).
+    pauseRemainingSeconds = prefs.getInt('focus_pause_remaining_seconds') ?? 0;
+    pauseUnlimited = prefs.getBool('focus_pause_unlimited') ?? false;
   }
 
   // Kunlik ma'lumotlarni yuklash
@@ -699,6 +814,15 @@ void onStart(ServiceInstance service) async {
     analysisSent = false;
     await prefs.setInt('today_focus_seconds', 0);
     await prefs.setInt('last_tracked_day', DateTime.now().day);
+  }
+  } catch (e, st) {
+    // Restore/init bosqichida xato — log qilamiz, lekin DAVOM etamiz.
+    // Timer.periodic baribir ro'yxatdan o'tishi shart.
+    debugPrint('[BackgroundService] restore/init error: $e');
+    try {
+      await CrashLogger.instance
+          .recordError(e, st, source: 'onStart-restore');
+    } catch (_) {}
   }
 
   service.on('stopService').listen((event) {
@@ -764,6 +888,7 @@ void onStart(ServiceInstance service) async {
 
   // Loop har 1 soniya da
   Timer.periodic(const Duration(seconds: 1), (timer) async {
+   try {
     // 1. Taymer logikasi
     if (isTimerRunning) {
       if (remainingSeconds > 0) {
@@ -911,6 +1036,7 @@ void onStart(ServiceInstance service) async {
 
         sessionInitialSeconds = 0;
         await prefs.remove('session_initial_seconds');
+        await prefs.remove('session_credited_seconds');
         // timer_alarm_minutes prefs'ga yuqorida yozilgan — shu qiymatni
         // timerFinished eventiga ham qo'shamiz.
         service.invoke('timerFinished', {
@@ -926,6 +1052,14 @@ void onStart(ServiceInstance service) async {
         // XP ham har 10 sek'da sync — UI live yangilanib turadi.
         // Formula: round(focus_seconds * 10 / 60). Drift bo'lmaydi.
         await prefs.setInt('today_xp_earned', xpFromSeconds(todayFocusSeconds));
+        // Late-detection uchun: joriy seansning qancha sekundi ALLAQACHON
+        // jonli tick orqali hisobga olingani. Service o'lib, keyin restore
+        // bo'lsa, faqat qolgan (hisobga olinmagan) qismi qo'shiladi —
+        // double-credit bo'lmaydi.
+        if (sessionInitialSeconds > 0) {
+          await prefs.setInt('session_credited_seconds',
+              sessionInitialSeconds - remainingSeconds);
+        }
       }
       // Yengil Fokus rejimi bo'lsa — bufferni har soniyada oshiramiz.
       // 10 sekundga yetganda saqlanadi (batareyaga yengil). Stop/pause/complete
@@ -937,6 +1071,34 @@ void onStart(ServiceInstance service) async {
           await flushLightFocusBuffer();
         }
       }
+    } else if (isPaused && !pauseUnlimited) {
+      // ───────── Pauza budjeti sarflanmoqda ─────────
+      // Foydalanuvchi pauzada — bloklangan ilovalardan foydalanyapti.
+      // Har soniyada budjetdan ayiramiz. Budjet tugasa taymer avtomatik
+      // davom etadi va bloklash qaytadi.
+      if (pauseRemainingSeconds > 0) {
+        pauseRemainingSeconds--;
+        if (pauseRemainingSeconds % 5 == 0 || pauseRemainingSeconds < 10) {
+          await prefs.setInt(
+              'focus_pause_remaining_seconds', pauseRemainingSeconds);
+        }
+      }
+      if (pauseRemainingSeconds <= 0) {
+        // Budjet tugadi — avtomatik davom ettiramiz.
+        isPaused = false;
+        isTimerRunning = true;
+        pauseRemainingSeconds = 0;
+        await prefs.setInt('focus_pause_remaining_seconds', 0);
+        final endTime =
+            DateTime.now().add(Duration(seconds: remainingSeconds));
+        await prefs.setInt(
+            'timer_end_timestamp', endTime.millisecondsSinceEpoch);
+        await prefs.setBool('timer_is_running', true);
+        await prefs.setBool('timer_is_paused', false);
+        service.invoke('pauseEnded', {});
+        debugPrint('[BackgroundTimer] pause budget exhausted → auto-resume');
+      }
+      syncTimer();
     }
 
     // 2. Kunlik tahlil logikasi
@@ -1023,12 +1185,51 @@ void onStart(ServiceInstance service) async {
     // "queryEvents bir-ikki tickda bo'sh qaytdi" kabi shovqinli
     // hodisalardan ta'sirlanmaydi.
     try {
-      // Doimiy bloklangan ilovalar + faol jadval oynasidagi ilovalar.
-      final Set<String> effectiveBlocked = {
-        ...blockedApps,
-        ...activeScheduleBlockedApps(prefs),
-      };
-      if (effectiveBlocked.isEmpty) return;
+      // Xavfsizlik to'ri: har 30 tickda (30 sek) prefs'ni reload qilamiz va
+      // blocked_apps'ni qayta o'qiymiz. Shunda UI'da saqlangan yangi
+      // jadval (`focus_schedules`) yoki bloklangan ilovalar — invoke
+      // eventi yo'qolgan/kechikkan bo'lsa ham — ko'rinadi. Asosiy yo'l —
+      // 'updateBlockedApps' eventi (block_list + schedule saqlaganda darrov
+      // keladi); bu poll faqat zaxira. 5 sek juda qimmat edi: reload butun
+      // prefs faylini (base64 ikonkalar, butun history) qayta o'qiydi.
+      blockReloadTick++;
+      if (blockReloadTick >= 30) {
+        blockReloadTick = 0;
+        try {
+          await prefs.reload();
+          blockedApps = prefs.getStringList('blocked_apps') ?? blockedApps;
+        } catch (_) {}
+      }
+
+      // Jadval oynalari — DOIM majburiy (taymer/pauza holatidan mustaqil).
+      final Set<String> scheduleBlocked = activeScheduleBlockedApps(prefs);
+
+      // Pauza budjeti FAQAT Chuqur Fokus seansining blocked_apps ro'yxatini
+      // vaqtincha ochadi (foydalanuvchi budjet doirasida bloklangan
+      // ilovalardan foydalanadi). Jadval bloklash pauzada HAM ishlaydi.
+      // Yengil Fokus pauzasi hech narsani ochmaydi — locker bu rejimda
+      // seansga bog'liq emas.
+      final Set<String> effectiveBlocked;
+      if (isPaused && !isLightMode) {
+        effectiveBlocked = scheduleBlocked;
+      } else {
+        effectiveBlocked = {...blockedApps, ...scheduleBlocked};
+      }
+
+      if (effectiveBlocked.isEmpty) {
+        // Bloklash hozircha o'chiq (masalan pauza) — ochiq overlay qolgan
+        // bo'lsa yopamiz. currentBlockedApp guard'i tufayli bu tekshiruv
+        // har tickda emas, faqat overlay haqiqatan ochiq bo'lganda IPC qiladi.
+        if (currentBlockedApp != null) {
+          try {
+            if (await FlutterOverlayWindow.isActive()) {
+              await FlutterOverlayWindow.closeOverlay();
+            }
+          } catch (_) {}
+          currentBlockedApp = null;
+        }
+        return;
+      }
 
       DateTime now = DateTime.now();
 
@@ -1186,5 +1387,14 @@ void onStart(ServiceInstance service) async {
     } catch (e) {
       debugPrint('[FocusGuard] Block detection error: $e');
     }
+   } catch (e, st) {
+     // Tick callback'da kutilmagan xato — log qilamiz va keyingi tickda
+     // davom etamiz. Timer.periodic bitta tick fail bo'lsa ham to'xtamaydi,
+     // bu faqat unhandled-error shovqinini oldini oladi.
+     debugPrint('[BackgroundService] tick error: $e');
+     try {
+       await CrashLogger.instance.recordError(e, st, source: 'timer-tick');
+     } catch (_) {}
+   }
   });
 }

@@ -52,11 +52,18 @@
         </activity>
 
         <!-- Background Service declaration -->
+        <!-- MUHIM: faqat specialUse! Plagin (flutter_background_service_android
+             6.3.1) startForeground'ga FOREGROUND_SERVICE_TYPE_MANIFEST uzatadi,
+             ya'ni manifestdagi BARCHA type'lar bilan ishga tushadi. dataSync
+             qo'shilsa, Android 15/16 unga 6 soat/kun limit qo'yadi — limit
+             tugagach xizmat fatal exception bilan o'ladi va kun oxirigacha
+             qayta ishga tushmaydi (bloklash + taymer butunlay to'xtaydi).
+             specialUse'da bunday limit yo'q. -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="specialUse"
             android:exported="false"
-            tools:replace="android:exported">
+            tools:replace="android:exported,android:foregroundServiceType">
             <intent-filter>
                 <action android:name="id.flutter.flutter_background_service.BackgroundService" />
             </intent-filter>

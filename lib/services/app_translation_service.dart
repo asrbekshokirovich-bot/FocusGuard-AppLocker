@@ -566,6 +566,45 @@ class AppTranslationService {
         'motivation_label': 'Motivatsiya',
         'motivation_hint': 'Shaxsiy motivatsiyangiz...',
         'motivation_default': 'Bugun ajoyib kun bo\'ladi!',
+        'pause_left': 'Pauza',
+        'pause_over_msg': 'Pauza vaqti tugadi — fokus davom etmoqda',
+        'blocking_disabled_warn':
+            'Ruxsat berilmadi — bloklash ishlamaydi, lekin fokus taymeri davom etadi.',
+        'service_start_failed':
+            'Fon xizmati ishga tushmadi — bir necha soniyadan keyin qayta urinib ko\'ring.',
+        'tips_fallback': 'Sevimli faoliyatingizni bajaring yoki dam oling',
+        'tips': [
+          'Sevimli faoliyatingizni bajaring yoki bir oz dam oling 🌿',
+          'Suv iching va chuqur nafas oling 💧',
+          'Telefoningizni narida qoldiring — diqqatni jamlang ⚡',
+          'Kichik qadamlar katta natija beradi 🎯',
+          'Hozir boshlang — eng yaxshi vaqt shu! 🚀',
+        ],
+        'preset': {
+          'reading': 'Kitob o\'qish',
+          'exercise': 'Jismoniy mashg\'ulot',
+          'coding': 'Dasturlash',
+          'language': 'Til o\'rganish',
+          'meditation': 'Meditatsiya',
+          'work': 'Ish / Loyiha',
+        },
+        'reminder': {
+          'title': 'Chuqur Fokusga tayyormisiz?',
+          'confirm': 'Boshlash',
+          'pause_unlimited': 'Pauza: cheksiz (Premium)',
+          'pause_none': 'Bu qisqa seansda pauza mavjud emas',
+          'pause_limited': 'Pauza: jami {min} daqiqa',
+          'stop_premium': 'To\'xtatish: istalgan vaqt (Premium)',
+          'stop_locked': 'To\'xtatish: bu seansda mavjud emas',
+        },
+        'upsell': {
+          'title': 'Premium kerak',
+          'cta': 'Premiumga o\'tish',
+          'pause_body':
+              'Bu seansda pauza mavjud emas. Cheksiz pauza uchun Premiumga obuna bo\'ling.',
+          'stop_body':
+              'Chuqur Fokusni erta to\'xtatish faqat Premiumda mavjud. Irodangizni sinab ko\'ring yoki Premiumga o\'ting.',
+        },
         'no_activities_title': 'Sevimli faoliyatingizni qo\'shing',
         'no_activities_hint': '"+" tugmasini bosing va boshlang',
         'premium_banner_title': 'Premiumga o\'ting',
@@ -1124,6 +1163,45 @@ class AppTranslationService {
         'motivation_label': 'Motivation',
         'motivation_hint': 'Your personal motivation...',
         'motivation_default': 'Today will be a great day!',
+        'pause_left': 'Pause',
+        'pause_over_msg': 'Pause time is over — focus continues',
+        'blocking_disabled_warn':
+            'Permission not granted — blocking won\'t work, but the focus timer continues.',
+        'service_start_failed':
+            'Background service failed to start — please try again in a few seconds.',
+        'tips_fallback': 'Do your favorite activity or take a break',
+        'tips': [
+          'Do your favorite activity or take a short break 🌿',
+          'Drink water and breathe deeply 💧',
+          'Put your phone away — stay focused ⚡',
+          'Small steps lead to big results 🎯',
+          'Start now — this is the best time! 🚀',
+        ],
+        'preset': {
+          'reading': 'Reading',
+          'exercise': 'Exercise',
+          'coding': 'Coding',
+          'language': 'Language learning',
+          'meditation': 'Meditation',
+          'work': 'Work / Project',
+        },
+        'reminder': {
+          'title': 'Ready for Deep Focus?',
+          'confirm': 'Start',
+          'pause_unlimited': 'Pause: unlimited (Premium)',
+          'pause_none': 'No pause available in this short session',
+          'pause_limited': 'Pause: {min} minutes total',
+          'stop_premium': 'Stop: anytime (Premium)',
+          'stop_locked': 'Stop: not available in this session',
+        },
+        'upsell': {
+          'title': 'Premium required',
+          'cta': 'Go Premium',
+          'pause_body':
+              'Pause is not available in this session. Subscribe to Premium for unlimited pause.',
+          'stop_body':
+              'Stopping Deep Focus early is Premium-only. Test your willpower or go Premium.',
+        },
         'no_activities_title': 'Add your favorite activity',
         'no_activities_hint': 'Tap the "+" button to start',
         'delete': 'Delete',

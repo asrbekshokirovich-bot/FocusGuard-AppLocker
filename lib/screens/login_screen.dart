@@ -7,6 +7,7 @@ import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
 import '../services/firebase_service.dart';
+import '../services/service_starter.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
 import 'register_screen.dart';
@@ -268,8 +269,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
 
-                            // Har doim birinchi bo'lib Dashboardga o'tamiz
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+                            // Ruxsatlar yetarli bo'lmasa avval PermissionsScreen'ga
+                            // olib boramiz — bloklash overlay + usage stats'siz
+                            // umuman ishlamaydi. Yetarli bo'lsa to'g'ridan
+                            // Dashboard'ga.
+                            final permsOk = await hasBlockingPermissions();
+                            if (!mounted) return;
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => permsOk
+                                    ? const DashboardScreen()
+                                    : const PermissionsScreen(
+                                        isFromOnboarding: true),
+                              ),
+                            );
                           }
                         } catch (e) {
                           if (mounted) {

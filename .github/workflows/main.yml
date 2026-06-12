@@ -3,9 +3,10 @@ name: Flutter Build APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "claude/modest-volta-653h45" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 
 jobs:

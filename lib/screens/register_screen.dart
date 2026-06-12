@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/language_service.dart';
 import '../services/firebase_service.dart';
+import '../services/service_starter.dart';
 import 'dashboard_screen.dart';
 import 'legal_screen.dart';
 import 'permissions_screen.dart';
@@ -230,11 +231,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 // Ro'yxatdan o'tgan sanani saqlash
                                 await prefs.setString('registration_date', DateTime.now().toIso8601String());
 
-                                // Dashboard oynasiga o'tish
+                                // Ruxsatlar yetarli bo'lmasa avval
+                                // PermissionsScreen'ga — bloklash overlay +
+                                // usage stats'siz ishlamaydi.
+                                final permsOk = await hasBlockingPermissions();
                                 if (mounted) {
                                   Navigator.pushAndRemoveUntil(
-                                    context, 
-                                    MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => permsOk
+                                          ? const DashboardScreen()
+                                          : const PermissionsScreen(
+                                              isFromOnboarding: true),
+                                    ),
                                     (route) => false,
                                   );
                                 }

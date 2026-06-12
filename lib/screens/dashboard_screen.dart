@@ -109,7 +109,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         reason.contains('cloud_firestore/permission') ||
         reason.contains('network-request-failed') ||
         reason.contains('socketexception') ||
-        reason.contains('unable to resolve host');
+        reason.contains('unable to resolve host') ||
+        // Google Fonts runtime fetch — zararsiz, standart shriftga qaytadi
+        reason.contains('failed to load font') ||
+        reason.contains('fonts.gstatic.com') ||
+        reason.contains('google_fonts') ||
+        reason.contains('connection closed') ||
+        reason.contains('connection reset') ||
+        reason.contains('timeoutexception');
     if (isExpected) {
       await CrashLogger.instance.clear();
       return;

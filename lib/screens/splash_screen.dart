@@ -2,14 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:app_usage/app_usage.dart';
 import 'language_screen.dart';
 import 'dashboard_screen.dart';
+import 'permissions_screen.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/plan_service.dart';
+import '../services/service_starter.dart';
 import '../services/timer_notification_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -52,28 +51,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         // Plans ham — Firestore'dan tortib qayta sozlash.
         PlanService.instance.restoreFromFirestore();
 
-        // Ruxsatlarni tekshirish (faqat passiv)
-        bool hasPermissions = true;
-        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-          bool overlayOk = await Permission.systemAlertWindow.isGranted;
-          bool usageOk = false;
-          try {
-            // Shunchaki ruxsat holatini tekshirish
-            DateTime now = DateTime.now();
-            await AppUsage().getAppUsage(now.subtract(const Duration(seconds: 1)), now).timeout(const Duration(milliseconds: 500));
-            usageOk = true;
-          } catch (_) {
-            usageOk = false;
-          }
-          
-          hasPermissions = overlayOk && usageOk;
-        }
+        // Ruxsatlarni tekshirish (faqat passiv) — UMUMIY probe orqali.
+        // Avval bu yerda alohida AppUsage(500ms) nusxasi bor edi: birinchi
+        // cold-start so'rovi sekin qurilmada 500ms dan oshib, BARCHA ruxsati
+        // bor foydalanuvchini har ochilishda PermissionsScreen'ga uloqtirardi.
+        // hasBlockingPermissions — tez UsageStats.checkUsagePermission yo'li
+        // + 2s fallback bilan barcha ekranlar ishlatadigan yagona tekshiruv.
+        final bool hasPermissions = await hasBlockingPermissions();
 
         if (mounted) {
-          // Endi ruxsatlar yetishmasa ham ilovaga to'g'ridan-to'g'ri
-          // kiritamiz — majburlamaymiz. Ruxsatlar Sozlamalar/Permissions
-          // ekranida turaveradi va taymer boshlanishida so'raladi.
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+          // Ruxsatlar yetishmasa (overlay/usage) avval PermissionsScreen'ga
+          // olib boramiz — bloklash bularsiz umuman ishlamaydi. Bu, ayniqsa,
+          // qurilma fon xizmatini o'ldirgan yoki ruxsat qaytarib olingan
+          // holatlarda foydalanuvchini to'g'ri yo'naltiradi.
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => hasPermissions
+                  ? const DashboardScreen()
+                  : const PermissionsScreen(isFromOnboarding: true),
+            ),
+          );
         }
         // Ruxsat yetishmasa — ~30 daqiqadan keyin yumshoq eslatma
         // rejalashtiramiz ("Diqqatingizni jamlang..."). Ruxsat bo'lsa, ehtimol
