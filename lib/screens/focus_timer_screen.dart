@@ -22,6 +22,9 @@ import 'package:app_usage/app_usage.dart';
 import 'package:usage_stats/usage_stats.dart';
 import 'permissions_screen.dart';
 
+/// Chuqur Fokus boshlash dialogidagi foydalanuvchi tanlovi.
+enum _StartChoice { cancel, blockApps, start }
+
 class FocusTimerScreen extends StatefulWidget {
   final VoidCallback? onNavigateToBlockList;
   const FocusTimerScreen({super.key, this.onNavigateToBlockList});
@@ -471,9 +474,24 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       // Ruxsatlarni ta'minlashga harakat qilamiz (lekin taymerni to'smaymiz).
       await _ensurePermissionsForTimer();
       if (!mounted) return;
-      // Chuqur Fokus boshlashdan oldin eslatma — bu seansda to'xtatish va
-      // pauza cheklovlari haqida ogohlantirib, tasdiqlatamiz.
-      if (!await _showDeepFocusReminder()) return;
+      // Bloklangan ilova bor-yo'qligini bilib olamiz — eslatma dialogi shu
+      // holatga qarab "Bloklash" tugmasini ham ko'rsatadi (ketma-ket ikkita
+      // dialog o'rniga BITTA tasdiqlash).
+      final prefs = await SharedPreferences.getInstance();
+      final hasBlocked =
+          (prefs.getStringList('blocked_apps') ?? []).isNotEmpty;
+      // Chuqur Fokus boshlashdan oldin eslatma — to'xtatish/pauza cheklovlari
+      // (va bloklangan ilova yo'q bo'lsa ogohlantirish). Tasdiqlamasa
+      // boshlanmaydi.
+      final action = await _showDeepFocusReminder(hasBlockedApps: hasBlocked);
+      if (action == _StartChoice.cancel) return;
+      if (action == _StartChoice.blockApps) {
+        // Foydalanuvchi avval ilova bloklashni tanladi — block list'ga
+        // o'tkazamiz, taymerni boshlamaymiz.
+        widget.onNavigateToBlockList?.call();
+        return;
+      }
+      // action == _StartChoice.start → davom etamiz.
     }
     final lang = AppTranslationService();
     
@@ -536,10 +554,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     }
   }
 
-  /// Chuqur Fokus boshlashdan oldingi eslatma dialogi. Bu seansda
-  /// to'xtatib bo'lmasligi va pauza budjeti haqida qisqacha tushuntiradi.
-  /// Foydalanuvchi "Boshlash"ni bossa true qaytaradi.
-  Future<bool> _showDeepFocusReminder() async {
+  /// Chuqur Fokus boshlashdan oldingi YAGONA tasdiqlash dialogi. Bitta
+  /// joyda hammasini ko'rsatadi:
+  ///   • pauza budjeti (yo'q / N daqiqa / cheksiz)
+  ///   • to'xtatish holati (Premium qulfi yoki ochiq)
+  ///   • bloklangan ilova yo'q bo'lsa — qisqa ogohlantirish + "Bloklash" yo'li
+  /// Ketma-ket ikkita dialog (avvalgi "no blocked apps" + "reminder") o'rniga
+  /// shu bitta dialog ishlatiladi. Foydalanuvchi tanloviga qarab _StartChoice
+  /// qaytaradi.
+  Future<_StartChoice> _showDeepFocusReminder(
+      {required bool hasBlockedApps}) async {
     final lang = AppTranslationService();
     final budget = _pauseBudgetFor(_selectedMinutes);
     String pauseLine;
@@ -556,7 +580,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         ? lang.translate('focus_timer.reminder.stop_premium')
         : lang.translate('focus_timer.reminder.stop_locked');
 
-    final result = await showCupertinoDialog<bool>(
+    final result = await showCupertinoDialog<_StartChoice>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
         title: Text(lang.translate('focus_timer.reminder.title')),
@@ -571,23 +595,39 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
               const SizedBox(height: 8),
               Text('🛑  $stopLine',
                   style: GoogleFonts.inter(fontSize: 13.5, height: 1.4)),
+              if (!hasBlockedApps) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '🛡  ${lang.translate('focus_timer.no_blocked_apps_desc')}',
+                  style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      height: 1.4,
+                      color: const Color(0xFFFF9500)),
+                ),
+              ],
             ],
           ),
         ),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, _StartChoice.cancel),
             child: Text(lang.translate('focus_timer.cancel')),
           ),
+          // Bloklangan ilova yo'q bo'lsa — "Bloklash" yo'lini taklif qilamiz.
+          if (!hasBlockedApps)
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx, _StartChoice.blockApps),
+              child: Text(lang.translate('focus_timer.btn_block') ?? 'Bloklash'),
+            ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(ctx, _StartChoice.start),
             child: Text(lang.translate('focus_timer.reminder.confirm')),
           ),
         ],
       ),
     );
-    return result ?? false;
+    return result ?? _StartChoice.cancel;
   }
 
   /// Premium taklif dialogi — bepul foydalanuvchi to'xtatish/pauza
@@ -824,38 +864,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
             child: Text(
               lang.translate('alarm.dismiss_btn'),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showNoBlockedAppsDialog() {
-    final lang = AppTranslationService();
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(lang.translate('focus_timer.no_blocked_apps_title') ?? "Diqqat! 🛡️"),
-        content: Text(
-          lang.translate('focus_timer.no_blocked_apps_desc') ?? 
-          "Sizni chalg'itadigan ilovalarni hali tanlamadingiz. "
-          "Chuqur diqqat rejimi samarali bo'lishi uchun ilovalarni bloklashni tavsiya qilamiz."
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(lang.translate('focus_timer.btn_block') ?? "Bloklash"),
-            onPressed: () {
-              Navigator.pop(context);
-              widget.onNavigateToBlockList?.call();
-            },
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: Text(lang.translate('focus_timer.btn_start') ?? "Boshlash"),
-            onPressed: () {
-              Navigator.pop(context);
-              _startTimer();
-            },
           ),
         ],
       ),
@@ -1551,16 +1559,8 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
                         } else if (_isPaused) {
                           _resumeTimer();
                         } else {
-                          // Agar Deep Mode bo'lsa va bloklangan ilovalar bo'lmasa, dialog chiqaramiz
-                          if (_selectedMode == 0) {
-                            final prefs = await SharedPreferences.getInstance();
-                            final blockedApps = prefs.getStringList('blocked_apps') ?? [];
-
-                            if (blockedApps.isEmpty) {
-                              _showNoBlockedAppsDialog();
-                              return;
-                            }
-                          }
+                          // Barcha pre-flight (ruxsat + bitta tasdiqlash dialogi)
+                          // _startTimer ichida — ketma-ket ikkita dialog yo'q.
                           _startTimer();
                         }
                       },
