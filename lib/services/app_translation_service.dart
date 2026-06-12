@@ -568,6 +568,8 @@ class AppTranslationService {
         'motivation_default': 'Bugun ajoyib kun bo\'ladi!',
         'pause_left': 'Pauza',
         'pause_over_msg': 'Pauza vaqti tugadi — fokus davom etmoqda',
+        'blocking_disabled_warn':
+            'Ruxsat berilmadi — bloklash ishlamaydi, lekin fokus taymeri davom etadi.',
         'tips_fallback': 'Sevimli faoliyatingizni bajaring yoki dam oling',
         'tips': [
           'Sevimli faoliyatingizni bajaring yoki bir oz dam oling 🌿',
@@ -1161,6 +1163,8 @@ class AppTranslationService {
         'motivation_default': 'Today will be a great day!',
         'pause_left': 'Pause',
         'pause_over_msg': 'Pause time is over — focus continues',
+        'blocking_disabled_warn':
+            'Permission not granted — blocking won\'t work, but the focus timer continues.',
         'tips_fallback': 'Do your favorite activity or take a break',
         'tips': [
           'Do your favorite activity or take a short break 🌿',

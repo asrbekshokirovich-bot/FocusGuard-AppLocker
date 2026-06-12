@@ -429,9 +429,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     return usageOk;
   }
 
-  Future<bool> _ensurePermissionsForTimer() async {
-    if (await _hasBlockingPermissions()) return true;
-    if (!mounted) return false;
+  /// Chuqur Fokus uchun bloklash ruxsatlarini ta'minlashga HARAKAT qiladi,
+  /// lekin taymerni HECH QACHON to'sib qo'ymaydi. Ruxsat yetishmasa
+  /// PermissionsScreen'ga yo'naltiradi; qaytib kelganda hali ham yetishmasa —
+  /// foydalanuvchini ogohlantiradi (bloklash ishlamaydi), ammo taymer baribir
+  /// boshlanadi (taymer + DnD + tracking ruxsatga bog'liq emas). Bu — "Focus
+  /// bosilganda hech narsa bo'lmadi" muammosining ildiz yechimi: tugma har
+  /// doim javob beradi.
+  Future<void> _ensurePermissionsForTimer() async {
+    if (await _hasBlockingPermissions()) return;
+    if (!mounted) return;
     // Ruxsat yetishmaydi — PermissionsScreen'ga olib boramiz.
     await Navigator.push(
       context,
@@ -439,10 +446,19 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         builder: (_) => const PermissionsScreen(isFromOnboarding: false),
       ),
     );
-    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor qilamiz.
+    if (!mounted) return;
+    // Qaytib kelgach qayta tekshiramiz. Berilgan bo'lsa eslatmani bekor
+    // qilamiz; hali ham yo'q bo'lsa — ogohlantirib, baribir davom etamiz.
     final ok = await _hasBlockingPermissions();
-    if (ok) TimerNotificationService().cancelPermissionNudge();
-    return ok;
+    if (ok) {
+      TimerNotificationService().cancelPermissionNudge();
+    } else if (mounted) {
+      final lang = AppTranslationService();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(lang.translate('focus_timer.blocking_disabled_warn')),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   void _startTimer() async {
@@ -452,7 +468,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     // Avval ikkala rejim ham gate ortida edi — shuning uchun Yengil Fokus ham
     // ruxsatsiz qurilmada "ishlamayotgandek" ko'rinardi.
     if (_selectedMode == 0) {
-      if (!await _ensurePermissionsForTimer()) return;
+      // Ruxsatlarni ta'minlashga harakat qilamiz (lekin taymerni to'smaymiz).
+      await _ensurePermissionsForTimer();
+      if (!mounted) return;
       // Chuqur Fokus boshlashdan oldin eslatma — bu seansda to'xtatish va
       // pauza cheklovlari haqida ogohlantirib, tasdiqlatamiz.
       if (!await _showDeepFocusReminder()) return;
