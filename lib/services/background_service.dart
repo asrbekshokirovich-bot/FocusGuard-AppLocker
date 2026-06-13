@@ -676,6 +676,147 @@ void onStart(ServiceInstance service) async {
     syncTimer();
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOKLASH DETEKSIYASI — alohida 250ms timer, ENG ERTA ro'yxatdan o'tadi.
+  //
+  // MUHIM: bu timer pastdagi og'ir await'lardan (AppTranslationService.init,
+  // restore, recordDay, loadBlockedApps, prefs.reload) OLDIN ro'yxatdan
+  // o'tadi. Agar o'sha await'lardan biri sekin qurilmada OSILIB qolsa, xizmat
+  // "ishlayapti" ko'rinadi (isRunning=true) — lekin onStart pastga yetmaydi.
+  // Bloklashni shu yerga qo'yib, bu holatda ham bloklash ISHLASHINI
+  // kafolatlaymiz ('hammasi true, lekin bloklash yo'q' muammosining yechimi).
+  //
+  // blocked_apps to'g'ridan-to'g'ri prefs'dan o'qiladi (captured var emas) —
+  // loadBlockedApps tugamagan bo'lsa ham ishlaydi.
+  int notBlockedFastTicks = 0;
+  int fastReloadTick = 0;
+
+  Timer.periodic(const Duration(milliseconds: 250), (fastTimer) async {
+    try {
+      fastReloadTick++;
+      if (fastReloadTick >= 120) {
+        fastReloadTick = 0;
+        try {
+          await prefs.reload();
+        } catch (_) {}
+      }
+
+      final List<String> blocked =
+          prefs.getStringList('blocked_apps') ?? const [];
+      final Set<String> scheduleBlocked = activeScheduleBlockedApps(prefs);
+      final Set<String> effectiveBlocked;
+      if (isPaused && !isLightMode) {
+        effectiveBlocked = scheduleBlocked;
+      } else {
+        effectiveBlocked = {...blocked, ...scheduleBlocked};
+      }
+
+      if (effectiveBlocked.isEmpty) {
+        notBlockedFastTicks = 0;
+        if (currentBlockedApp != null) {
+          try {
+            if (await FlutterOverlayWindow.isActive()) {
+              await FlutterOverlayWindow.closeOverlay();
+            }
+          } catch (_) {}
+          currentBlockedApp = null;
+        }
+        return;
+      }
+
+      final now = DateTime.now();
+      String? currentApp;
+      try {
+        final startDate = now.subtract(const Duration(seconds: 5));
+        final events = await UsageStats.queryEvents(startDate, now);
+        EventUsageInfo? latest;
+        int latestTs = -1;
+        for (final e in events) {
+          if (e.eventType != '1') continue; // ACTIVITY_RESUMED
+          if (e.packageName == null || e.timeStamp == null) continue;
+          final ts = int.tryParse(e.timeStamp!) ?? -1;
+          if (ts > latestTs) {
+            latestTs = ts;
+            latest = e;
+          }
+        }
+        if (latest != null) currentApp = latest.packageName;
+      } catch (_) {}
+
+      if (currentApp == null) return;
+
+      if (currentApp == 'com.focusguard.app') {
+        currentBlockedApp = null;
+        notBlockedFastTicks = 0;
+        final alarmActive = prefs.getBool('timer_alarm_active') ?? false;
+        if (!alarmActive && await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
+        return;
+      }
+
+      if (effectiveBlocked.contains(currentApp)) {
+        notBlockedFastTicks = 0;
+        if (suppressUntil != null && now.isBefore(suppressUntil!)) return;
+
+        final hasOverlayPermission =
+            await FlutterOverlayWindow.isPermissionGranted();
+        if (!hasOverlayPermission) {
+          await CrashLogger.instance.recordError(
+              'SYSTEM_ALERT_WINDOW permission missing', null,
+              source: 'overlay-permission-check');
+          return;
+        }
+
+        if (!await FlutterOverlayWindow.isActive()) {
+          if (currentBlockedApp != currentApp) {
+            await incrementBlockAttempt(currentApp!);
+            try {
+              if ((await Vibration.hasVibrator()) ?? false) {
+                Vibration.vibrate(duration: 250);
+              }
+            } catch (_) {}
+          }
+          currentBlockedApp = currentApp;
+          try {
+            final lang = AppTranslationService();
+            await FlutterOverlayWindow.showOverlay(
+              enableDrag: false,
+              overlayTitle:
+                  lang.translate('overlay.notif_title') ?? 'Focus Guard',
+              overlayContent: lang.translate('overlay.notif_content') ??
+                  'Ilova cheklangan. Diqqatni jamlang!',
+              flag: OverlayFlag.defaultFlag,
+              visibility: NotificationVisibility.visibilitySecret,
+              positionGravity: PositionGravity.auto,
+              height: WindowSize.fullCover,
+              width: WindowSize.fullCover,
+            );
+          } catch (e, st) {
+            debugPrint('[FocusGuard] showOverlay failed: $e');
+            await CrashLogger.instance
+                .recordError(e, st, source: 'showOverlay');
+            currentBlockedApp = null;
+          }
+        } else {
+          currentBlockedApp = currentApp;
+        }
+      } else {
+        notBlockedFastTicks++;
+        if (notBlockedFastTicks >= 3) {
+          currentBlockedApp = null;
+          notBlockedFastTicks = 0;
+          if (suppressUntil != null) suppressUntil = null;
+          if (await FlutterOverlayWindow.isActive()) {
+            await FlutterOverlayWindow.closeOverlay();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[FocusGuard] fast block check error: $e');
+    }
+  });
+
   // Endi barcha listener'lar ro'yxatdan o'tdi — til faylini init qilamiz.
   // (Bu await yuqorida edi; listener'lardan oldin bo'lgani uchun invoke
   // eventi yo'qolardi. Endi listener'lardan keyin.) Notif/overlay matnlari
@@ -876,155 +1017,6 @@ void onStart(ServiceInstance service) async {
     debugPrint('[BackgroundTimer] alarm stopped by user');
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // BLOKLASH DETEKSIYASI — alohida, mustaqil 250ms timer.
-  //
-  // Taymer mantig'i, restore va 1s tick'dan BUTUNLAY mustaqil. Shu sababli
-  // bloklash har doim ishlaydi: fokus seansi bo'lmasa ham, taymer
-  // boshlanmagan bo'lsa ham, restore xato bersa ham. (Avval bloklash 1s tick
-  // ichida edi va tickdagi har qanday muammo butun bloklashni o'chirardi —
-  // 'ilovaga bemalol kira oldim' regressiyasining sababi.)
-  //
-  // 250ms — bloklangan ilova ochilishi bilan ~400ms ichida overlay chiqadi.
-  // queryEvents faqat effectiveBlocked bo'sh bo'lmaganda chaqiriladi (arzon).
-  int notBlockedFastTicks = 0;
-  int fastReloadTick = 0;
-
-  Timer.periodic(const Duration(milliseconds: 250), (fastTimer) async {
-    try {
-      // Har ~30 sek (120 × 250ms) prefs reload — UI saqlagan yangi
-      // blocked_apps/focus_schedules invoke yo'qolsa ham ko'rinadi.
-      fastReloadTick++;
-      if (fastReloadTick >= 120) {
-        fastReloadTick = 0;
-        try {
-          await prefs.reload();
-          blockedApps = prefs.getStringList('blocked_apps') ?? blockedApps;
-        } catch (_) {}
-      }
-
-      // Jadval oynalari — DOIM majburiy (taymer/pauza holatidan mustaqil).
-      final Set<String> scheduleBlocked = activeScheduleBlockedApps(prefs);
-      // Pauza budjeti FAQAT Chuqur Fokus seansining blocked_apps'ini vaqtincha
-      // ochadi; jadval bloklash pauzada ham ishlaydi. Yengil Fokus pauzasi
-      // hech narsani ochmaydi (locker bu rejimda seansga bog'liq emas).
-      final Set<String> effectiveBlocked;
-      if (isPaused && !isLightMode) {
-        effectiveBlocked = scheduleBlocked;
-      } else {
-        effectiveBlocked = {...blockedApps, ...scheduleBlocked};
-      }
-
-      if (effectiveBlocked.isEmpty) {
-        notBlockedFastTicks = 0;
-        if (currentBlockedApp != null) {
-          try {
-            if (await FlutterOverlayWindow.isActive()) {
-              await FlutterOverlayWindow.closeOverlay();
-            }
-          } catch (_) {}
-          currentBlockedApp = null;
-        }
-        return;
-      }
-
-      final now = DateTime.now();
-      String? currentApp;
-      try {
-        // Kichik oyna (5s) — yangi RESUMED eventlar uchun tez javob.
-        final startDate = now.subtract(const Duration(seconds: 5));
-        final events = await UsageStats.queryEvents(startDate, now);
-        EventUsageInfo? latest;
-        int latestTs = -1;
-        for (final e in events) {
-          if (e.eventType != '1') continue; // ACTIVITY_RESUMED
-          if (e.packageName == null || e.timeStamp == null) continue;
-          final ts = int.tryParse(e.timeStamp!) ?? -1;
-          if (ts > latestTs) {
-            latestTs = ts;
-            latest = e;
-          }
-        }
-        if (latest != null) currentApp = latest.packageName;
-      } catch (_) {}
-
-      // So'nggi 5s da RESUMED yo'q — overlay holatini saqlaymiz.
-      if (currentApp == null) return;
-
-      // FocusGuard'ga qaytildi → overlay yopish (alarm faol bo'lmasa).
-      if (currentApp == 'com.focusguard.app') {
-        currentBlockedApp = null;
-        notBlockedFastTicks = 0;
-        final alarmActive = prefs.getBool('timer_alarm_active') ?? false;
-        if (!alarmActive && await FlutterOverlayWindow.isActive()) {
-          await FlutterOverlayWindow.closeOverlay();
-        }
-        return;
-      }
-
-      if (effectiveBlocked.contains(currentApp)) {
-        notBlockedFastTicks = 0;
-        // "Orqaga qaytish" bosilgach suppress oynasi — HOME intent uchun joy.
-        if (suppressUntil != null && now.isBefore(suppressUntil!)) return;
-
-        final hasOverlayPermission =
-            await FlutterOverlayWindow.isPermissionGranted();
-        if (!hasOverlayPermission) {
-          await CrashLogger.instance.recordError(
-            'SYSTEM_ALERT_WINDOW permission missing', null,
-            source: 'overlay-permission-check');
-          return;
-        }
-
-        if (!await FlutterOverlayWindow.isActive()) {
-          if (currentBlockedApp != currentApp) {
-            await incrementBlockAttempt(currentApp!);
-            try {
-              if ((await Vibration.hasVibrator()) ?? false) {
-                Vibration.vibrate(duration: 250);
-              }
-            } catch (_) {}
-          }
-          currentBlockedApp = currentApp;
-          try {
-            final lang = AppTranslationService();
-            await FlutterOverlayWindow.showOverlay(
-              enableDrag: false,
-              overlayTitle:
-                  lang.translate('overlay.notif_title') ?? 'Focus Guard',
-              overlayContent: lang.translate('overlay.notif_content') ??
-                  'Ilova cheklangan. Diqqatni jamlang!',
-              flag: OverlayFlag.defaultFlag,
-              visibility: NotificationVisibility.visibilitySecret,
-              positionGravity: PositionGravity.auto,
-              height: WindowSize.fullCover,
-              width: WindowSize.fullCover,
-            );
-          } catch (e, st) {
-            debugPrint('[FocusGuard] showOverlay failed: $e');
-            await CrashLogger.instance
-                .recordError(e, st, source: 'showOverlay');
-            currentBlockedApp = null;
-          }
-        } else {
-          currentBlockedApp = currentApp;
-        }
-      } else {
-        // Bloklanmagan ilova — 3 ketma-ket check (750ms) keyin overlay yopish.
-        notBlockedFastTicks++;
-        if (notBlockedFastTicks >= 3) {
-          currentBlockedApp = null;
-          notBlockedFastTicks = 0;
-          if (suppressUntil != null) suppressUntil = null;
-          if (await FlutterOverlayWindow.isActive()) {
-            await FlutterOverlayWindow.closeOverlay();
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[FocusGuard] fast block check error: $e');
-    }
-  });
 
   // Loop har 1 soniya da
   Timer.periodic(const Duration(seconds: 1), (timer) async {
