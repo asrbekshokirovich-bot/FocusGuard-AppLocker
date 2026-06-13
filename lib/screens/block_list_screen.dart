@@ -308,6 +308,8 @@ class _BlockListScreenState extends State<BlockListScreen> {
   Future<Map<String, dynamic>> _computeDiagnostics() async {
     bool overlay = false, usage = false, service = false;
     int blockedCount = 0, scheduleCount = 0;
+    String detected = '—';
+    int eventCount = 0;
     try {
       overlay = await FlutterOverlayWindow.isPermissionGranted();
     } catch (_) {}
@@ -329,13 +331,87 @@ class _BlockListScreenState extends State<BlockListScreen> {
         }
       }
     } catch (_) {}
+    // DETEKSIYA sinovi: queryEvents so'nggi 15s — eng oxirgi RESUMED paketni
+    // va umumiy event sonini ko'rsatadi. Bu UsageStats'ning bu qurilmada
+    // foreground ilovani ko'ra olishini tekshiradi.
+    try {
+      final now = DateTime.now();
+      final events =
+          await UsageStats.queryEvents(now.subtract(const Duration(seconds: 15)), now);
+      eventCount = events.length;
+      int latestTs = -1;
+      for (final e in events) {
+        if (e.eventType != '1') continue;
+        if (e.packageName == null || e.timeStamp == null) continue;
+        final ts = int.tryParse(e.timeStamp!) ?? -1;
+        if (ts > latestTs) {
+          latestTs = ts;
+          detected = e.packageName!;
+        }
+      }
+    } catch (e) {
+      detected = 'xato: $e';
+    }
     return {
       'overlay': overlay,
       'usage': usage,
       'service': service,
       'blocked': blockedCount,
       'schedule': scheduleCount,
+      'detected': detected,
+      'events': eventCount,
     };
+  }
+
+  /// Overlay'ni to'g'ridan-to'g'ri sinash — deteksiyani chetlab o'tib,
+  /// FlutterOverlayWindow.showOverlay'ni chaqiramiz. Agar to'siq ekran
+  /// chiqsa — overlay ishlaydi, muammo deteksiyada. Chiqmasa — overlay
+  /// render qilinmayapti (asosiy sabab shu).
+  Future<void> _testOverlay() async {
+    String result;
+    try {
+      final granted = await FlutterOverlayWindow.isPermissionGranted();
+      if (!granted) {
+        result = 'Overlay ruxsati yo\'q.';
+      } else {
+        await FlutterOverlayWindow.showOverlay(
+          enableDrag: false,
+          overlayTitle: 'Test',
+          overlayContent: 'Focus Guard test overlay',
+          flag: OverlayFlag.defaultFlag,
+          visibility: NotificationVisibility.visibilitySecret,
+          positionGravity: PositionGravity.auto,
+          height: WindowSize.fullCover,
+          width: WindowSize.fullCover,
+        );
+        await Future.delayed(const Duration(milliseconds: 600));
+        final active = await FlutterOverlayWindow.isActive();
+        result = active
+            ? 'Overlay chiqdi (isActive=true). 3s dan keyin yopiladi. Agar ekranda to\'siqni KO\'RMADINGIZ — overlay render muammosi.'
+            : 'showOverlay chaqirildi, lekin isActive=false — overlay RENDER bo\'lmayapti (asosiy muammo shu).';
+        Future.delayed(const Duration(seconds: 3), () async {
+          try {
+            if (await FlutterOverlayWindow.isActive()) {
+              await FlutterOverlayWindow.closeOverlay();
+            }
+          } catch (_) {}
+        });
+      }
+    } catch (e) {
+      result = 'showOverlay XATO: $e';
+    }
+    if (mounted) {
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Overlay sinovi'),
+          content: Padding(padding: const EdgeInsets.only(top: 8), child: Text(result)),
+          actions: [
+            CupertinoDialogAction(isDefaultAction: true, onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+    }
   }
 
   /// Bloklash holati / Diagnostika — qaysi bo'g'in uzilganini jonli ko'rsatadi.
@@ -391,7 +467,35 @@ class _BlockListScreenState extends State<BlockListScreen> {
                 row('Fon xizmati ishlayapti', service),
                 row('Bloklangan ilovalar', blocked > 0, extra: '$blocked'),
                 if (schedule > 0) row('Faol jadval oynalari', true, extra: '$schedule'),
+                const SizedBox(height: 6),
+                // Deteksiya readout — queryEvents nimani ko'rmoqda.
+                Text(
+                  'So\'nggi aniqlangan ilova: ${d?['detected'] ?? '—'}  ·  '
+                  'eventlar(15s): ${d?['events'] ?? 0}',
+                  style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                ),
                 const SizedBox(height: 12),
+                // Overlay'ni to'g'ridan-to'g'ri sinash — render muammosini
+                // deteksiyadan ajratadi.
+                GestureDetector(
+                  onTap: _testOverlay,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFFF9500),
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Text('Overlay\'ni darhol sinash',
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
