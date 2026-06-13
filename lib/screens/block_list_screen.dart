@@ -12,7 +12,9 @@ import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import '../services/background_service.dart';
+import '../services/service_starter.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:usage_stats/usage_stats.dart';
@@ -302,6 +304,143 @@ class _BlockListScreenState extends State<BlockListScreen> {
     }
   }
 
+  // Diagnostika holatini hisoblash — bloklash zanjirining har bir bo'g'ini.
+  Future<Map<String, dynamic>> _computeDiagnostics() async {
+    bool overlay = false, usage = false, service = false;
+    int blockedCount = 0, scheduleCount = 0;
+    try {
+      overlay = await FlutterOverlayWindow.isPermissionGranted();
+    } catch (_) {}
+    try {
+      usage = await UsageStats.checkUsagePermission() ?? false;
+    } catch (_) {}
+    try {
+      service = await FlutterBackgroundService().isRunning();
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      blockedCount = (prefs.getStringList('blocked_apps') ?? []).length;
+      final raw = prefs.getString('focus_schedules');
+      if (raw != null && raw.isNotEmpty) {
+        final dec = jsonDecode(raw);
+        if (dec is List) {
+          scheduleCount = dec.where((e) => e is Map && e['enabled'] == true).length;
+        }
+      }
+    } catch (_) {}
+    return {
+      'overlay': overlay,
+      'usage': usage,
+      'service': service,
+      'blocked': blockedCount,
+      'schedule': scheduleCount,
+    };
+  }
+
+  /// Bloklash holati / Diagnostika — qaysi bo'g'in uzilganini jonli ko'rsatadi.
+  /// Foydalanuvchi muammoni o'zi ko'radi va "Qayta ishga tushirish" bilan
+  /// fon xizmatini majburan tiklaydi.
+  Widget _buildDiagnosticCard() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _computeDiagnostics(),
+      builder: (context, snap) {
+        final d = snap.data;
+        final overlay = d?['overlay'] == true;
+        final usage = d?['usage'] == true;
+        final service = d?['service'] == true;
+        final blocked = (d?['blocked'] as int?) ?? 0;
+        final schedule = (d?['schedule'] as int?) ?? 0;
+        final allOk = overlay && usage && service && (blocked > 0 || schedule > 0);
+        Widget row(String label, bool ok, {String? extra}) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Icon(ok ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.xmark_circle_fill,
+                      size: 18, color: ok ? const Color(0xFF34C759) : const Color(0xFFFF3B30)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 13.5, color: Theme.of(context).colorScheme.onSurface))),
+                  if (extra != null) Text(extra, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+                ],
+              ),
+            );
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: (allOk ? const Color(0xFF34C759) : const Color(0xFFFF9500)).withOpacity(0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: (allOk ? const Color(0xFF34C759) : const Color(0xFFFF9500)).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(allOk ? CupertinoIcons.shield_lefthalf_fill : CupertinoIcons.exclamationmark_shield_fill,
+                      color: allOk ? const Color(0xFF34C759) : const Color(0xFFFF9500), size: 20),
+                  const SizedBox(width: 8),
+                  Text('Bloklash holati', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (snap.connectionState != ConnectionState.done)
+                const Padding(padding: EdgeInsets.all(8), child: CupertinoActivityIndicator())
+              else ...[
+                row('Ustiga chizish (overlay) ruxsati', overlay),
+                row('Foydalanish (usage) ruxsati', usage),
+                row('Fon xizmati ishlayapti', service),
+                row('Bloklangan ilovalar', blocked > 0, extra: '$blocked'),
+                if (schedule > 0) row('Faol jadval oynalari', true, extra: '$schedule'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          await startBackgroundServiceIfReady();
+                          await Future.delayed(const Duration(milliseconds: 800));
+                          if (mounted) setState(() {}); // diagnostikani qayta hisoblash
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(12)),
+                          child: Text('Xizmatni qayta ishga tushirish', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => setState(() {}),
+                      child: Container(
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06), borderRadius: BorderRadius.circular(12)),
+                        child: Icon(CupertinoIcons.refresh, size: 18, color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!allOk) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    !overlay
+                        ? 'Overlay ruxsati yo\'q — "Ustiga chizish" ruxsatini bering.'
+                        : !usage
+                            ? 'Usage ruxsati yo\'q — "Foydalanishga ruxsat"ni bering.'
+                            : !service
+                                ? 'Xizmat ishlamayapti — yuqoridagi tugmani bosing yoki batareya optimizatsiyasini o\'chiring.'
+                                : 'Bloklash uchun kamida bitta ilova tanlang yoki jadval qo\'shing.',
+                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFB35A00), height: 1.3),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildScheduleEntryCard() {
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -485,7 +624,10 @@ class _BlockListScreenState extends State<BlockListScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
+                    if (!_isLoading) _buildDiagnosticCard(),
+                    if (!_isLoading) const SizedBox(height: 16),
+
                     if (!_isLoading) _buildScheduleEntryCard(),
                     if (!_isLoading) const SizedBox(height: 16),
 
