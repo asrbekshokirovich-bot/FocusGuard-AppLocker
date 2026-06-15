@@ -32,9 +32,32 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "focusguard/dnd"
     private val DEVICE_CHANNEL = "focusguard/device"
+    private val A11Y_CHANNEL = "focusguard/accessibility"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // ── Accessibility (ilovalarni bloklash) bridge ────────────────
+        // Bloklash AppBlockerService (AccessibilityService) orqali ishlaydi.
+        // Flutter bu kanaldan xizmat yoqilganini tekshiradi va Sozlamalardagi
+        // "Maxsus imkoniyatlar" sahifasini ochadi.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, A11Y_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isEnabled" -> result.success(isAccessibilityEnabled())
+                    "openSettings" -> {
+                        try {
+                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("OPEN_FAILED", e.message, null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
 
         // ── Qurilma / OEM bridge ──────────────────────────────────────
         // Brendni aniqlash va OEM "Autostart" (avtoishga tushish)
@@ -154,5 +177,19 @@ class MainActivity : FlutterActivity() {
 
     private fun canResolve(intent: Intent): Boolean {
         return packageManager.resolveActivity(intent, 0) != null
+    }
+
+    /** AppBlockerService (AccessibilityService) yoqilganmi. */
+    private fun isAccessibilityEnabled(): Boolean {
+        return try {
+            val expected = "$packageName/$packageName.AppBlockerService"
+            val enabled = Settings.Secure.getString(
+                contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: ""
+            enabled.split(":").any { it.equals(expected, ignoreCase = true) }
+        } catch (e: Exception) {
+            false
+        }
     }
 }

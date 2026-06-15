@@ -51,6 +51,31 @@
             </intent-filter>
         </activity>
 
+        <!-- Bloklash to'siq ekrani — AccessibilityService bloklangan ilova
+             aniqlanganda ustiga ochadi. To'liq native, ishonchli (Android 16). -->
+        <activity
+            android:name=".BlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTop"
+            android:taskAffinity="com.focusguard.app.block"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+        <!-- Ilovalarni bloklash uchun AccessibilityService — haqiqiy
+             app-blocker'lar ishlatadigan ishonchli, event-asosli usul. -->
+        <service
+            android:name=".AppBlockerService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
         <!-- Background Service declaration -->
         <!-- MUHIM: faqat specialUse! Plagin (flutter_background_service_android
              6.3.1) startForeground'ga FOREGROUND_SERVICE_TYPE_MANIFEST uzatadi,

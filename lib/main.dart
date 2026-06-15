@@ -18,6 +18,7 @@ import 'services/timer_notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/service_starter.dart';
+import 'services/app_blocker_sync.dart';
 import 'services/app_translation_service.dart';
 import 'services/language_service.dart';
 import 'services/crash_logger.dart';
@@ -81,6 +82,9 @@ void main() async {
   await initializeBackgroundService();
   // Agar barcha ruxsatlar va bloklangan ilovalar bo'lsa, xizmatni darhol boshlaymiz
   await startBackgroundServiceIfReady();
+  // Bloklash ro'yxatini native AccessibilityService uchun sinxronlaymiz
+  // (asosiy, ishonchli bloklash shu xizmat orqali ishlaydi).
+  await AppBlockerSync.instance.syncToNative();
   
   // Streak eslatmasini faollashtirish (Har kuni 11:25 da)
   StreakReminderService().scheduleDailyReminder(hour: 11, minute: 25);
