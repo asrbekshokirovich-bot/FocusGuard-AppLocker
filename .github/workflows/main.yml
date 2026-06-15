@@ -1,9 +1,9 @@
-name: Flutter Build APK
+name: Flutter Build (APK + AAB)
 
 
 on:
   push:
-    branches: [ "main", "claude/modest-volta-653h45" ]
+    branches: [ "main", "claude/modest-volta-653h45", "claude/amazing-sagan-3l3p88" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -12,31 +12,58 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
-        
+
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: 'any'
         channel: 'stable'
-        
+
     - name: Get dependencies
       run: flutter pub get
-      
-    - name: Build APK
+
+    # Release imzolash — Play Market AAB faqat release kalit bilan imzolangan
+    # bo'lishi kerak. Kalit GitHub Secrets'da base64 sifatida saqlanadi.
+    # Agar secret'lar qo'yilmagan bo'lsa, build debug kalitga qaytadi
+    # (build baribir o'tadi, lekin Play'ga yuklab bo'lmaydi).
+    - name: Decode keystore (if secrets set)
+      if: ${{ env.KEYSTORE_BASE64 != '' }}
+      run: |
+        echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+        cat > android/key.properties <<EOF
+        storeFile=upload-keystore.jks
+        storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+        keyAlias=${{ secrets.KEY_ALIAS }}
+        keyPassword=${{ secrets.KEY_PASSWORD }}
+        EOF
+        echo "key.properties yaratildi — release imzolash yoqildi."
+
+    - name: Build APK (release)
       run: flutter build apk --release
-      
+
+    - name: Build App Bundle (AAB) for Play Market
+      run: flutter build appbundle --release
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
+
+    - name: Upload AAB (Play Market)
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-aab
+        path: build/app/outputs/bundle/release/app-release.aab

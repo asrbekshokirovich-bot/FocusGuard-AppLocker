@@ -93,9 +93,8 @@ class FocusTimerService {
 
     // Xizmat ishlayotganini tekshiramiz, agar yo'q bo'lsa boshlaymiz.
     // BARCHA bosqichlar himoyalangan — bironta exception ham timer
-    // boshlanishini to'xtatmasligi kerak. Avval xizmat to'g'ri
-    // sozlanganini kafolatlaymiz (configure), keyin start qilamiz va
-    // tayyor bo'lguncha polling qilamiz (maks 3 sekund).
+    // boshlanishini to'xtatmasligi kerak. Sovuq startda background isolate
+    // 1-3 soniya olishi mumkin, shuning uchun ~6 soniyagacha polling qilamiz.
     bool running = false;
     try {
       // Xizmat sozlangani kafolati — main.dart'da configure fail bo'lsa ham
@@ -104,8 +103,8 @@ class FocusTimerService {
       running = await _service.isRunning();
       if (!running) {
         await _service.startService();
-        for (int i = 0; i < 30; i++) {
-          await Future.delayed(const Duration(milliseconds: 100));
+        for (int i = 0; i < 20; i++) {
+          await Future.delayed(const Duration(milliseconds: 300));
           running = await _service.isRunning();
           if (running) break;
         }
@@ -114,23 +113,23 @@ class FocusTimerService {
       debugPrint('[FocusTimerService] startService error: $e');
     }
 
-    if (!running) {
-      // Xizmat 3 sekundda ham ko'tarilmadi — pre-write'ni QAYTARAMIZ.
-      // Aks holda prefs'da "strict seans ishlayapti" degan soxta holat
-      // qoladi: block_list toggle'lari qulflanadi, DnD recovery o'tkazib
-      // yuboriladi, keyinroq xizmat ko'tarilsa arvoh seans uchun XP
-      // yoziladi. Rollback'dan keyin foydalanuvchi qayta urinadi.
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await Future.wait([
-          prefs.setBool('timer_is_running', false),
-          prefs.setBool('timer_is_strict', false),
-          prefs.remove('timer_end_timestamp'),
-          prefs.remove('session_initial_seconds'),
-          prefs.remove('session_credited_seconds'),
-        ]);
-      } catch (_) {}
-      debugPrint('[FocusTimerService] service failed to start — rolled back');
+    // MUHIM: xizmat hali ko'tarilmagan bo'lsa ham ROLLBACK QILMAYMIZ.
+    // Holat allaqachon prefs'ga yozilgan — background isolate ko'tarilganda
+    // onStart restore bloki o'sha kalitlardan taymerni tiklaydi va bloklash
+    // ishga tushadi (invoke yo'qolsa ham). Rollback qilsak, sekin sovuq
+    // startli qurilmada taymer HECH QACHON boshlanmasdi (aynan shu regressiya
+    // edi). UI lokal ticker bilan darhol sanaydi; service tick'lari kelgach
+    // ustun bo'ladi.
+    //
+    // Guard: polling davomida (bir necha soniya) foydalanuvchi Stop bosib
+    // ulgurgan bo'lishi mumkin — u holda invoke yubormaymiz.
+    bool stillWanted = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      stillWanted = prefs.getBool('timer_is_running') ?? true;
+    } catch (_) {}
+    if (!stillWanted) {
+      debugPrint('[FocusTimerService] start aborted — user stopped during cold start');
       return false;
     }
 

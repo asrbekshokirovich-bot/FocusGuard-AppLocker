@@ -42,7 +42,11 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   bool _isPaused = false;
   final _timerService = FocusTimerService();
   StreamSubscription? _timerSubscription;
-  
+  // Lokal fallback ticker — UI fon xizmatidan mustaqil sanaydi. Xizmat
+  // sekin ko'tarilsa yoki tick yubormasa ham taymer darhol ishlaydi.
+  Timer? _uiTicker;
+  DateTime _lastServiceTick = DateTime.now();
+
   bool _isStrictMode = true;
   bool _isAntiDistract = true;
   
@@ -122,6 +126,9 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         final wasPaused = _isPaused;
         final newPaused = event['isPaused'] ?? _isPaused;
         final newRunning = event['isRunning'] ?? _isRunning;
+        // Xizmatdan tirik tick keldi — lokal ticker shu vaqtdan keyin
+        // 1.5s kutib, faqat tick to'xtasa o'zi sanaydi (qo'sh sanash yo'q).
+        _lastServiceTick = DateTime.now();
         setState(() {
           _remainingSeconds = event['seconds'] ?? _remainingSeconds;
           _isRunning = newRunning;
@@ -146,6 +153,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         // Har stream tick — bugungi progress'ni jonli yangilab turamiz
         // (today_focus_seconds background'da o'sib boryapti).
         _refreshTodayProgress();
+      }
+    });
+
+    // Lokal fallback ticker — har soniyada: taymer ishlayapti-yu, xizmatdan
+    // 1.5+ soniya tick kelmagan bo'lsa, sanoqni o'zi davom ettiradi. Xizmat
+    // tick'i kelishi bilan stream listener `_remainingSeconds`ni qayta yozadi
+    // (ustun bo'ladi). Shu tufayli "Boshlash" bosilishi bilan taymer darhol
+    // sanaydi — fon xizmati sovuq startda sekin bo'lsa ham.
+    _uiTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isRunning || _isPaused || _remainingSeconds <= 0) {
+        return;
+      }
+      final sinceService =
+          DateTime.now().difference(_lastServiceTick).inMilliseconds;
+      if (sinceService > 1500) {
+        setState(() => _remainingSeconds--);
       }
     });
 
@@ -404,6 +427,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _timerSubscription?.cancel();
     _tipTimer?.cancel();
+    _uiTicker?.cancel();
     _marqueeController.dispose();
     _activityPageController.dispose();
     _motivationController.dispose();
@@ -485,8 +509,21 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       }
       // action == _StartChoice.start → davom etamiz.
     }
+
+    // UI DARHOL sanay boshlaydi — Firebase fetch (1s gacha) va fon xizmati
+    // sovuq starti (bir necha soniya) KUTILMAYDI. Lokal ticker shu zahoti
+    // ishlaydi; xizmat tayyor bo'lgach uning tick'lari ustun bo'ladi. Bu —
+    // "Boshlash bosildi, lekin hech narsa bo'lmadi" muammosining yechimi.
+    setState(() {
+      _isRunning = true;
+      _isPaused = false;
+      _remainingSeconds = _selectedMinutes * 60;
+      _lastServiceTick =
+          DateTime.now().subtract(const Duration(seconds: 2)); // ticker darrov
+    });
+
     final lang = AppTranslationService();
-    
+
     int level = 1;
     String rankTitle = lang.translate('levels.rank_1') ?? 'Yangi Foydalanuvchi';
     
@@ -526,15 +563,15 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
       // Premium foydalanuvchida pauza cheksiz, to'xtatish ham mumkin.
       isPremium: _isPremium,
     );
-    if (!started) {
-      // Fon xizmati ko'tarilmadi (FocusTimerService rollback qildi).
-      // Jim qolmaymiz — foydalanuvchi nima bo'lganini bilsin va qayta urinsin.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(lang.translate('focus_timer.service_start_failed')),
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
+    // started=false faqat foydalanuvchi sovuq start davomida Stop bosgan
+    // holatda qaytadi — u holda UI'ni ham idle'ga qaytaramiz. Aks holda
+    // (xizmat sekin bo'lsa ham) taymer ishlayveradi: holat prefs'da, restore
+    // tiklaydi, lokal ticker sanaydi.
+    if (!started && mounted) {
+      setState(() {
+        _isRunning = false;
+        _isPaused = false;
+      });
       return;
     }
 
