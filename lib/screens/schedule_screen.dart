@@ -8,6 +8,7 @@ import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../services/service_starter.dart';
+import '../services/app_blocker_sync.dart';
 
 /// Chuqur Fokus → Kengaytirilgan: kundalik tartib uchun vaqt oynasi
 /// jadvallari. Har bir jadval belgilangan vaqt oynasida (masalan
@@ -69,6 +70,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, jsonEncode(_schedules));
+    // Native AccessibilityService o'qiy oladigan jadvalga ko'chiramiz.
+    await AppBlockerSync.instance.syncToNative();
 
     // MUHIM: Jadval o'zgarishi DARROV kuchga kirishi uchun background
     // xizmatni xabardor qilamiz. Aks holda jadval bloklash service qayta

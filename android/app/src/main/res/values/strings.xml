@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">FocusGuard siz tanlagan chalg\'ituvchi ilovalarni bloklash uchun foydalanadi. Bloklangan ilovani ochganingizda to\'siq ekran ko\'rsatiladi. Bu funksiya faqat siz tanlagan ilovalarni cheklaydi va ekran tarkibini o\'qimaydi.</string>
+</resources>

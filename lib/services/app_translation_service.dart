@@ -196,6 +196,11 @@ class AppTranslationService {
         'title': 'Ruxsatlar Kerak',
         'subtitle':
             'Ilovalarni bloklash xizmati to\'g\'ri ishlashi uchun telefoningiz sozlamalaridan quyidagi ruxsatlarni berishingiz shart.',
+        'accessibility': {
+          'title': 'Ilovalarni bloklash',
+          'desc':
+              'Bloklash ishlashi uchun "Maxsus imkoniyatlar"da FocusGuard xizmatini yoqing. Bu chalg\'ituvchi ilovalarni to\'sib turadi.',
+        },
         'overlay': {
           'title': 'Boshqa ilovalar ustida',
           'desc':
@@ -796,6 +801,11 @@ class AppTranslationService {
         'title': 'Permissions Required',
         'subtitle':
             'To make the app blocking service work correctly, you must grant the following permissions from your phone settings.',
+        'accessibility': {
+          'title': 'App Blocking',
+          'desc':
+              'Enable the FocusGuard service in "Accessibility" so blocking works. It blocks the distracting apps you choose.',
+        },
         'overlay': {
           'title': 'Display Over Other Apps',
           'desc':

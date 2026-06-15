@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import '../services/background_service.dart';
+import '../services/app_blocker_sync.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_usage/app_usage.dart';
@@ -693,6 +694,8 @@ class _BlockListScreenState extends State<BlockListScreen> {
               }
 
               await prefs.setStringList('blocked_apps', blockedPackages);
+              // Native AccessibilityService o'qiy oladigan ro'yxatga ko'chiramiz.
+              await AppBlockerSync.instance.syncToNative();
 
               // Ilova nomi va ikonkasi cache — Statistika "Eng ko'p urinilgan
               // ilovalar" ekrani package nomidan haqiqiy nom va ikonkasini

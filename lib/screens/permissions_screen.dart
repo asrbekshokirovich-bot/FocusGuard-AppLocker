@@ -10,6 +10,7 @@ import '../services/app_translation_service.dart';
 import '../services/service_starter.dart';
 import '../services/timer_notification_service.dart';
 import '../services/device_oem_service.dart';
+import '../services/app_blocker_sync.dart';
 import 'dashboard_screen.dart';
 
 class PermissionsScreen extends StatefulWidget {
@@ -24,6 +25,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   bool _isOverlayGranted = false;
   bool _isUsageGranted = false;
   bool _isNotificationsGranted = false;
+  // Ilovalarni bloklash — AccessibilityService (asosiy, ishonchli usul).
+  bool _isAccessibilityEnabled = false;
   // Cheksiz batareya — Samsung va boshqa OEM'lar background service'ni
   // 2-3 soatdan keyin "uxlatib qo'yadi". Bu ruxsat shu xatti-harakatni
   // to'xtatadi.
@@ -92,6 +95,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     // saqlaymiz — agar API bir oz sekin javob bersa, eski qiymat
     // ko'rinadi (flicker oldini olish uchun).
     bool usage = await _checkUsagePermission();
+    bool accessibility = await AppBlockerSync.instance.isEnabled();
 
     if (mounted) {
       setState(() {
@@ -99,6 +103,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         _isUsageGranted = usage;
         _isNotificationsGranted = notifications;
         _isBatteryIgnored = battery;
+        _isAccessibilityEnabled = accessibility;
         _isLoading = false;
       });
     }
@@ -323,6 +328,22 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         ),
                         const SizedBox(height: 20),
                       ],
+
+                      // ⭐ ENG MUHIM — ilovalarni bloklash shu ruxsat orqali
+                      // ishlaydi (AccessibilityService). Birinchi ko'rsatamiz.
+                      _buildPermissionCard(
+                        title: lang.translate('permissions.accessibility.title') ??
+                            'Ilovalarni bloklash',
+                        description: lang.translate('permissions.accessibility.desc') ??
+                            'Bloklash ishlashi uchun "Maxsus imkoniyatlar"da FocusGuard xizmatini yoqing. Bu chalg\'ituvchi ilovalarni to\'sib turadi.',
+                        icon: Icons.block_rounded,
+                        color: const Color(0xFFFF3B30),
+                        isGranted: _isAccessibilityEnabled,
+                        onTap: () => AppBlockerSync.instance.openSettings(),
+                        lang: lang,
+                      ),
+
+                      const SizedBox(height: 16),
 
                       _buildPermissionCard(
                         title: lang.translate('permissions.overlay.title'),
