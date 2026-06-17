@@ -184,6 +184,13 @@ class AppTranslationService {
         'logout': 'Tizimdan chiqish',
         'logout_confirm_title': 'Chiqish',
         'logout_confirm_desc': 'Rostdan ham tizimdan chiqishni xohlaysizmi?',
+        'delete_account': 'Hisobni o\'chirish',
+        'delete_account_title': 'Hisobni butunlay o\'chirish',
+        'delete_account_desc':
+            'Hisobingiz va barcha ma\'lumotlaringiz (statistika, rejalar, sozlamalar) butunlay o\'chiriladi. Bu amalni qaytarib bo\'lmaydi.',
+        'delete_reauth':
+            'Xavfsizlik uchun qaytadan tizimga kiring, so\'ng hisobni o\'chiring.',
+        'delete_failed': 'O\'chirishda xatolik. Internetni tekshirib qayta urinib ko\'ring.',
         'cancel': 'Bekor qilish',
         'menu_permissions': 'Ruxsatlar',
         'permission_dialog_title': 'Ruxsatlar zarur',
@@ -789,6 +796,12 @@ class AppTranslationService {
         'logout': 'Log Out',
         'logout_confirm_title': 'Logout',
         'logout_confirm_desc': 'Do you really want to log out?',
+        'delete_account': 'Delete account',
+        'delete_account_title': 'Permanently delete account',
+        'delete_account_desc':
+            'Your account and all data (statistics, plans, settings) will be permanently deleted. This cannot be undone.',
+        'delete_reauth': 'For security, please log in again, then delete your account.',
+        'delete_failed': 'Deletion failed. Check your internet and try again.',
         'cancel': 'Cancel',
         'menu_permissions': 'Permissions',
         'permission_dialog_title': 'Permissions Required',

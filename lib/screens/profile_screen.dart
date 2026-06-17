@@ -433,6 +433,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             const SizedBox(height: 32),
                             _buildLogoutButton(context, lang),
+                            const SizedBox(height: 12),
+                            _buildDeleteAccountButton(context, lang),
                             const SizedBox(height: 40),
                           ],
                         ),
@@ -582,6 +584,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  /// Hisobni o'chirish tugmasi — Play Store talabi (login bor ilovalarda
+  /// foydalanuvchi o'z hisobi va ma'lumotlarini o'chira olishi SHART).
+  Widget _buildDeleteAccountButton(BuildContext context, AppTranslationService lang) {
+    return GestureDetector(
+      onTap: () => _showDeleteAccountDialog(context, lang),
+      child: Center(
+        child: Text(
+          lang.translate('profile.delete_account'),
+          style: lang.getFont(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF8E8E93),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AppTranslationService lang) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(lang.translate('profile.delete_account_title')),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(lang.translate('profile.delete_account_desc')),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text(lang.translate('common.cancel')),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteAccount(context, lang);
+            },
+            child: Text(lang.translate('profile.delete_account')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, AppTranslationService lang) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final uid = user.uid;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final fs = FirebaseFirestore.instance;
+      // 1) Firestore ma'lumotlarini o'chiramiz (history, plans, user doc).
+      try {
+        final hist = await fs.collection('users').doc(uid).collection('history').get();
+        for (final d in hist.docs) {
+          await d.reference.delete();
+        }
+        final plans = await fs.collection('users').doc(uid).collection('plans').get();
+        for (final d in plans.docs) {
+          await d.reference.delete();
+        }
+        await fs.collection('users').doc(uid).delete();
+      } catch (_) {}
+      // 2) Auth foydalanuvchisini o'chiramiz.
+      await user.delete();
+      // 3) Lokal ma'lumotlarni tozalaymiz.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const SplashScreen()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // Firebase xavfsizlik uchun yaqinda login bo'lishni talab qiladi.
+      if (e.code == 'requires-recent-login') {
+        messenger.showSnackBar(SnackBar(
+          content: Text(lang.translate('profile.delete_reauth')),
+          behavior: SnackBarBehavior.floating,
+        ));
+        await FirebaseAuth.instance.signOut();
+        if (context.mounted) {
+          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const SplashScreen()),
+            (route) => false,
+          );
+        }
+      } else {
+        messenger.showSnackBar(SnackBar(
+          content: Text(lang.translate('profile.delete_failed')),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(lang.translate('profile.delete_failed')),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   Widget _buildSettingsItem(BuildContext context, AppTranslationService lang, IconData icon, String title, Color color, {VoidCallback? onTap}) {
