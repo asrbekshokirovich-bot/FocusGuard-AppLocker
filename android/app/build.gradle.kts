@@ -33,7 +33,10 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.focusguard.app"
+        // Play'da com.focusguard.app band bo'lib qolgani uchun yangi nom.
+        // (namespace kod paketi com.focusguard.app bo'lib qoladi — bu ruxsat
+        // etiladi va kodni ko'chirish shart emas.)
+        applicationId = "com.focusguard.applocker"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

@@ -182,7 +182,9 @@ class MainActivity : FlutterActivity() {
     /** AppBlockerService (AccessibilityService) yoqilganmi. */
     private fun isAccessibilityEnabled(): Boolean {
         return try {
-            val expected = "$packageName/$packageName.AppBlockerService"
+            // Komponent: applicationId/<class FQN>. Klass paketi (namespace)
+            // com.focusguard.app — applicationId'dan farq qilishi mumkin.
+            val expected = "$packageName/com.focusguard.app.AppBlockerService"
             val enabled = Settings.Secure.getString(
                 contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES

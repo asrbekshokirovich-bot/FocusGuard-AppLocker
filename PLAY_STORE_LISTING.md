@@ -174,7 +174,7 @@ FocusGuard помогает защитить внимание от отвлек�
 
 | Maydon | Qiymat |
 |--------|--------|
-| **Package name** | `com.focusguard.app` |
+| **Package name** | `com.focusguard.applocker` |
 | **App category** | Productivity |
 | **Email** | (qo'llab-quvvatlash email manzilingiz) |
 | **Privacy Policy URL** | ⚠️ MAJBURIY — quyida (Maxfiylik siyosati) |
