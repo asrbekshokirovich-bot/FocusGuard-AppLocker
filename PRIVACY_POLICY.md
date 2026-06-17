@@ -30,7 +30,7 @@ ma'lumotlaringizni sotmaymiz va reklama uchun ulashmaymiz.
 **O'chirish:** Hisobingizni va ma'lumotlaringizni o'chirishni so'rash uchun
 quyidagi email orqali murojaat qiling.
 
-**Bog'lanish:** [SIZNING EMAIL MANZILINGIZ]
+**Bog'lanish:** asrbekshokirovich@gmail.com
 
 ---
 
@@ -55,5 +55,5 @@ blocking; Notifications — for reminders; Internet — for cloud backup.
 
 **Deletion:** To request deletion of your account and data, contact us by email.
 
-**Contact:** [YOUR EMAIL ADDRESS]
+**Contact:** asrbekshokirovich@gmail.com
 </content>
